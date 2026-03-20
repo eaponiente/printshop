@@ -1,11 +1,15 @@
 "use client"
 
 import { router } from "@inertiajs/react"
-import type { ColumnDef} from "@tanstack/react-table";
+import type { ColumnDef ,
+    SortingState,
+    ColumnFiltersState} from "@tanstack/react-table";
 import {
     flexRender,
     getCoreRowModel,
     useReactTable,
+    getSortedRowModel,
+    getFilteredRowModel
 } from "@tanstack/react-table"
 
 import { Button } from "@/components/ui/button"
@@ -17,6 +21,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
+import { useState } from 'react';
 
 interface DataTableProps<TData> {
     columns: ColumnDef<TData, any>[]
@@ -32,10 +37,23 @@ interface DataTableProps<TData> {
 }
 
 export function DataTable<TData>({ columns, pagination }: DataTableProps<TData>) {
+    const [sorting, setSorting] = useState<SortingState>([])
+    const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(
+        []
+    )
+
     const table = useReactTable({
         data: pagination.data, // Access the array here
         columns,
         getCoreRowModel: getCoreRowModel(),
+        onSortingChange: setSorting,
+        getSortedRowModel: getSortedRowModel(),
+        onColumnFiltersChange: setColumnFilters,
+        getFilteredRowModel: getFilteredRowModel(),
+        state: {
+            sorting,
+            columnFilters
+        },
     })
 
     return (

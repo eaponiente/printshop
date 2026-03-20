@@ -1,3 +1,5 @@
+import type { Branch } from '@/types/branches';
+
 export type User = {
     id: number;
     branch: Branch;
@@ -11,12 +13,20 @@ export type User = {
     [key: string]: unknown;
 };
 
-export type Branch = {
-    id: number;
-    name: string;
-}
-
 export type UsersList = {
     users: User[];
     branches: Branch[];
+};
+
+export type Customer = {
+    id: number;
+    first_name: string;
+    last_name: string;
+    full_name: string;
+    company: string;
+    mobile: string;
+}
+
+export type CustomersList = {
+    customers: Customer[];
 };

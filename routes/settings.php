@@ -3,7 +3,11 @@
 use App\Http\Controllers\Sales\SaleController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
+use App\Http\Controllers\Settings\SublimationController;
+use App\Http\Controllers\Settings\SublimationTagController;
+use App\Http\Controllers\Settings\TagController;
 use App\Http\Controllers\Users\BranchController;
+use App\Http\Controllers\Users\CustomerController;
 use App\Http\Controllers\Users\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -20,8 +24,19 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
 
     Route::resource('branches', BranchController::class);
+    Route::resource('tags', TagController::class);
+
+    Route::get('/sublimation-tags', [SublimationTagController::class, 'index']);
+    Route::post('/sublimations/{sublimation}/tags', [SublimationTagController::class, 'addTag'])->name('sublimations.tags.add');
+    Route::delete('/sublimations/{sublimation}/tags/{tag}', [SublimationTagController::class, 'removeTag'])->name('sublimations.tags.remove');
+    Route::resource('sublimations', SublimationController::class);
+    Route::resource('customers', CustomerController::class);
 
     Route::resource('sales', SaleController::class)->only(['index', 'store']);
+
+    Route::prefix('api')->group(function () {
+        Route::get('/customers', [CustomerController::class, 'indexApiList']);
+    });
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {

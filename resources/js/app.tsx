@@ -1,4 +1,4 @@
-import { createInertiaApp } from '@inertiajs/react';
+import { createInertiaApp, router } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -17,6 +17,16 @@ createInertiaApp({
         ),
     setup({ el, App, props }) {
         const root = createRoot(el);
+
+        // The most reliable way for 419/Auth specifically:
+        router.on('invalid', (event) => {
+            const status = event.detail.response.status;
+
+            if (status === 419 || status === 401) {
+                event.preventDefault(); // Stop Inertia from showing the modal
+                window.location.reload(); // Force full refresh to login
+            }
+        });
 
         root.render(
             <StrictMode>

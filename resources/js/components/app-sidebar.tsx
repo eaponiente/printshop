@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { BadgeDollarSign, LayoutGrid, Store, Users } from 'lucide-react';
+import { BadgeDollarSign, Cog, LayoutGrid, Shirt, Store, Users } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
@@ -14,9 +14,9 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
-import branches from '@/routes/branches';
-import type { NavItem } from '@/types';
 import sales from '@/routes/sales';
+import sublimations from '@/routes/sublimations';
+import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
     {
@@ -41,14 +41,30 @@ const mainNavItems: NavItem[] = [
         ],
     },
     {
-        title: 'Branches',
-        href: branches.index(),
-        icon: Store,
-    },
-    {
         title: 'Sales',
         href: sales.index(),
         icon: BadgeDollarSign,
+    },
+    {
+        title: 'Sublimation',
+        href: sublimations.index(),
+        icon: Shirt,
+    },
+    {
+        title: 'Settings',
+        href: '#', // Parent doesn't need a real link if it's just a toggle
+        icon: Cog,
+        isActive: true, // Optional: keeps it open by default
+        items: [
+            {
+                title: 'Tags',
+                url: '/tags', // Your route here
+            },
+            {
+                title: 'Branches',
+                url: '/branches', // Your route here
+            }
+        ],
     },
 ];
 

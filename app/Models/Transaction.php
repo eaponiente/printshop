@@ -16,4 +16,9 @@ class Transaction extends Model
     {
         return $this->belongsTo(User::class, 'staff_id');
     }
+
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class, 'branch_id');
+    }
 }
