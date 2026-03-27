@@ -7,9 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 class Branch extends Model
 {
     public $table = 'branches';
+
     protected $fillable = [
-        'name'
+        'name',
     ];
+
 
     public function users()
     {

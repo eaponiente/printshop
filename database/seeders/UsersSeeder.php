@@ -37,7 +37,7 @@ class UsersSeeder extends Seeder
         // 2. Create Realistic Admins and Staff
         $roles = ['admin', 'staff'];
 
-        foreach (range(1, 15) as $index) {
+        foreach (range(1, 5) as $index) {
             $firstName = $faker->firstName;
             $lastName = $faker->lastName;
 

@@ -34,7 +34,7 @@ class CustomerController extends Controller
             );
         }
 
-        return $customersQuery->get();
+        return $customersQuery->take(5)->get();
     }
 
     public function store(Request $request)

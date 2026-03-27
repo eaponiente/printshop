@@ -35,9 +35,6 @@ export function AddGuestModal({ open, setOpen, onCustomerCreated }: AddGuestModa
                     {...form}
                     className="grid gap-4"
                     onSuccess={(page) => {
-                        // DEBUG: Look at the console to see the structure of 'page.props'
-                        console.log("Inertia Page Props:", page.props);
-
                         // If you followed the middleware step above, it should be here:
                         const newCustomer = (page.props as any).flash?.new_customer;
 

@@ -9,9 +9,16 @@ export type PaymentType = {
 export type Transaction = {
     id: number;
     invoice_number: string;
+    customer_id: number | string;
     guest_name: string;
     particular: string;
     description: string | null;
+
+    customer: {
+        id: number;
+        first_name: string;
+        last_name: string;
+    };
 
     // Financials
     amount_total: number;
@@ -19,8 +26,8 @@ export type Transaction = {
     balance: number;
 
     // Metadata
-    payment_type: PaymentType;
-    status: TransactionStatus;
+    payment_type: string;
+    status: string;
 
     // Relationships (Assuming they are eager-loaded)
     staff_id: number;

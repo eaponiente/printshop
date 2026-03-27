@@ -15,7 +15,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, TwoFactorAuthenticatable, SoftDeletes;
+    use HasFactory, Notifiable, SoftDeletes, TwoFactorAuthenticatable;
 
     /**
      * The attributes that are mass assignable.
@@ -47,6 +47,10 @@ class User extends Authenticatable
         'fullname',
     ];
 
+    protected $casts = [
+        'created_at' => 'date:format,M d Y',
+    ];
+
     /**
      * Get the attributes that should be cast.
      *
@@ -69,5 +73,10 @@ class User extends Authenticatable
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function endorsements()
+    {
+        return $this->hasMany(Endorsement::class);
     }
 }

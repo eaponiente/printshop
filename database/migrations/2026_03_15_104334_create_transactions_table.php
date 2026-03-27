@@ -16,14 +16,13 @@ return new class extends Migration
 
             // Identification
             $table->string('invoice_number')->unique()->comment('Unique reference for the billing document');
-            $table->string('guest_name')->comment('Full name of the customer/guest');
+            $table->integer('customer_id')->comment('Full name of the customer/guest');
             $table->string('particular')->comment('Primary service or item being billed');
             $table->text('description')->nullable()->comment('Detailed breakdown of the transaction');
 
             // Financials (Decimal prevents rounding errors common with floats)
             $table->decimal('amount_total', 12, 2)->comment('The gross amount to be charged');
             $table->decimal('amount_paid', 12, 2)->default(0)->comment('The total amount successfully collected');
-            $table->decimal('balance', 12, 2)->default(0)->comment('Remaining amount due (total minus paid)');
 
             // Metadata
             $table->string('payment_type')->comment('Method used (e.g., Cash, GCash, Card)');

@@ -1,9 +1,17 @@
 import { Head, router } from '@inertiajs/react';
-import type { ColumnDef } from '@tanstack/react-table';
-import { ArrowUpDown, Plus } from 'lucide-react';
+import type { CellContext, ColumnDef } from '@tanstack/react-table';
+import { ArrowUpDown, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Banknote, TrendingUp } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { route } from 'ziggy-js';
 import { DataTable } from '@/components/data-table';
+import {
+    AlertDialog, AlertDialogAction, AlertDialogCancel,
+    AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from "@/components/ui/card"; // Ensure you have these shadcn components
@@ -15,6 +23,9 @@ import type { Branch } from '@/types/branches';
 import type { PaginatedResponse } from '@/types/pagination';
 import type { Transaction } from '@/types/transaction';
 import type { Customer } from '@/types/user';
+import { TypeOfPayment } from '@/types/settings';
+import { formatCurrency } from '@/utils/formatters';
+import { sortBy } from '@/utils/helpers';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -25,22 +36,18 @@ interface SaleIndexProps {
     transactions: PaginatedResponse<Transaction>; // Use the generic here
     filters: any;
     branches: any[];
-    customers: Customer[]
+    customers: Customer[];
+    types_of_payment: TypeOfPayment[];
     total_sales: number;
     total_balance: number;
 }
 
-export default function SaleIndex({ transactions, filters, branches, customers, total_sales = 0, total_balance = 0 }: SaleIndexProps) {
-    const openEditForm = () => {
-        setIsDialogOpen(true);
-    };
+export default function SaleIndex({ transactions, filters, branches, customers, types_of_payment, total_sales = 0, total_balance = 0 }: SaleIndexProps) {
 
-    // Currency Formatter
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'PHP', // Change to your currency, e.g., 'PHP'
-        }).format(amount);
+    const [getTransaction, setTransaction] = useState<any | null>(null);
+    const openEditForm = (transaction: any) => {
+        setTransaction(transaction);
+        setIsDialogOpen(true);
     };
 
     // 1. Add local state for the search input
@@ -51,7 +58,7 @@ export default function SaleIndex({ transactions, filters, branches, customers, 
     useEffect(() => {
         const delayDebounceFn = setTimeout(() => {
             if (searchTerm !== (filters.search || "")) {
-                router.get(`/sales`,
+                router.get(route('sales.index'),
                     { ...filters, search: searchTerm, page: 1 },
                     { preserveState: true, replace: true }
                 );
@@ -89,7 +96,7 @@ export default function SaleIndex({ transactions, filters, branches, customers, 
     const clearFilters = () => {
         setMode("daily");
 
-        router.get(`/sales`, {}, { replace: true });
+        router.get(route('sales.index'), {}, { replace: true });
     };
 
     const columns: ColumnDef<unknown, any>[] = [
@@ -108,7 +115,7 @@ export default function SaleIndex({ transactions, filters, branches, customers, 
             },
         },
         {
-            accessorKey: 'guest_name',
+            accessorKey: 'customer.full_name',
             header: 'Customer Name',
         },
         {
@@ -122,7 +129,7 @@ export default function SaleIndex({ transactions, filters, branches, customers, 
         {
             accessorKey: 'status',
             header: 'Status',
-            cell: ({ row }) => {
+            cell: ({ row }: CellContext<any, any> ) => {
                 const status = row.original.status.toLowerCase();
 
                 // Define styles for each status
@@ -148,17 +155,48 @@ export default function SaleIndex({ transactions, filters, branches, customers, 
         },
         {
             accessorKey: 'transaction_date',
-            header: ({ column }) => {
+            header: () => {
+                const isSorted = filters.sort_field === 'transaction_date';
+
                 return (
                     <Button
                         variant="ghost"
-                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                        // Pass the field, the current filters object, and the route
+                        onClick={() => sortBy('transaction_date', filters, 'sales.index')}
+                        className="hover:bg-transparent p-0"
                     >
                         Date
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                        <ArrowUpDown className={`ml-2 h-4 w-4 ${isSorted ? "text-primary" : "text-muted-foreground/50"}`} />
                     </Button>
-                )
+                );
             },
+        },
+        {
+            header: 'Actions',
+            cell: ({ row }: CellContext<any, any>) => {
+                return (
+                    <>
+                        <Button variant="ghost" size="sm" onClick={() => openEditForm(row.original)}><Pencil /></Button>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="sm"><Trash2 /></Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This action cannot be undone. This will permanently delete your
+                                        user from our servers.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </>
+                )
+            }
         }
     ]
 
@@ -174,7 +212,7 @@ export default function SaleIndex({ transactions, filters, branches, customers, 
                     </div>
 
                     {/* Create Staff Button */}
-                    <Button onClick={() => openEditForm()}>
+                    <Button onClick={() => openEditForm(null)}>
                         <Plus className="mr-2 h-4 w-4" />
                         Add Transaction
                     </Button>
@@ -225,14 +263,14 @@ export default function SaleIndex({ transactions, filters, branches, customers, 
 
                 <div className="rounded-md border border-sidebar-border bg-sidebar">
 
-                    <TableFilters searchTerm={searchTerm} selectedBranch={selectedBranch} setSearchTerm={setSearchTerm} mode={mode} filters={filters} handleFilterChange={handleFilterChange} clearFilters={clearFilters} branches={branches}/>
+                    <TableFilters searchTerm={searchTerm} setSearchTerm={setSearchTerm} mode={mode} filters={filters} handleFilterChange={handleFilterChange} clearFilters={clearFilters} branches={branches}/>
 
                     <DataTable columns={columns} pagination={transactions} />
                 </div>
             </div>
 
             {isDialogOpen && (
-                <SaleDialog open={isDialogOpen} setOpen={setIsDialogOpen} branches={branches}  customers={customers} />
+                <SaleDialog open={isDialogOpen} setOpen={setIsDialogOpen} branches={branches} transaction={getTransaction} types_of_payment={types_of_payment}  customers={customers} />
             )}
 
         </AppLayout>

@@ -20,7 +20,7 @@ interface SalesTableFiltersProps {
         status?: string;
         branch_id?: string;
     };
-    handleFilterChange: (value: string, key: string) => void;
+    handleFilterChange: (value: string, type: 'mode' | 'date' | 'status' | 'branch_id') => void;
     clearFilters: () => void;
     branches: Branch[]
 }

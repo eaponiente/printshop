@@ -46,8 +46,6 @@ export default function TagIndex({ tags }: TagsList) {
         });
     }
 
-    console.log(tags, 'tags')
-
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Tags" />

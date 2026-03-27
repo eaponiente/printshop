@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Branch;
+use App\Models\Customer;
 use App\Models\Transaction;
 use App\Models\TypeOfPayment;
 use App\Models\User;
@@ -15,6 +16,7 @@ class TransactionSeeder extends Seeder
     {
         // Fetch existing IDs based on your logic
         $branchIds = Branch::pluck('id');
+        $customerIds = Customer::pluck('id');
         $staffIds = User::whereIn('role', ['staff', 'admin'])->pluck('id');
 
         // Fallback check: If your DB is empty, this prevents the seeder from crashing
@@ -33,7 +35,7 @@ class TransactionSeeder extends Seeder
             ['name' => 'Airport Transfer', 'desc' => 'One-way shuttle service (Van)'],
         ];
 
-        foreach (range(1, 100) as $i) {
+        foreach (range(1, rand(300, 500)) as $i) {
             $service = fake()->randomElement($services);
 
             // Generate realistic amounts based on service type
@@ -65,13 +67,12 @@ class TransactionSeeder extends Seeder
 
             Transaction::create([
                 'invoice_number' => 'INV-'.date('Y').'-'.str_pad($i + 1000, 6, '0', STR_PAD_LEFT),
-                'guest_name' => fake()->name(),
+                'customer_id' => $customerIds->random(),
                 'particular' => $service['name'],
                 'description' => $service['desc'],
                 'amount_total' => $amountTotal,
                 'amount_paid' => $amountPaid,
-                'balance' => $balance,
-                'payment_type' => fake()->randomElement(['Cash', 'Credit Card', 'GCash', 'PayMaya', 'Bank Transfer']),
+                'payment_type' => fake()->randomElement(['cash', 'card', 'gcash', 'bank_transfer']),
                 'status' => $status,
                 'staff_id' => $staffIds->random(), // Pick random staff from your pluck
                 'branch_id' => $branchIds->random(), // Pick random branch from your pluck

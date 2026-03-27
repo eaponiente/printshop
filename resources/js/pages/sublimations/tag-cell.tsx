@@ -1,7 +1,6 @@
 import { router } from '@inertiajs/react'
 import { X, Plus, Loader2 } from "lucide-react"
 import { useState } from "react"
-import { route } from 'ziggy-js';
 import { Badge } from "@/components/ui/badge"
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"

@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\PurchaseOrders\PurchaseOrderController;
+use App\Http\Controllers\Sales\ExpenseController;
 use App\Http\Controllers\Sales\SaleController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
@@ -8,6 +10,7 @@ use App\Http\Controllers\Settings\SublimationTagController;
 use App\Http\Controllers\Settings\TagController;
 use App\Http\Controllers\Users\BranchController;
 use App\Http\Controllers\Users\CustomerController;
+use App\Http\Controllers\Users\EndorsementController;
 use App\Http\Controllers\Users\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -32,7 +35,10 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('sublimations', SublimationController::class);
     Route::resource('customers', CustomerController::class);
 
-    Route::resource('sales', SaleController::class)->only(['index', 'store']);
+    Route::resource('sales', SaleController::class)->only(['index', 'store', 'update']);
+    Route::resource('purchase-orders', PurchaseOrderController::class);
+    Route::resource('endorsements', EndorsementController::class);
+    Route::resource('expenses', ExpenseController::class);
 
     Route::prefix('api')->group(function () {
         Route::get('/customers', [CustomerController::class, 'indexApiList']);

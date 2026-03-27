@@ -19,7 +19,8 @@ class UserController extends Controller
     {
         return Inertia::render('users/list', [
             'branches' => Branch::get(),
-            'users' => User::with('branch')->whereIn('role', ['staff', 'admin'])->get(),
+            'users' => User::with('branch')
+                ->whereIn('role', ['staff', 'admin'])->get(),
         ]);
     }
 
@@ -47,6 +48,7 @@ class UserController extends Controller
             'username' => $validated['username'],
             'role' => $validated['role'],
             'password' => bcrypt($validated['password']),
+            'branch_id' => $validated['branch_id'],
         ]);
 
         return redirect()->back();

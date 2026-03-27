@@ -11,9 +11,32 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('expenses', function (Blueprint $table) {
+        $typeOfPayments = collect(config()->get('settings.type_of_payment'))->pluck('key')->toArray();
+
+        Schema::create('expenses', function (Blueprint $table) use ($typeOfPayments) {
             $table->id();
+            // Core Data
+            $table->string('description');
+            $table->string('vendor_name')->nullable();
+
+            // Financials: 19 total digits, 4 after the decimal point
+            $table->decimal('amount', 12);
+
+            // Categorization
+            // Note: Using your specific types from the TS error earlier
+            $table->enum('payment_method', $typeOfPayments)->nullable(); // e.g., 'Credit Card', 'Cash'
+
+            // Business Context
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignId('branch_id')->constrained()->onDelete('cascade');
+            $table->string('receipt')->nullable(); // Store the file path to the S3 bucket/local storage
+
+            // Status Tracking
+            $table->enum('status', ['pending', 'approved', 'rejected', 'reimbursed'])->default('pending');
+            $table->date('expense_date')->index(); // Indexing dates makes reporting much faster
+
             $table->timestamps();
+            $table->softDeletes(); // Optional: allows "deleting" without losing financial records
         });
     }
 

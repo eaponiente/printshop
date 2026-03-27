@@ -15,7 +15,7 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Spinner } from '@/components/ui/spinner';
 import { store, update } from '@/routes/users';
 import type { User } from '@/types';
-import type { Branch } from '@/types/user';
+import type { Branch } from '@/types/branches';
 
 interface UserDialogProps {
     user?: User; // If null, we are in 'Create' mode

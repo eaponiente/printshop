@@ -15,6 +15,8 @@ class SublimationTagController extends Controller
 
     public function addTag(Request $request, Sublimation $sublimation)
     {
+        $this->authorize('update', auth()->user());
+
         $request->validate([
             'tag_id' => 'required|exists:tags,id',
         ]);
@@ -27,6 +29,8 @@ class SublimationTagController extends Controller
 
     public function removeTag(Sublimation $sublimation, Tag $tag)
     {
+        $this->authorize('update', auth()->user());
+
         $sublimation->tags()->detach($tag->id);
 
         return back();

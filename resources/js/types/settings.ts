@@ -7,17 +7,7 @@ export type Tag = {
     name: string;
 }
 
-export type SublimationsList = {
-    sublimations: Sublimation[];
-    availableTags: Tag[];
+    export type TypeOfPayment = {
+    key: string;
+    value: string;
 }
-
-export type Sublimation = {
-    id: number;
-    name: string;
-}
-
-
-
-
-

@@ -1,5 +1,15 @@
 import { Link } from '@inertiajs/react';
-import { BadgeDollarSign, Cog, LayoutGrid, Shirt, Store, Users } from 'lucide-react';
+import {
+    BadgeDollarSign,
+    Cog,
+    LayoutGrid,
+    Newspaper,
+    NotebookPen,
+    Shirt,
+    ShoppingCart,
+    Store,
+    Users
+} from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
@@ -17,6 +27,9 @@ import { dashboard } from '@/routes';
 import sales from '@/routes/sales';
 import sublimations from '@/routes/sublimations';
 import type { NavItem } from '@/types';
+import purchaseOrders from '@/routes/purchase-orders';
+import endorsements from '@/routes/endorsements';
+import expenses from '@/routes/expenses';
 
 const mainNavItems: NavItem[] = [
     {
@@ -31,7 +44,7 @@ const mainNavItems: NavItem[] = [
         isActive: true, // Optional: keeps it open by default
         items: [
             {
-                title: 'Users List',
+                title: 'Users',
                 url: '/users', // Your route here
             },
             {
@@ -46,9 +59,25 @@ const mainNavItems: NavItem[] = [
         icon: BadgeDollarSign,
     },
     {
+        title: 'Expenses',
+        href: expenses.index(),
+        icon: NotebookPen,
+    },
+    {
+        title: 'Purchase Orders',
+        href: purchaseOrders.index(),
+        icon: ShoppingCart,
+    },
+    {
         title: 'Sublimation',
         href: sublimations.index(),
         icon: Shirt,
+    },
+
+    {
+        title: 'Endorsements',
+        href: endorsements.index(),
+        icon: Newspaper,
     },
     {
         title: 'Settings',
