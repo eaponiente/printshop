@@ -25,8 +25,8 @@ return new class extends Migration
             $table->decimal('amount_paid', 12, 2)->default(0)->comment('The total amount successfully collected');
 
             // Metadata
-            $table->string('payment_type')->comment('Method used (e.g., Cash, GCash, Card)');
-            $table->string('status')->comment('Current state: pending, partial, paid, or void');
+            $table->string('payment_type')->nullable()->comment('Method used (e.g., Cash, GCash, Card)');
+            $table->string('status')->default('pending')->comment('Current state: pending, partial, paid');
 
             // Relationships
             $table->foreignId('staff_id')->constrained('users')->onDelete('cascade')->comment('The employee who processed this record');

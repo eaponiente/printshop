@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Transactions;
 
+use App\Enums\Sales\TransactionStatus;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreTransactionRequest extends FormRequest
 {
@@ -30,11 +32,6 @@ class StoreTransactionRequest extends FormRequest
 
             // Financials (numeric handles decimal input; gte:0 prevents negative numbers)
             'amount_total' => 'required|numeric|min:0|max:99999999.99',
-            'amount_paid' => 'nullable|numeric|min:0|lte:amount_total',
-
-            // Metadata & State
-            'payment_type' => 'required|string|in:cash,gcash,card,bank_transfer', // Add your specific types
-            'status' => 'required|string|in:pending,partial,paid,void',
 
             // Relationships (ensures IDs actually exist in their respective tables)
             'branch_id' => 'required|exists:branches,id',

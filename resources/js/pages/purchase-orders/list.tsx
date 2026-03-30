@@ -32,8 +32,8 @@ export default function PurchaseOrderIndex({ purchase_orders, branches }: Purcha
         setIsDialogOpen(true);
     };
 
-    const deletePurchaseOrder = (tag: PurchaseOrder) => {
-        router.delete(`/tags/${tag.id}`, {
+    const deletePurchaseOrder = (purchaseOrder: PurchaseOrder) => {
+        router.delete(`/purchase-orders/${purchaseOrder.id}`, {
             onSuccess: () => toast.success('Purchase Order deleted', { position: 'top-center'}),
         });
     }
@@ -48,8 +48,8 @@ export default function PurchaseOrderIndex({ purchase_orders, branches }: Purcha
             header: 'Particulars',
         },
         {
-            accessorKey: 'total_price',
-            header: 'Total Amount',
+            accessorKey: 'grand_total',
+            header: 'Total',
             cell: ({ row }: CellContext<any, any>) => {
                 return formatCurrency(row.original.total_price);
             }

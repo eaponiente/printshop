@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\RestrictsByBranch;
 use Illuminate\Database\Eloquent\Model;
 
 class Branch extends Model
@@ -11,7 +12,6 @@ class Branch extends Model
     protected $fillable = [
         'name',
     ];
-
 
     public function users()
     {

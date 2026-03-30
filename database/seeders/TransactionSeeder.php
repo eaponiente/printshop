@@ -5,23 +5,23 @@ namespace Database\Seeders;
 use App\Models\Branch;
 use App\Models\Customer;
 use App\Models\Transaction;
-use App\Models\TypeOfPayment;
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Carbon;
 
 class TransactionSeeder extends Seeder
 {
     public function run(): void
     {
-        // Fetch existing IDs based on your logic
-        $branchIds = Branch::pluck('id');
+        // Eager load only what we need to save memory
         $customerIds = Customer::pluck('id');
-        $staffIds = User::whereIn('role', ['staff', 'admin'])->pluck('id');
 
-        // Fallback check: If your DB is empty, this prevents the seeder from crashing
-        if ($branchIds->isEmpty() || $staffIds->isEmpty()) {
-            $this->command->warn('Skipping TransactionSeeder: No branches or staff/admins found in database.');
+        // We get the collection of staff/admins
+        $staffMembers = User::whereIn('role', ['staff', 'admin'])
+            ->select(['id', 'branch_id'])
+            ->get();
+
+        if ($staffMembers->isEmpty()) {
+            $this->command->error('No staff members found. Please seed users first.');
 
             return;
         }
@@ -35,35 +35,36 @@ class TransactionSeeder extends Seeder
             ['name' => 'Airport Transfer', 'desc' => 'One-way shuttle service (Van)'],
         ];
 
-        foreach (range(1, rand(300, 500)) as $i) {
+        $totalToSeed = rand(300, 500);
+
+        foreach (range(1, $totalToSeed) as $i) {
             $service = fake()->randomElement($services);
 
-            // Generate realistic amounts based on service type
+            // 1. Financial Logic
             $amountTotal = match ($service['name']) {
                 'Event Hall Rental' => fake()->randomFloat(2, 2000, 8000),
                 'Room Accommodation' => fake()->randomFloat(2, 500, 1500),
                 default => fake()->randomFloat(2, 50, 450),
             };
 
-            // Logic: 60% paid, 30% partial, 10% pending (0 paid)
             $roll = fake()->numberBetween(1, 100);
             if ($roll <= 60) {
                 $amountPaid = $amountTotal;
             } elseif ($roll <= 90) {
-                $amountPaid = floor($amountTotal * fake()->randomFloat(2, 0.2, 0.7)); // 20-70% deposit
+                $amountPaid = floor($amountTotal * fake()->randomFloat(2, 0.2, 0.7));
             } else {
                 $amountPaid = 0;
             }
 
-            $balance = $amountTotal - $amountPaid;
+            $status = match (true) {
+                $amountPaid >= $amountTotal => 'paid',
+                $amountPaid > 0 => 'partial',
+                default => 'pending',
+            };
 
-            // Determine status
-            $status = 'pending';
-            if ($balance == 0) {
-                $status = 'paid';
-            } elseif ($amountPaid > 0) {
-                $status = 'partial';
-            }
+            // 2. The Relationship Fix
+            // Grab a single staff object from the collection
+            $staff = $staffMembers->random();
 
             Transaction::create([
                 'invoice_number' => 'INV-'.date('Y').'-'.str_pad($i + 1000, 6, '0', STR_PAD_LEFT),
@@ -72,12 +73,12 @@ class TransactionSeeder extends Seeder
                 'description' => $service['desc'],
                 'amount_total' => $amountTotal,
                 'amount_paid' => $amountPaid,
-                'payment_type' => fake()->randomElement(['cash', 'card', 'gcash', 'bank_transfer']),
+                'payment_type' => $status == 'paid' ? fake()->randomElement(['cash', 'card', 'gcash', 'bank_transfer']) : null,
                 'status' => $status,
-                'staff_id' => $staffIds->random(), // Pick random staff from your pluck
-                'branch_id' => $branchIds->random(), // Pick random branch from your pluck
-                'transaction_date' => Carbon::now()->subDays(fake()->numberBetween(0, 90))->setTime(rand(7, 18), rand(0, 59), rand(0, 59)),
-                'fulfilled_at' => $status === 'paid' ? Carbon::now()->subMinutes(fake()->numberBetween(1, 1000)) : null,
+                'staff_id' => $staff->id,        // Linked directly
+                'branch_id' => $staff->branch_id, // Guaranteed to match staff's branch
+                'transaction_date' => now()->subDays(rand(0, 30))->setTime(rand(7, 18), rand(0, 59)),
+                'fulfilled_at' => $status === 'paid' ? now()->subMinutes(rand(1, 1000)) : null,
                 'change_reason' => $status === 'partial' ? 'Guest promised to pay balance upon checkout.' : null,
             ]);
         }

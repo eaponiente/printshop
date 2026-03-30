@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Branch;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class BranchSeeder extends Seeder
@@ -14,11 +13,10 @@ class BranchSeeder extends Seeder
     public function run(): void
     {
         $branches = [
-            ['name' => 'Main Headquarters'],
-            ['name' => 'North Side Branch'],
-            ['name' => 'South Station'],
-            ['name' => 'East Coast Office'],
-            ['name' => 'West End Branch'],
+            ['name' => 'Babak'],
+            ['name' => 'Tibungco'],
+            ['name' => 'Malita'],
+            ['name' => 'Peñaplata'],
         ];
 
         foreach ($branches as $branch) {

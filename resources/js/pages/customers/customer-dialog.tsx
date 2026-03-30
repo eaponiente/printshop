@@ -11,18 +11,18 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Spinner } from '@/components/ui/spinner';
-import { update, store } from '@/routes/branches';
-import type { Branch } from '@/types/branches';
+import { update, store } from '@/routes/customers';
+import type { Customer } from '@/types/user';
 
-interface BranchDialogProps {
-    branch?: Branch; // If null, we are in 'Create' mode
+interface CustomerDialogProps {
+    customer?: Customer; // If null, we are in 'Create' mode
     open: boolean;
     setOpen: (open: boolean) => void;
 }
 
-export default function BranchDialog({ open, setOpen, branch }: BranchDialogProps) {
+export default function CustomerDialog({ open, setOpen, customer }: CustomerDialogProps) {
 
-    const isEdit = !!branch;
+    const isEdit = !!customer;
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -32,7 +32,7 @@ export default function BranchDialog({ open, setOpen, branch }: BranchDialogProp
                 </DialogHeader>
 
                 <Form
-                    {...(isEdit ? update.form(branch) : store.form())}
+                    {...(isEdit ? update.form(customer) : store.form())}
                     className="flex flex-col gap-6"
                     setDefaultsOnSuccess={true}
                     onSuccess={() => {
@@ -50,14 +50,36 @@ export default function BranchDialog({ open, setOpen, branch }: BranchDialogProp
                         <>
                             <div className="grid gap-4">
                                 <div className="grid gap-3">
-                                    <Label htmlFor="name">Name</Label>
+                                    <Label htmlFor="first_name">First Name</Label>
                                     <Input
-                                        id="name"
-                                        defaultValue={branch?.name}
-                                        name="name"
+                                        id="first_name"
+                                        defaultValue={customer?.first_name}
+                                        name="first_name"
                                         tabIndex={1}
                                     />
-                                    <InputError message={errors.name} />
+                                    <InputError message={errors.first_name} />
+                                </div>
+
+                                <div className="grid gap-3">
+                                    <Label htmlFor="last_name">Last Name</Label>
+                                    <Input
+                                        id="last_name"
+                                        defaultValue={customer?.last_name}
+                                        name="last_name"
+                                        tabIndex={2}
+                                    />
+                                    <InputError message={errors.last_name} />
+                                </div>
+
+                                <div className="grid gap-3">
+                                    <Label htmlFor="company">Company</Label>
+                                    <Input
+                                        id="company"
+                                        defaultValue={customer?.company}
+                                        name="company"
+                                        tabIndex={3}
+                                    />
+                                    <InputError message={errors.company} />
                                 </div>
                             </div>
 

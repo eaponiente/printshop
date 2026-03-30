@@ -81,7 +81,7 @@ export default function UserIndex({ users, branches }: UsersList) {
                                 <TableRow key={user.id}>
                                     <TableCell className="font-medium">{user.fullname}</TableCell>
                                     <TableCell>{user.username}</TableCell>
-                                    <TableCell>{user.branch.name}</TableCell>
+                                    <TableCell>{user.branch?.name}</TableCell>
                                     <TableCell>
                                         <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-secondary text-secondary-foreground capitalize">
                                             {user.role}

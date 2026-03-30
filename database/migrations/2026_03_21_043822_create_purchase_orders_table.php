@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
 
             // Identification
-            $table->string('particular');
+            $table->string('po_number');
             $table->text('description')->nullable();
 
             // Status
@@ -28,7 +28,8 @@ return new class extends Migration
             // Financial Summary (Total of all details)
             $table->decimal('grand_total', 12, 2)->default(0);
 
-            $table->dateTime('ordered_at');
+            $table->dateTime('received_at')->nullable();
+            $table->dateTime('ordered_at')->nullable();
 
             $table->timestamps();
             $table->softDeletes();

@@ -1,4 +1,5 @@
 import type { Branch } from '@/types/branches';
+import { PaginatedResponse } from '@/types/pagination';
 
 export type User = {
     id: number;
@@ -28,5 +29,5 @@ export type Customer = {
 }
 
 export type CustomersList = {
-    customers: Customer[];
+    customers: PaginatedResponse<Customer>;
 };

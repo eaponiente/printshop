@@ -32,7 +32,6 @@ return new class extends Migration
             $table->string('receipt')->nullable(); // Store the file path to the S3 bucket/local storage
 
             // Status Tracking
-            $table->enum('status', ['pending', 'approved', 'rejected', 'reimbursed'])->default('pending');
             $table->date('expense_date')->index(); // Indexing dates makes reporting much faster
 
             $table->timestamps();

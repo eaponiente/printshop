@@ -1,6 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
-import { ArrowUpDown, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArrowUpDown, CreditCard, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Banknote, TrendingUp } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { route } from 'ziggy-js';
@@ -26,6 +26,7 @@ import type { Customer } from '@/types/user';
 import { TypeOfPayment } from '@/types/settings';
 import { formatCurrency } from '@/utils/formatters';
 import { sortBy } from '@/utils/helpers';
+import CollectPaymentDialog from '@/pages/sales/components/collect-payment-dialog';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -69,6 +70,7 @@ export default function SaleIndex({ transactions, filters, branches, customers, 
     }, [searchTerm]);
 
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isCollectPaymentDialogOpen, setIsCollectPaymentDialogOpen] = useState(false);
 
     const [mode, setMode] = useState(filters.mode || "daily")
 
@@ -99,6 +101,11 @@ export default function SaleIndex({ transactions, filters, branches, customers, 
         router.get(route('sales.index'), {}, { replace: true });
     };
 
+    const handleReceivePayment = (transaction: Transaction) => {
+        setIsCollectPaymentDialogOpen(true);
+        setTransaction(transaction);
+    };
+
     const columns: ColumnDef<unknown, any>[] = [
         {
             accessorKey: 'invoice_number',
@@ -123,23 +130,23 @@ export default function SaleIndex({ transactions, filters, branches, customers, 
             header: 'Branch',
         },
         {
+            accessorKey: 'payment_type',
+            header: 'Payment',
+        },
+        {
             accessorKey: 'amount_total',
             header: 'Total',
         },
         {
             accessorKey: 'status',
             header: 'Status',
-            cell: ({ row }: CellContext<any, any> ) => {
+            cell: ({ row }: any) => {
                 const status = row.original.status.toLowerCase();
-
-                // Define styles for each status
                 const statusConfig = {
-                    paid: "bg-green-100 text-green-700 hover:bg-green-200 border-green-200",
-                    pending: "bg-yellow-100 text-yellow-700 hover:bg-yellow-200 border-yellow-200",
-                    partial: "bg-blue-100 text-blue-700 hover:bg-blue-200 border-blue-200",
+                    paid: "bg-green-100 text-green-700 border-green-200",
+                    pending: "bg-yellow-100 text-yellow-700 border-yellow-200",
+                    partial: "bg-blue-100 text-blue-700 border-blue-200",
                 };
-
-                // Fallback style if status doesn't match
                 const badgeStyle = statusConfig[status as keyof typeof statusConfig] || "bg-gray-100 text-gray-700";
 
                 return (
@@ -170,6 +177,29 @@ export default function SaleIndex({ transactions, filters, branches, customers, 
                     </Button>
                 );
             },
+        },
+        {
+            id: "payment",
+            header: "Collection",
+            cell: ({ row }: any) => {
+                const status = row.original.status.toLowerCase();
+
+                if ( status === 'paid') {
+                    return;
+                }
+
+                return (
+                    <Button
+                        size="sm"
+                        variant="default"
+                        className="h-8 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+                        onClick={() => handleReceivePayment(row.original)}
+                    >
+                        <CreditCard className="mr-2 h-3.5 w-3.5" />
+                        Collect Pay
+                    </Button>
+                );
+            }
         },
         {
             header: 'Actions',
@@ -270,7 +300,11 @@ export default function SaleIndex({ transactions, filters, branches, customers, 
             </div>
 
             {isDialogOpen && (
-                <SaleDialog open={isDialogOpen} setOpen={setIsDialogOpen} branches={branches} transaction={getTransaction} types_of_payment={types_of_payment}  customers={customers} />
+                <SaleDialog open={isDialogOpen} setOpen={setIsDialogOpen} branches={branches} transaction={getTransaction}  customers={customers} />
+            )}
+
+            {isCollectPaymentDialogOpen && (
+                <CollectPaymentDialog transaction={getTransaction}  open={isCollectPaymentDialogOpen} typesOfPayment={types_of_payment} setOpen={setIsCollectPaymentDialogOpen} />
             )}
 
         </AppLayout>

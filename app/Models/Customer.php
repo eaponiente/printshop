@@ -26,4 +26,9 @@ class Customer extends Model
             get: fn () => "{$this->first_name} {$this->last_name}"
         );
     }
+
+    public function transactions()
+    {
+        return $this->hasMany(Transaction::class, 'customer_id');
+    }
 }

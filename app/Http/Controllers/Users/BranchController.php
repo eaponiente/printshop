@@ -16,7 +16,7 @@ class BranchController extends Controller
     public function index(Request $request): Response
     {
         return Inertia::render('branches/list', [
-            'branches' => Branch::get(),
+            'branches' => Branch::where('branch_id', auth()->user()->branch_id)->get(),
         ]);
     }
 

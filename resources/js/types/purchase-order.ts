@@ -10,7 +10,7 @@ export interface PurchaseOrdersList {
 
 export interface PurchaseOrder {
     id: number;
-    particular: string;
+    po_number: string;
     description: string | null;
     status: POStatus;
     branch_id: number;

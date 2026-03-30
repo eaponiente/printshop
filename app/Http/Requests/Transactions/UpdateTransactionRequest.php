@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Transactions;
 
+use App\Enums\Sales\TransactionStatus;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -14,7 +15,7 @@ class UpdateTransactionRequest extends FormRequest
     public function authorize(): bool
     {
         // Usually true, or check if user owns the transaction
-        return false;
+        return true;
     }
 
     /**
@@ -44,8 +45,7 @@ class UpdateTransactionRequest extends FormRequest
             'amount_paid' => 'nullable|numeric|min:0|lte:amount_total',
 
             // Metadata & State
-            'payment_type' => 'required|string|in:Cash,GCash,Card,Bank Transfer',
-            'status' => 'required|string|in:pending,partial,paid,void',
+            'payment_type' => 'required|string|in:cash,GCash,Card,Bank Transfer',
 
             // Relationships
             'staff_id' => 'required|exists:users,id',

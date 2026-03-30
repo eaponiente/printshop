@@ -1,3 +1,5 @@
+import { Branch } from '@/types/branches';
+
 export type User = {
     id: number;
     first_name: string;
@@ -8,6 +10,7 @@ export type User = {
     role: string;
     created_at: string;
     updated_at: string;
+    branch: Branch;
     [key: string]: unknown;
 };
 

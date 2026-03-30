@@ -17,8 +17,8 @@ return new class extends Migration
             $table->integer('customer_id');
             $table->integer('user_id');
             $table->enum('status', ['pending', 'active', 'finished', 'released'])->default('pending');
-            $table->string('particular');
             $table->string('description');
+            $table->text('notes')->nullable();
             $table->date('due_at');
             $table->timestamps();
         });

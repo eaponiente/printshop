@@ -1,31 +1,21 @@
 import { Head, router } from '@inertiajs/react';
+import type { CellContext, ColumnDef } from '@tanstack/react-table';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { toast } from 'sonner';
+import { DataTable } from '@/components/data-table';
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
+    AlertDialog, AlertDialogAction, AlertDialogCancel,
+    AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+    AlertDialogTrigger
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow
-} from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
-import CustomerDialog from '@/pages/customers/customers-dialog';
 import type { BreadcrumbItem } from '@/types';
 import type { Customer, CustomersList } from '@/types/user';
+import CustomerDialog from '@/pages/customers/customer-dialog';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -44,8 +34,61 @@ export default function CustomerIndex({ customers }: CustomersList) {
     const deleteCustomer = (customer: Customer) => {
         router.delete(`/customers/${customer.id}`, {
             onSuccess: () => toast.success('Customer deleted', { position: 'top-center'}),
+            onError: (errors) => {
+                if (errors.delete) {
+                    toast.error('Action Denied', {
+                        description: errors.delete,
+                        position: 'top-center'
+                    });
+                } else {
+                    toast.error('An unexpected error occurred.');
+                }
+            },
         });
     }
+
+    const columns: ColumnDef<unknown, any>[] = [
+        {
+            accessorKey: 'first_name',
+            header: 'First Name',
+        },
+        {
+            accessorKey: 'last_name',
+            header: 'Last Name',
+        },
+        {
+            accessorKey: 'company',
+            header: 'Company',
+        },
+        {
+            header: 'Actions',
+            cell: ({ row }: CellContext<any, any>) => {
+                return (
+                    <>
+                        <Button variant="ghost" size="sm" onClick={() => openEditForm(row.original)}><Pencil /></Button>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="sm"><Trash2 /></Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This action cannot be undone. This will permanently delete your
+                                        user from our servers.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => deleteCustomer(row.original)}>Continue</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </>
+                )
+            }
+        }
+    ]
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -66,43 +109,7 @@ export default function CustomerIndex({ customers }: CustomersList) {
                 </div>
 
                 <div className="rounded-md border border-sidebar-border bg-sidebar">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Name</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {customers.map((customer) => (
-                                <TableRow key={customer.id}>
-                                    <TableCell>{customer.first_name}</TableCell>
-                                    <TableCell>{customer.last_name}</TableCell>
-                                    <TableCell className="text-right">
-                                        <Button variant="ghost" size="sm" onClick={() => openEditForm(customer)}><Pencil /></Button>
-                                        <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                                <Button variant="ghost" size="sm"><Trash2 /></Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                                    <AlertDialogDescription>
-                                                        This action cannot be undone. This will permanently delete your
-                                                        customer from our servers.
-                                                    </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => deleteCustomer(customer)}>Continue</AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                    <DataTable columns={columns} pagination={customers} />
                 </div>
             </div>
             {isDialogOpen && (

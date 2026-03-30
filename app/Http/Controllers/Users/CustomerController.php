@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Users;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -16,7 +17,7 @@ class CustomerController extends Controller
     public function index(Request $request): Response
     {
         return Inertia::render('customers/list', [
-            'customers' => Customer::get(),
+            'customers' => Customer::paginate(50)->withQueryString(),
         ]);
     }
 
@@ -40,23 +41,12 @@ class CustomerController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'first_name' => [
-                'string',
-                'min:2',
-                'max:255',
-            ],
-            'last_name' => [
-                'string',
-                'min:2',
-                'max:255',
-            ]
+            'first_name' => ['required', 'string', 'min:2', 'max:255'],
+            'last_name' => ['required', 'string', 'min:2', 'max:255'],
+            'company' => ['nullable', 'string', 'min:2', 'max:255'],
         ]);
 
-        $customer = Customer::create([
-            'first_name' => $validated['first_name'],
-            'last_name' => $validated['last_name'] ?? null,
-            'company' => $request->input('company'),
-        ]);
+        $customer = Customer::create($validated);
 
         return back()->with('new_customer', $customer);
     }
@@ -65,27 +55,31 @@ class CustomerController extends Controller
     {
         $this->authorize('update', auth()->user());
 
-        $rules = [
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-            ],
-        ];
+        $validated = $request->validate([
+            'first_name' => ['required', 'string', 'min:2', 'max:255'],
+            'last_name' => ['required', 'string', 'min:2', 'max:255'],
+            'company' => ['nullable', 'string', 'min:2', 'max:255'],
+        ]);
 
-        $validated = $request->validate($rules);
-
+        // 2. Update the record
         $customer->update($validated);
 
-        return redirect()->back();
+        // 3. Return with a success flash message
+        return back()->with('message', 'Customer updated successfully.');
     }
 
+    /**
+     * @throws AuthorizationException
+     */
     public function destroy(Customer $customer)
     {
         $this->authorize('delete', auth()->user());
 
-        if ($customer->users()->count() > 0) {
-            abort(403, 'You cannot delete this customer.');
+        // Check if the customer has any transactions
+        if ($customer->transactions()->exists()) {
+            return back()->withErrors([
+                'delete' => 'Cannot delete customer because they have existing transaction records.',
+            ]);
         }
 
         $customer->delete();

@@ -20,6 +20,11 @@ class Sublimation extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
     public function tags()
     {
         return $this->belongsToMany(Tag::class, 'sublimation_tag', 'sublimation_id', 'tag_id');

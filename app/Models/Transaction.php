@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class Transaction extends Model
 {
     use Sortable;
+
     public $guarded = ['id'];
 
     protected $casts = [
@@ -44,6 +45,6 @@ class Transaction extends Model
 
         $sequence = $lastInvoice ? ((int) substr($lastInvoice->invoice_number, -4)) + 1 : 1;
 
-        return 'INV-' . $year . '-' . str_pad($sequence, 4, '0', STR_PAD_LEFT);
+        return 'INV-'.$year.'-'.str_pad($sequence, 4, '0', STR_PAD_LEFT);
     }
 }

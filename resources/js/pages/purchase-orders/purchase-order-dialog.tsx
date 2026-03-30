@@ -32,7 +32,7 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches }: 
 
     // 1. Initialize useForm with v2.0 standards
     const { data, setData, post, put, processing, errors, reset } = useForm({
-        particular: order?.particular ?? '',
+        po_number: order?.po_number ?? '',
         branch_id: order?.branch_id ?? auth.user.branch_id,
         status: order?.status ?? '',
         details: order?.details ?? [{ item_name: '', quantity: 1, unit_price: 0 }]
@@ -110,13 +110,13 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches }: 
                         </div>
 
                         <div className="grid gap-2">
-                            <Label htmlFor="supplier_name">Particular</Label>
+                            <Label htmlFor="supplier_name">PO No.</Label>
                             <Input
                                 id="supplier_name"
-                                value={data.particular}
-                                onChange={e => setData('particular', e.target.value)}
+                                value={data.po_number}
+                                onChange={e => setData('po_number', e.target.value)}
                             />
-                            <InputError message={errors.particular} />
+                            <InputError message={errors.po_number} />
                         </div>
                     </div>
 
@@ -169,6 +169,10 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches }: 
                                         <Label className="text-xs">Qty</Label>
                                         <Input
                                             type="number"
+                                            className={errors[`details.${index}.quantity` as keyof typeof errors]
+                                                ? "border-destructive focus-visible:ring-destructive"
+                                                : ""
+                                            }
                                             value={item.quantity}
                                             onChange={e => updateItem(index, 'quantity', e.target.value)}
                                         />
@@ -177,6 +181,10 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches }: 
                                         <Label className="text-xs">Price</Label>
                                         <Input
                                             type="number"
+                                            className={errors[`details.${index}.unit_price` as keyof typeof errors]
+                                                ? "border-destructive focus-visible:ring-destructive"
+                                                : ""
+                                            }
                                             value={item.unit_price}
                                             onChange={e => updateItem(index, 'unit_price', e.target.value)}
                                         />
@@ -193,7 +201,13 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches }: 
                                 </Button>
                             </div>
                         ))}
-                        <InputError message={errors.details} />
+
+                        {/* Find the first error that starts with "details" */}
+                        {Object.keys(errors).some(key => key.startsWith('details')) && (
+                            <p className="text-sm font-medium text-destructive">
+                                There are errors in your line items. Please check the quantities and prices.
+                            </p>
+                        )}
                     </div>
 
                     <Button

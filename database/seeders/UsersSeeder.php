@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\Branch;
 use App\Models\User;
-use Faker\Factory as Faker;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -15,7 +14,6 @@ class UsersSeeder extends Seeder
      */
     public function run(): void
     {
-        $faker = Faker::create();
         $branches = Branch::pluck('id');
 
         if ($branches->isEmpty()) {
@@ -24,32 +22,45 @@ class UsersSeeder extends Seeder
             return;
         }
 
-        // 1. Create a Fixed Super Admin (For easy login during dev)
+        // 1. Fixed Super Admin (The "Speaker" of the System)
         User::create([
-            'first_name' => 'Alex',
-            'last_name' => 'System',
+            'first_name' => 'Jacob',
+            'last_name' => 'Elemento',
             'username' => 'superadmin',
-            'password' => Hash::make('password'), // Always use a secure hash
+            'password' => Hash::make('password'),
             'role' => 'superadmin',
-            'branch_id' => $branches->random(),
         ]);
 
-        // 2. Create Realistic Admins and Staff
-        $roles = ['admin', 'staff'];
+        // 2. The Prosecution Panel & Key Complainants
+        // Data based on the House Prosecution Team and lead signatories
+        $congressionalLeaders = [
+            ['first' => 'Benny', 'last' => 'Abante', 'role' => 'admin'], // Lead Prosecutor
+            ['first' => 'France', 'last' => 'Castro', 'role' => 'admin'],    // Lead Complainant
+            ['first' => 'Zaldy', 'last' => 'Co', 'role' => 'staff'], // 1-Rider (Prosecutor)
+            ['first' => 'Gerville', 'last' => 'Luistro', 'role' => 'admin'], // Batangas (Prosecutor)
+            ['first' => 'Joel', 'last' => 'Chua', 'role' => 'admin'],       // Manila (Good Gov Chair)
+            ['first' => 'Jude', 'last' => 'Acidre', 'role' => 'staff'], // Ako Bicol (Prosecutor)
+            ['first' => 'Romeo', 'last' => 'Acop', 'role' => 'admin'],      // Antipolo (Prosecutor)
+            ['first' => 'Zia Alonto', 'last' => 'Adiong', 'role' => 'staff'], // Lanao del Sur
+            ['first' => 'Terry', 'last' => 'Ridon', 'role' => 'admin'],
+            ['first' => 'Stella', 'last' => 'Quimbo', 'role' => 'staff'],   // Marikina (Appropriations)
+        ];
 
-        foreach (range(1, 5) as $index) {
-            $firstName = $faker->firstName;
-            $lastName = $faker->lastName;
+        foreach ($congressionalLeaders as $leader) {
+            $firstName = $leader['first'];
+            $lastName = $leader['last'];
+
+            // Clean username generation: "m.libanan"
+            $username = strtolower(substr($firstName, 0, 1).'.'.str_replace(' ', '', $lastName));
 
             User::create([
                 'first_name' => $firstName,
                 'last_name' => $lastName,
-                // Generates a clean username like "jdoe" or "s.smith"
-                'username' => strtolower($firstName[0].$lastName.$faker->numberBetween(10, 99)),
+                'username' => $username,
                 'password' => Hash::make('password'),
-                'role' => $faker->randomElement($roles),
+                'role' => $leader['role'],
                 'branch_id' => $branches->random(),
-                'created_at' => $faker->dateTimeBetween('-6 months', 'now'), // Good for testing your Monthly/Weekly filters!
+                'created_at' => now()->subMonths(rand(1, 6)),
             ]);
         }
     }

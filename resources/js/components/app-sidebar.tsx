@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import {
     BadgeDollarSign,
     Cog,
@@ -7,7 +7,6 @@ import {
     NotebookPen,
     Shirt,
     ShoppingCart,
-    Store,
     Users
 } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
@@ -24,82 +23,86 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
+import endorsements from '@/routes/endorsements';
+import expenses from '@/routes/expenses';
+import purchaseOrders from '@/routes/purchase-orders';
 import sales from '@/routes/sales';
 import sublimations from '@/routes/sublimations';
 import type { NavItem } from '@/types';
-import purchaseOrders from '@/routes/purchase-orders';
-import endorsements from '@/routes/endorsements';
-import expenses from '@/routes/expenses';
-
-const mainNavItems: NavItem[] = [
-    {
-        title: 'Dashboard',
-        href: dashboard(),
-        icon: LayoutGrid,
-    },
-    {
-        title: 'Users',
-        href: '#', // Parent doesn't need a real link if it's just a toggle
-        icon: Users,
-        isActive: true, // Optional: keeps it open by default
-        items: [
-            {
-                title: 'Users',
-                url: '/users', // Your route here
-            },
-            {
-                title: 'Roles & Permissions',
-                url: '/roles',
-            },
-        ],
-    },
-    {
-        title: 'Sales',
-        href: sales.index(),
-        icon: BadgeDollarSign,
-    },
-    {
-        title: 'Expenses',
-        href: expenses.index(),
-        icon: NotebookPen,
-    },
-    {
-        title: 'Purchase Orders',
-        href: purchaseOrders.index(),
-        icon: ShoppingCart,
-    },
-    {
-        title: 'Sublimation',
-        href: sublimations.index(),
-        icon: Shirt,
-    },
-
-    {
-        title: 'Endorsements',
-        href: endorsements.index(),
-        icon: Newspaper,
-    },
-    {
-        title: 'Settings',
-        href: '#', // Parent doesn't need a real link if it's just a toggle
-        icon: Cog,
-        isActive: true, // Optional: keeps it open by default
-        items: [
-            {
-                title: 'Tags',
-                url: '/tags', // Your route here
-            },
-            {
-                title: 'Branches',
-                url: '/branches', // Your route here
-            }
-        ],
-    },
-];
-
 const footerNavItems: NavItem[] = [];
 
 export function AppSidebar() {
+
+    const { auth } = usePage().props;
+    // Define the full array inside the component or as a function
+    const userRole = auth.user.role; // 'staff', 'admin', or 'superadmin'
+
+    const isAdmin = userRole === 'admin' || userRole === 'superadmin';
+
+    const mainNavItems: NavItem[] = [
+        {
+            title: 'Dashboard',
+            href: dashboard(),
+            icon: LayoutGrid,
+        },
+        // 1. Users/Customers: Admin/SuperAdmin only
+        ...(isAdmin ? [{
+            title: 'Users',
+            href: '#',
+            icon: Users,
+            items: [
+                { title: 'Users', url: '/users' },
+                { title: 'Customers', url: '/customers' },
+            ],
+        }] : []),
+
+        // 2. Sales: Everyone
+        {
+            title: 'Sales',
+            href: sales.index(),
+            icon: BadgeDollarSign,
+        },
+
+        // 3. Expenses & Purchase Orders: Admin/SuperAdmin only
+        ...(isAdmin ? [
+            {
+                title: 'Expenses',
+                href: expenses.index(),
+                icon: NotebookPen,
+            },
+            {
+                title: 'Purchase Orders',
+                href: purchaseOrders.index(),
+                icon: ShoppingCart,
+            },
+        ] : []),
+
+        // 4. Sublimation: Everyone
+        {
+            title: 'Sublimation',
+            href: sublimations.index(),
+            icon: Shirt,
+        },
+
+        // 5. Endorsements: Admin/SuperAdmin only
+        ...(isAdmin ? [{
+            title: 'Endorsements',
+            href: endorsements.index(),
+            icon: Newspaper,
+        }] : []),
+
+        // 6. Settings: Filter specific sub-items
+        ...(isAdmin ? [{
+            title: 'Settings',
+            href: '#',
+            icon: Cog,
+            items: [
+                { title: 'Tags', url: '/tags' },
+                // Only SuperAdmin sees Branches
+                ...(userRole === 'superadmin' ? [{ title: 'Branches', url: '/branches' }] : [])
+            ],
+        }] : []),
+    ];
 
     return (
         <Sidebar collapsible="icon" variant="inset">

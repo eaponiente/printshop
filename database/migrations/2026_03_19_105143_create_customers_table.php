@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('first_name')->nullable();
             $table->string('last_name')->nullable();
             $table->string('company')->nullable();
-            $table->string('mobile')->nullable();
+            $table->softDeletes();
             $table->timestamps();
         });
     }

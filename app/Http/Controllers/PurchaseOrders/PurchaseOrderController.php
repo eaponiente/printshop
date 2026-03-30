@@ -5,7 +5,6 @@ namespace App\Http\Controllers\PurchaseOrders;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\PurchaseOrder;
-use App\Models\Tag;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -37,49 +36,80 @@ class PurchaseOrderController extends Controller
     {
         $validated = $request->validate([
             // Master Record Validation
-            'particular' => ['required', 'string', 'max:255'],
+            'po_number' => ['required', 'string', 'max:255'],
             'branch_id' => ['required', Rule::exists('branches', 'id')],
             'status' => ['required', 'string'],
 
             // Detail (Items) Validation
-            'items' => ['required', 'array', 'min:1'], // Must have at least one item
-            'items.*.item_name' => ['required', 'string', 'max:255'],
-            'items.*.quantity' => ['required', 'integer', 'min:1'],
-            'items.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'details' => ['required', 'array', 'min:1'], // Must have at least one item
+            'details.*.item_name' => ['required', 'string', 'max:255'],
+            'details.*.quantity' => ['required', 'integer', 'min:1'],
+            'details.*.unit_price' => ['required', 'numeric', 'min:1'],
         ]);
 
-        $po = PurchaseOrder::create(
-            array_merge($request->only(['particular', 'branch_id']), [
+        // Calculate Grand Total from details
+        $grandTotal = collect($request->details)->sum(function ($item) {
+            return $item['quantity'] * $item['unit_price'];
+        });
+
+        return DB::transaction(function () use ($request, $grandTotal) {
+            $po = PurchaseOrder::create([
+                'po_number' => $request->po_number,
+                'branch_id' => $request->branch_id,
+                'status' => $request->status,
                 'user_id' => auth()->id(),
                 'ordered_at' => now(),
-            ])
-        );
+                'grand_total' => $grandTotal, // Set calculated total
+            ]);
 
-        // Save the many-to-one relationship
-        $po->details()->createMany($request->items);
+            $po->details()->createMany($request->details);
 
-        return back();
+            return back();
+        });
     }
 
     public function update(Request $request, PurchaseOrder $purchaseOrder)
     {
         $this->authorize('update', auth()->user());
 
+        // Add item validation here if you are allowing item editing during update
         $validated = $request->validate([
-            'status' => [
-                'required',
-            ],
+            'status' => ['required'],
+            'po_number' => ['sometimes', 'string'],
+            'details' => ['sometimes', 'array'],
+            'details.*.quantity' => ['required_with:details', 'integer', 'gte:1'],
+            'details.*.unit_price' => ['required_with:details', 'numeric', 'gte:1'],
         ]);
 
-        $purchaseOrder->update($validated);
+        return DB::transaction(function () use ($request, $purchaseOrder) {
+            // Update details if provided in the request
+            if ($request->has('details')) {
+                $purchaseOrder->details()->delete(); // Clear old details
+                $purchaseOrder->details()->createMany($request->details);
 
-        return redirect()->back();
+                // Recalculate Grand Total
+                $grandTotal = collect($request->details)->sum(function ($item) {
+                    return $item['quantity'] * $item['unit_price'];
+                });
+
+                $purchaseOrder->grand_total = $grandTotal;
+            }
+
+            $purchaseOrder->status = $request->status;
+            $purchaseOrder->save();
+
+            return redirect()->back();
+
+        });
     }
 
-    public function destroy(Tag $tag)
+    public function destroy(PurchaseOrder $purchaseOrder)
     {
         $this->authorize('delete', auth()->user());
 
-        $tag->delete();
+        $purchaseOrder->delete();
+
+        return back();
+
     }
 }

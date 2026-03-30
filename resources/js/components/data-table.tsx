@@ -12,6 +12,7 @@ import {
     getFilteredRowModel
 } from "@tanstack/react-table"
 
+import { useState } from 'react';
 import { Button } from "@/components/ui/button"
 import {
     Table,
@@ -21,7 +22,6 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
-import { useState } from 'react';
 
 interface DataTableProps<TData> {
     columns: ColumnDef<TData, any>[]
@@ -74,7 +74,9 @@ export function DataTable<TData>({ columns, pagination }: DataTableProps<TData>)
                     <TableBody>
                         {table.getRowModel().rows?.length ? (
                             table.getRowModel().rows.map((row) => (
-                                <TableRow key={row.id}>
+                                <TableRow
+                                    className="even:bg-black/[0.07] dark:even:bg-white/[0.07]"
+                                    key={row.id}>
                                     {row.getVisibleCells().map((cell) => (
                                         <TableCell key={cell.id}>
                                             {flexRender(cell.column.columnDef.cell, cell.getContext())}

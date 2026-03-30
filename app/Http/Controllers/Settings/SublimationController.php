@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Sublimation;
 use App\Models\Tag;
+use App\Models\User;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -20,7 +21,7 @@ class SublimationController extends Controller
     {
         $filters = $request->only(['branch_id', 'tags', 'user']);
 
-        $query = Sublimation::with('tags', 'branch', 'user');
+        $query = Sublimation::with('tags', 'branch', 'user', 'customer');
 
         $query->when($request->filled('branch_id') && $request->branch_id !== 'all', function ($q) use ($request) {
             $q->where('branch_id', $request->branch_id);
@@ -51,23 +52,22 @@ class SublimationController extends Controller
             'availableTags' => Tag::all(['id', 'name', 'color']),
             'filters' => $request->all(),
             'branches' => Branch::all(['id', 'name']),
+            'users' => User::all(['id', 'first_name', 'last_name']),
         ]);
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-                'unique:sublimations,name',
-            ],
+            'description' => ['required', 'string'],
+            'branch_id' => ['required', Rule::exists('branches', 'id')],
+            'customer_id' => ['required', Rule::exists('customers', 'id')],
+            'user_id' => ['required', Rule::exists('users', 'id')],
+            'status' => ['required', 'in:pending,active,finished,released'],
+            'due_at' => ['required', 'date'],
         ]);
 
-        Sublimation::create([
-            'name' => $validated['name'],
-        ]);
+        Sublimation::create($validated);
 
         return redirect()->back();
     }
@@ -76,16 +76,14 @@ class SublimationController extends Controller
     {
         $this->authorize('update', auth()->user());
 
-        $rules = [
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('tags', 'name')->ignore($sublimation->id),
-            ],
-        ];
-
-        $validated = $request->validate($rules);
+        $validated = $request->validate([
+            'description' => ['required', 'string'],
+            'branch_id' => ['required', Rule::exists('branches', 'id')],
+            'customer_id' => ['required', Rule::exists('customers', 'id')],
+            'user_id' => ['required', Rule::exists('users', 'id')],
+            'status' => ['required', 'in:pending,active,finished,released'],
+            'due_at' => ['required', 'date'],
+        ]);
 
         $sublimation->update($validated);
 
