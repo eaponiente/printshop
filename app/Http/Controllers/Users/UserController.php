@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Users;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Users\StoreUserRequest;
+use App\Http\Requests\Users\UpdateUserRequest;
 use App\Models\Branch;
 use App\Models\User;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -24,70 +27,59 @@ class UserController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreUserRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'username' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('users')
-                    ->whereNull('deleted_at'),
-            ],
-            'branch_id' => 'required|exists:branches,id',
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'role' => ['required', Rule::in(['staff', 'admin'])],
-            // You'll also need a password for new users
-            'password' => 'required|string|min:6|confirmed',
-        ]);
+        try {
+            User::create([
+                'first_name' => $request->first_name,
+                'last_name' => $request->last_name,
+                'username' => $request->username,
+                'role' => $request->role,
+                'password' => bcrypt($request->password),
+                'branch_id' => $request->branch_id,
+            ]);
 
-        User::create([
-            'first_name' => $validated['first_name'],
-            'last_name' => $validated['last_name'],
-            'username' => $validated['username'],
-            'role' => $validated['role'],
-            'password' => bcrypt($validated['password']),
-            'branch_id' => $validated['branch_id'],
-        ]);
+            return redirect()->back()->with('success', 'User created successfully.');
+        } catch (\Exception $e) {
+            Log::error('Failed to create user: '.$e->getMessage());
 
-        return redirect()->back();
+            return redirect()->back()->withErrors(['error' => 'An error occurred while creating the user.']);
+        }
     }
 
-    public function update(Request $request, User $user)
+    public function update(UpdateUserRequest $request, User $user): RedirectResponse
     {
         $this->authorize('update', auth()->user());
 
-        $rules = [
-            'username' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('users', 'username')
-                    ->whereNull('deleted_at')
-                    ->ignore($user->id),
-            ],
-            'branch_id' => 'required|exists:branches,id',
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'role' => ['required', Rule::in(['staff', 'admin'])],
-        ];
+        try {
+            $validated = $request->validated();
 
-        if (filled($request->input('password'))) {
-            $rules['password'] = 'required|string|min:6|confirmed';
+            if (isset($validated['password'])) {
+                $validated['password'] = bcrypt($validated['password']);
+            }
+
+            $user->update($validated);
+
+            return redirect()->back()->with('success', 'User updated successfully.');
+        } catch (\Exception $e) {
+            Log::error('Failed to update user: '.$e->getMessage());
+
+            return redirect()->back()->withErrors(['error' => 'An error occurred while updating the user.']);
         }
-
-        $validated = $request->validate($rules);
-
-        $user->update($validated);
-
-        return redirect()->back();
     }
 
-    public function destroy(User $user)
+    public function destroy(User $user): RedirectResponse
     {
         $this->authorize('delete', auth()->user());
 
-        $user->delete();
+        try {
+            $user->delete();
+
+            return redirect()->back()->with('success', 'User deleted successfully.');
+        } catch (\Exception $e) {
+            Log::error('Failed to delete user: '.$e->getMessage());
+
+            return redirect()->back()->withErrors(['error' => 'An error occurred while deleting the user.']);
+        }
     }
 }

@@ -4,13 +4,16 @@ namespace App\Http\Controllers\Settings;
 
 use App\Enums\Sublimations\SublimationStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\StoreSublimationRequest;
+use App\Http\Requests\Settings\UpdateSublimationRequest;
 use App\Models\Branch;
 use App\Models\Sublimation;
 use App\Models\Tag;
 use App\Models\User;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -62,60 +65,65 @@ class SublimationController extends Controller
             'sublimations' => $query->paginate(30)->withQueryString(),
             'availableTags' => Tag::all(['id', 'name', 'color']),
             'filters' => $request->all(),
-            'branches' => Branch::all(['id', 'name']),
+            'branches' => Branch::accessibleBy(auth()->user())->get(['id', 'name']),
             'users' => User::all(['id', 'first_name', 'last_name']),
             'statuses' => SublimationStatus::map(),
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreSublimationRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'description' => ['required', 'string'],
-            'branch_id' => ['required', Rule::exists('branches', 'id')],
-            'customer_id' => ['required', Rule::exists('customers', 'id')],
-            'user_id' => ['required', Rule::exists('users', 'id')],
-            'status' => ['required', 'in:pending,active,finished,released'],
-            'due_at' => ['required', 'date'],
-        ]);
+        try {
+            Sublimation::create($request->validated());
 
-        Sublimation::create($validated);
+            return redirect()->back()->with('success', 'Sublimation created successfully.');
+        } catch (\Exception $e) {
+            Log::error('Failed to create sublimation: '.$e->getMessage());
 
-        return redirect()->back();
+            return redirect()->back()->withErrors(['error' => 'An error occurred while creating the sublimation.']);
+        }
     }
 
-    public function update(Request $request, Sublimation $sublimation)
+    public function update(UpdateSublimationRequest $request, Sublimation $sublimation): RedirectResponse
     {
         $this->authorize('update', auth()->user());
 
-        $validated = $request->validate([
-            'description' => ['required', 'string'],
-            'branch_id' => ['required', Rule::exists('branches', 'id')],
-            'customer_id' => ['required', Rule::exists('customers', 'id')],
-            'user_id' => ['required', Rule::exists('users', 'id')],
-            'status' => ['required', 'in:pending,active,finished,released'],
-            'due_at' => ['required', 'date'],
-        ]);
+        try {
+            $sublimation->update($request->validated());
 
-        $sublimation->update($validated);
+            return redirect()->back()->with('success', 'Sublimation updated successfully.');
+        } catch (\Exception $e) {
+            Log::error('Failed to update sublimation: '.$e->getMessage());
 
-        return redirect()->back();
+            return redirect()->back()->withErrors(['error' => 'An error occurred while updating the sublimation.']);
+        }
     }
 
-    public function destroy(Sublimation $sublimation)
+    public function destroy(Sublimation $sublimation): RedirectResponse
     {
         $this->authorize('delete', auth()->user());
 
-        $sublimation->delete();
+        try {
+            $sublimation->delete();
+
+            return redirect()->back()->with('success', 'Sublimation deleted successfully.');
+        } catch (\Exception $e) {
+            Log::error('Failed to delete sublimation: '.$e->getMessage());
+
+            return redirect()->back()->withErrors(['error' => 'An error occurred while deleting the sublimation.']);
+        }
     }
 
-    public function complete(Sublimation $sublimation)
+    public function complete(Sublimation $sublimation): RedirectResponse
     {
-        $sublimation->update(['status' => SublimationStatus::COMPLETED]);
+        try {
+            $sublimation->update(['status' => SublimationStatus::COMPLETED]);
 
-        // Optional: Log this in your CashOnHandService if completion
-        // triggers a final financial adjustment.
+            return back()->with('success', 'Transaction marked as completed.');
+        } catch (\Exception $e) {
+            Log::error('Failed to mark sublimation as completed: '.$e->getMessage());
 
-        return back()->with('success', 'Transaction marked as completed.');
+            return back()->withErrors(['error' => 'An error occurred while completing the sublimation.']);
+        }
     }
 }

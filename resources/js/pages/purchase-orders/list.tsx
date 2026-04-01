@@ -23,7 +23,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Purchase Orders', href: '/purchase-orders' },
 ];
 
-export default function PurchaseOrderIndex({ purchase_orders, branches }: PurchaseOrdersList) {
+export default function PurchaseOrderIndex({ purchase_orders, branches, statuses }: PurchaseOrdersList) {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 
     const [getPurchaseOrder, setPurchaseOrder] = useState<PurchaseOrder | null>(null);
@@ -34,18 +34,18 @@ export default function PurchaseOrderIndex({ purchase_orders, branches }: Purcha
 
     const deletePurchaseOrder = (purchaseOrder: PurchaseOrder) => {
         router.delete(`/purchase-orders/${purchaseOrder.id}`, {
-            onSuccess: () => toast.success('Purchase Order deleted', { position: 'top-center'}),
+            onSuccess: () => toast.success('Purchase Order deleted', { position: 'top-center' }),
         });
     }
 
     const columns: ColumnDef<unknown, any>[] = [
         {
-            accessorKey: 'branch.name',
-            header: 'Branch',
+            accessorKey: 'po_number',
+            header: 'PO #',
         },
         {
-            accessorKey: 'particular',
-            header: 'Particulars',
+            accessorKey: 'branch.name',
+            header: 'Branch',
         },
         {
             accessorKey: 'grand_total',
@@ -168,7 +168,7 @@ export default function PurchaseOrderIndex({ purchase_orders, branches }: Purcha
 
             </div>
             {isDialogOpen && (
-                <PurchaseOrderDialog open={isDialogOpen} setOpen={setIsDialogOpen} order={getPurchaseOrder} branches={branches}/>
+                <PurchaseOrderDialog open={isDialogOpen} statuses={statuses} setOpen={setIsDialogOpen} order={getPurchaseOrder} branches={branches} />
             )}
 
         </AppLayout>

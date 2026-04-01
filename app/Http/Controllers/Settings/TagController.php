@@ -6,8 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Tag;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use App\Http\Requests\Settings\StoreTagRequest;
+use App\Http\Requests\Settings\UpdateTagRequest;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -22,48 +25,44 @@ class TagController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreTagRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-                'unique:tags,name',
-            ],
-        ]);
+        try {
+            Tag::create([
+                'name' => $request->name,
+            ]);
 
-        Tag::create([
-            'name' => $validated['name'],
-        ]);
-
-        return redirect()->back();
+            return redirect()->back()->with('success', 'Tag created successfully.');
+        } catch (\Exception $e) {
+            Log::error('Failed to create tag: ' . $e->getMessage());
+            return redirect()->back()->withErrors(['error' => 'An error occurred while creating the tag.']);
+        }
     }
 
-    public function update(Request $request, Tag $tag)
+    public function update(UpdateTagRequest $request, Tag $tag): RedirectResponse
     {
         $this->authorize('update', auth()->user());
 
-        $rules = [
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('tags', 'name')->ignore($tag->id),
-            ],
-        ];
+        try {
+            $tag->update($request->validated());
 
-        $validated = $request->validate($rules);
-
-        $tag->update($validated);
-
-        return redirect()->back();
+            return redirect()->back()->with('success', 'Tag updated successfully.');
+        } catch (\Exception $e) {
+            Log::error('Failed to update tag: ' . $e->getMessage());
+            return redirect()->back()->withErrors(['error' => 'An error occurred while updating the tag.']);
+        }
     }
 
-    public function destroy(Tag $tag)
+    public function destroy(Tag $tag): RedirectResponse
     {
         $this->authorize('delete', auth()->user());
 
-        $tag->delete();
+        try {
+            $tag->delete();
+            return redirect()->back()->with('success', 'Tag deleted successfully.');
+        } catch (\Exception $e) {
+            Log::error('Failed to delete tag: ' . $e->getMessage());
+            return redirect()->back()->withErrors(['error' => 'An error occurred while deleting the tag.']);
+        }
     }
 }

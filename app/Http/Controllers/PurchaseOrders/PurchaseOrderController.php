@@ -2,13 +2,17 @@
 
 namespace App\Http\Controllers\PurchaseOrders;
 
+use App\Enums\PurchaseOrders\PurchaseOrderStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\PurchaseOrders\StorePurchaseOrderRequest;
+use App\Http\Requests\PurchaseOrders\UpdatePurchaseOrderRequest;
 use App\Models\Branch;
 use App\Models\PurchaseOrder;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -18,8 +22,6 @@ class PurchaseOrderController extends Controller
 
     public function index(Request $request): Response
     {
-        $branches = Branch::all();
-
         $query = PurchaseOrder::query()
             ->withSum(['details as total_price' => function ($query) {
                 $query->select(DB::raw('sum(quantity * unit_price)'));
@@ -28,89 +30,81 @@ class PurchaseOrderController extends Controller
 
         return Inertia::render('purchase-orders/list', [
             'purchase_orders' => $query->paginate(30)->withQueryString(),
-            'branches' => $branches,
+            'branches' => Branch::accessibleBy(auth()->user())->get(['id', 'name']),
+            'statuses' => PurchaseOrderStatus::map(),
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StorePurchaseOrderRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            // Master Record Validation
-            'po_number' => ['required', 'string', 'max:255'],
-            'branch_id' => ['required', Rule::exists('branches', 'id')],
-            'status' => ['required', 'string'],
-            'received_at' => ['required', 'date'],
-            'due_at' => ['required', 'date'],
+        try {
+            $validated = $request->validated();
 
-            // Detail (Items) Validation
-            'details' => ['required', 'array', 'min:1'], // Must have at least one item
-            'details.*.item_name' => ['required', 'string', 'max:255'],
-            'details.*.quantity' => ['required', 'integer', 'min:1'],
-            'details.*.unit_price' => ['required', 'numeric', 'min:1'],
-        ]);
+            $grandTotal = collect($validated['details'])->sum(function ($item) {
+                return $item['quantity'] * $item['unit_price'];
+            });
 
-        // Calculate Grand Total from details
-        $grandTotal = collect($request->details)->sum(function ($item) {
-            return $item['quantity'] * $item['unit_price'];
-        });
+            DB::transaction(function () use ($validated, $grandTotal) {
+                $po = PurchaseOrder::create([
+                    'po_number' => $validated['po_number'],
+                    'branch_id' => $validated['branch_id'],
+                    'user_id' => auth()->id(),
+                    'received_at' => now(),
+                    'grand_total' => $grandTotal,
+                ]);
 
-        return DB::transaction(function () use ($request, $grandTotal) {
-            $po = PurchaseOrder::create([
-                'po_number' => $request->po_number,
-                'branch_id' => $request->branch_id,
-                'user_id' => auth()->id(),
-                'received_at' => now(),
-                'grand_total' => $grandTotal, // Set calculated total
-            ]);
+                $po->details()->createMany($validated['details']);
+            });
 
-            $po->details()->createMany($request->details);
+            return back()->with('success', 'Purchase order created successfully.');
+        } catch (\Exception $e) {
+            Log::error('Failed to create purchase order: '.$e->getMessage());
 
-            return back();
-        });
+            return back()->withErrors(['error' => 'An error occurred while creating the purchase order.']);
+        }
     }
 
-    public function update(Request $request, PurchaseOrder $purchaseOrder)
+    public function update(UpdatePurchaseOrderRequest $request, PurchaseOrder $purchaseOrder): RedirectResponse
     {
         $this->authorize('update', auth()->user());
 
-        // Add item validation here if you are allowing item editing during update
-        $validated = $request->validate([
-            'status' => ['required'],
-            'po_number' => ['sometimes', 'string'],
-            'details' => ['sometimes', 'array'],
-            'details.*.quantity' => ['required_with:details', 'integer', 'gte:1'],
-            'details.*.unit_price' => ['required_with:details', 'numeric', 'gte:1'],
-        ]);
+        try {
+            DB::transaction(function () use ($request, $purchaseOrder) {
+                if ($request->has('details')) {
+                    $purchaseOrder->details()->delete();
+                    $purchaseOrder->details()->createMany($request->details);
 
-        return DB::transaction(function () use ($request, $purchaseOrder) {
-            // Update details if provided in the request
-            if ($request->has('details')) {
-                $purchaseOrder->details()->delete(); // Clear old details
-                $purchaseOrder->details()->createMany($request->details);
+                    $grandTotal = collect($request->details)->sum(function ($item) {
+                        return $item['quantity'] * $item['unit_price'];
+                    });
 
-                // Recalculate Grand Total
-                $grandTotal = collect($request->details)->sum(function ($item) {
-                    return $item['quantity'] * $item['unit_price'];
-                });
+                    $purchaseOrder->grand_total = $grandTotal;
+                }
 
-                $purchaseOrder->grand_total = $grandTotal;
-            }
+                $purchaseOrder->status = $request->status;
+                $purchaseOrder->save();
+            });
 
-            $purchaseOrder->status = $request->status;
-            $purchaseOrder->save();
+            return redirect()->back()->with('success', 'Purchase order updated successfully.');
+        } catch (\Exception $e) {
+            Log::error('Failed to update purchase order: '.$e->getMessage());
 
-            return redirect()->back();
-
-        });
+            return back()->withErrors(['error' => 'An error occurred while updating the purchase order.']);
+        }
     }
 
-    public function destroy(PurchaseOrder $purchaseOrder)
+    public function destroy(PurchaseOrder $purchaseOrder): RedirectResponse
     {
         $this->authorize('delete', auth()->user());
 
-        $purchaseOrder->delete();
+        try {
+            $purchaseOrder->delete();
 
-        return back();
+            return back()->with('success', 'Purchase order deleted successfully.');
+        } catch (\Exception $e) {
+            Log::error('Failed to delete purchase order: '.$e->getMessage());
 
+            return back()->withErrors(['error' => 'An error occurred while deleting the purchase order.']);
+        }
     }
 }

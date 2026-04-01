@@ -6,7 +6,14 @@ export type POStatus = 'pending' | 'active' | 'finished' | 'released';
 export interface PurchaseOrdersList {
     purchase_orders: PaginatedResponse<PurchaseOrder>;
     branches: Branch[];
+    statuses: PurchaseOrderStatus[];
 }
+
+export type PurchaseOrderStatus = {
+    key: string;
+    value: string;
+    color: string;
+};
 
 export interface PurchaseOrder {
     id: number;

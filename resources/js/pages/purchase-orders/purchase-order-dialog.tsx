@@ -16,7 +16,11 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Spinner } from '@/components/ui/spinner';
 import type { Branch } from '@/types/branches';
-import type { PurchaseOrder, PurchaseOrderDetail } from '@/types/purchase-order';
+import type {
+    PurchaseOrder,
+    PurchaseOrderDetail,
+    PurchaseOrderStatus,
+} from '@/types/purchase-order';
 import { capitalizeFirstLetter } from '@/utils/formatters';
 
 interface PODialogProps {
@@ -24,9 +28,10 @@ interface PODialogProps {
     open: boolean;
     setOpen: (open: boolean) => void;
     branches: Branch[];
+    statuses: PurchaseOrderStatus[];
 }
 
-export default function PurchaseOrderDialog({ open, setOpen, order, branches }: PODialogProps) {
+export default function PurchaseOrderDialog({ open, setOpen, order, branches, statuses }: PODialogProps) {
     const isEdit = !!order;
 
     const { auth } = usePage().props;
@@ -72,13 +77,6 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches }: 
             post(route('purchase-orders.store'), options);
         }
     };
-
-    const statuses = [
-        'pending',
-        'active',
-        'finished',
-        'released',
-    ];
 
     // Helper to update specific item in the array
     const updateItem = (index: number, field: keyof PurchaseOrderDetail, value: any) => {
@@ -150,12 +148,12 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches }: 
                                     <NativeSelectOption value="">
                                         Select status
                                     </NativeSelectOption>
-                                    {statuses.map((status) => (
+                                    {statuses.map((status: PurchaseOrderStatus) => (
                                         <NativeSelectOption
-                                            key={status}
-                                            value={status}
+                                            key={status.key}
+                                            value={status.key}
                                         >
-                                            {capitalizeFirstLetter(status)}
+                                            {capitalizeFirstLetter(status.value)}
                                         </NativeSelectOption>
                                     ))}
                                 </NativeSelect>

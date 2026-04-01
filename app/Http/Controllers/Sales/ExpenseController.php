@@ -7,10 +7,14 @@ use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Expense;
 use App\Services\Sales\CashOnHandService;
+use App\Http\Requests\Sales\StoreExpenseRequest;
+use App\Http\Requests\Sales\UpdateExpenseRequest;
+use App\Services\Files\FileUploadService;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -38,81 +42,72 @@ class ExpenseController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreExpenseRequest $request, FileUploadService $fileUploadService): RedirectResponse
     {
-        $typeOfPayments = TypeOfPaymentEnum::cases();
+        try {
+            DB::transaction(function () use ($request, $fileUploadService) {
+                $validated = $request->validated();
 
-        $validated = $request->validate([
-            'description' => 'required|string|max:1000',
-            'vendor_name' => 'nullable|string|max:255',
-            'amount' => 'required|numeric|min:0',
-            'payment_type' => ['nullable', Rule::in($typeOfPayments)],
-            'branch_id' => 'required|exists:branches,id',
-            'expense_date' => 'required|date',
-            'receipt' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
-        ]);
+                if ($request->hasFile('receipt')) {
+                    $validated['receipt'] = $fileUploadService->upload($request->file('receipt'), 'receipts');
+                }
 
-        if ($request->hasFile('receipt')) {
-            // Store file and save the path
-            $validated['receipt'] = $request->file('receipt')->store('receipts', 'public');
+                $validated['user_id'] = auth()->id();
+                $validated['expense_date'] = now();
+
+                $expense = Expense::create($validated);
+
+                if ($expense->payment_type === TypeOfPaymentEnum::CASH->value) {
+                    app(CashOnHandService::class)->adjustBalance(
+                        $expense->branch_id,
+                        $expense->amount,
+                        'expense',
+                        "Expense: {$expense->description}"
+                    );
+                }
+            });
+
+            return back()->with('success', 'Expense created successfully.');
+        } catch (\Exception $e) {
+            Log::error('Failed to create expense: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'An error occurred while creating the expense.']);
         }
-
-        $validated['user_id'] = auth()->id();
-        $validated['expense_date'] = now();
-
-        $expense = Expense::create($validated);
-
-        if ($expense->payment_type === TypeOfPaymentEnum::CASH->value) {
-            // Decrease the Cash on Hand
-            app(CashOnHandService::class)->adjustBalance(
-                $expense->branch_id,
-                $expense->amount,
-                'expense',
-                "Expense: {$expense->description}"
-            );
-        }
-
-
-        // Inertia expects a redirect back to the index or current page
-        return back()->with('success', 'Expense created successfully.');
     }
 
     /**
      * Update the specified resource.
      */
-    public function update(Request $request, Expense $expense)
+    public function update(UpdateExpenseRequest $request, Expense $expense, FileUploadService $fileUploadService): RedirectResponse
     {
-        $typeOfPayments = TypeOfPaymentEnum::cases();
+        try {
+            $validated = $request->validated();
 
-        $validated = $request->validate([
-            'description' => 'required|string|max:1000',
-            'vendor_name' => 'nullable|string|max:255',
-            'amount' => 'required|numeric|min:0',
-            'payment_type' => ['nullable', Rule::in($typeOfPayments)],
-            'status' => 'required|in:pending,approved,rejected,reimbursed',
-            'expense_date' => 'required|date',
-            'receipt' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
-        ]);
-
-        if ($request->hasFile('receipt')) {
-            // Delete old file if it exists
-            if ($expense->receipt) {
-                Storage::disk('public')->delete($expense->receipt);
+            if ($request->hasFile('receipt')) {
+                $fileUploadService->delete($expense->receipt);
+                $validated['receipt'] = $fileUploadService->upload($request->file('receipt'), 'receipts');
             }
-            $validated['receipt'] = $request->file('receipt')->store('receipts', 'public');
+
+            $expense->update($validated);
+
+            return back()->with('success', 'Expense updated successfully.');
+        } catch (\Exception $e) {
+            Log::error('Failed to update expense: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'An error occurred while updating the expense.']);
         }
-
-        $expense->update($validated);
-
-        return back()->with('success', 'Expense updated successfully.');
     }
 
-    public function destroy(Expense $expense)
+    public function destroy(Expense $expense, FileUploadService $fileUploadService): RedirectResponse
     {
         $this->authorize('delete', auth()->user());
 
-        $expense->delete();
+        try {
+            $fileUploadService->delete($expense->receipt);
+            $expense->delete();
 
-        return back()->with('success', 'Expense deleted successfully.');
+            return back()->with('success', 'Expense deleted successfully.');
+        } catch (\Exception $e) {
+            Log::error('Failed to delete expense: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'An error occurred while deleting the expense.']);
+        }
     }
 }

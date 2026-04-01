@@ -8,6 +8,7 @@ use App\Http\Requests\Settings\TwoFactorAuthenticationRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 use Laravel\Fortify\Features;
@@ -49,10 +50,15 @@ class SecurityController extends Controller implements HasMiddleware
      */
     public function update(PasswordUpdateRequest $request): RedirectResponse
     {
-        $request->user()->update([
-            'password' => $request->password,
-        ]);
+        try {
+            $request->user()->update([
+                'password' => $request->password,
+            ]);
 
-        return back();
+            return back()->with('success', 'Password updated successfully.');
+        } catch (\Exception $e) {
+            Log::error('Failed to update password: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'An error occurred while updating your password.']);
+        }
     }
 }

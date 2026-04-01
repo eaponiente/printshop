@@ -11,7 +11,19 @@ trait SaleFilterTrait
     public function scopeFiltered($query, array $filters)
     {
         return $query->tap(fn ($q) => $this->applyDateFilter($q, $filters))
-            ->when($filters['branch_id'] ?? null, fn ($q, $id) => $id !== 'all' ? $q->where('branch_id', $id) : $q);
+            // ->when($filters['branch_id'] ?? null, fn ($q, $id) => $id !== 'all' ? $q->where('branch_id', $id) : $q)
+            ->where(function ($query) use ($filters) {
+                $user = auth()->user();
+                $filterId = $filters['branch_id'] ?? null;
+
+                if ($user->role !== 'superadmin') {
+                    // Non-admins are FORCED to their branch, regardless of the filter
+                    $query->where('branch_id', $user->branch_id);
+                } elseif ($filterId && $filterId !== 'all') {
+                    // Superadmins only get a WHERE clause if they picked a specific branch
+                    $query->where('branch_id', $filterId);
+                }
+            });
     }
 
     private function applyDateFilter($query, $filters)

@@ -6,6 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use App\Http\Requests\Users\StoreCustomerRequest;
+use App\Http\Requests\Users\UpdateCustomerRequest;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -35,43 +39,39 @@ class CustomerController extends Controller
             );
         }
 
-        return $customersQuery->take(5)->get();
+        return response()->json($customersQuery->take(5)->get());
     }
 
-    public function store(Request $request)
+    public function store(StoreCustomerRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'first_name' => ['required', 'string', 'min:2', 'max:255'],
-            'last_name' => ['required', 'string', 'min:2', 'max:255'],
-            'company' => ['nullable', 'string', 'min:2', 'max:255'],
-        ]);
+        try {
+            $customer = Customer::create($request->validated());
 
-        $customer = Customer::create($validated);
-
-        return back()->with('new_customer', $customer);
+            return back()->with('new_customer', $customer)->with('success', 'Customer created successfully.');
+        } catch (\Exception $e) {
+            Log::error('Failed to create customer: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'An error occurred while creating the customer.']);
+        }
     }
 
-    public function update(Request $request, Customer $customer)
+    public function update(UpdateCustomerRequest $request, Customer $customer): RedirectResponse
     {
         $this->authorize('update', auth()->user());
 
-        $validated = $request->validate([
-            'first_name' => ['required', 'string', 'min:2', 'max:255'],
-            'last_name' => ['required', 'string', 'min:2', 'max:255'],
-            'company' => ['nullable', 'string', 'min:2', 'max:255'],
-        ]);
+        try {
+            $customer->update($request->validated());
 
-        // 2. Update the record
-        $customer->update($validated);
-
-        // 3. Return with a success flash message
-        return back()->with('message', 'Customer updated successfully.');
+            return back()->with('message', 'Customer updated successfully.')->with('success', 'Customer updated successfully.');
+        } catch (\Exception $e) {
+            Log::error('Failed to update customer: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'An error occurred while updating the customer.']);
+        }
     }
 
     /**
      * @throws AuthorizationException
      */
-    public function destroy(Customer $customer)
+    public function destroy(Customer $customer): RedirectResponse
     {
         $this->authorize('delete', auth()->user());
 
@@ -82,6 +82,12 @@ class CustomerController extends Controller
             ]);
         }
 
-        $customer->delete();
+        try {
+            $customer->delete();
+            return back()->with('success', 'Customer deleted successfully.');
+        } catch (\Exception $e) {
+            Log::error('Failed to delete customer: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'An error occurred while deleting the customer.']);
+        }
     }
 }

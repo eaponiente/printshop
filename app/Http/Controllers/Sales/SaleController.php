@@ -8,65 +8,58 @@ use App\Http\Requests\Transactions\GetTransactionsRequest;
 use App\Http\Requests\Transactions\StoreTransactionRequest;
 use App\Http\Requests\Transactions\UpdateTransactionPaymentRequest;
 use App\Models\Branch;
-use App\Models\CashOnHand;
 use App\Models\Transaction;
 use App\Services\Sales\CashOnHandService;
 use App\Services\Sales\SalesService;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class SaleController extends Controller
 {
     public function __construct(protected SalesService $salesService) {}
 
-    public function index(GetTransactionsRequest $request)
+    public function index(GetTransactionsRequest $request): Response
     {
         $filters = array_merge([
             'date' => now()->toDateString(),
             'mode' => 'daily',
         ], $request->validated());
 
-        $query = Transaction::query()
-            ->with(['user:id,first_name,last_name', 'branch:id,name', 'customer'])
-            ->filtered($filters)
-            ->when($filters['status'] ?? null, fn ($q, $s) => $s !== 'all' ? $q->where('status', $s) : $q)
-            ->when($filters['payment_type'] ?? null, fn ($q, $s) => $s !== 'all' ? $q->where('payment_type', $s) : $q)
-            ->latest('transaction_date');
+        $query = $this->salesService->getTransactionQuery($filters);
 
-        $cashOnHandQuery = CashOnHand::query();
-        $cashOnHandQuery->when($request->filled('branch_id') && $request->branch_id !== 'all', function ($q) use ($request) {
-            $q->where('branch_id', $request->branch_id);
-        });
+        $aggregates = $this->salesService->getPaymentAggregates($query);
+        $cashOnHand = $this->salesService->getCashOnHandTotal($request->input('branch_id'));
 
-
-        return Inertia::render('sales/list', [
+        return Inertia::render('sales/list', array_merge([
             'filters' => $filters,
-            'branches' => Branch::all(['id', 'name']),
+            'branches' => Branch::accessibleBy(auth()->user())->get(['id', 'name']),
             'customers' => $this->salesService->searchCustomers($filters['search'] ?? null),
             'transactions' => $query->paginate(30)->withQueryString(),
             'types_of_payment' => TypeOfPaymentEnum::map(),
-            'total_sales' => (float) $query->sum('amount_paid'),
-            'gcash_amount' => (float) (clone $query)->where('payment_type', 'gcash')->sum('amount_paid'),
-            'card_amount' => (float) (clone $query)->where('payment_type', 'card')->sum('amount_paid'),
-            'check_amount' => (float) (clone $query)->where('payment_type', 'check')->sum('amount_paid'),
-            'bank_transfer_amount' => (float) (clone $query)->where('payment_type', 'bank_transfer')->sum('amount_paid'),
-            'cash_amount' => (float) (clone $query)->where('payment_type', 'cash')->sum('amount_paid'),
-            'cash_on_hand_amount' => (float) $cashOnHandQuery->sum('amount'),
-            ...$this->salesService->getFinanceSummary($filters),
-        ]);
+            'cash_on_hand_amount' => $cashOnHand,
+        ], $aggregates, $this->salesService->getFinanceSummary($filters)));
     }
 
-    public function store(StoreTransactionRequest $request)
+    public function store(StoreTransactionRequest $request): RedirectResponse
     {
-        Transaction::create(array_merge($request->validated(), [
-            'staff_id' => auth()->id(),
-            'transaction_date' => now(),
-            'invoice_number' => Transaction::generateNumber(),
-        ]));
+        try {
+            Transaction::create(array_merge($request->validated(), [
+                'staff_id' => auth()->id(),
+                'transaction_date' => now(),
+                'invoice_number' => Transaction::generateNumber(),
+            ]));
 
-        return back();
+            return back()->with('success', 'Sale created successfully.');
+        } catch (\Exception $e) {
+            Log::error('Failed to create sale: '.$e->getMessage());
+
+            return back()->withErrors(['error' => 'An error occurred while creating the sale.']);
+        }
     }
 
-    public function updatePayment(UpdateTransactionPaymentRequest $request, Transaction $transaction)
+    public function updatePayment(UpdateTransactionPaymentRequest $request, Transaction $transaction): RedirectResponse
     {
         try {
             // Logic moved to a transition method on the Model (Encapsulation)
@@ -81,9 +74,10 @@ class SaleController extends Controller
                 );
             }
 
-
             return back()->with('success', 'Payment updated.');
         } catch (\Exception $e) {
+            Log::error('Failed to update payment: '.$e->getMessage());
+
             return back()->withErrors(['amount_paid' => $e->getMessage()]);
         }
     }
