@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Shared\TypeOfPaymentEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -11,7 +12,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        $typeOfPayments = collect(config()->get('settings.type_of_payment'))->pluck('key')->toArray();
+        $typeOfPayments = TypeOfPaymentEnum::cases();
 
         Schema::create('expenses', function (Blueprint $table) use ($typeOfPayments) {
             $table->id();
@@ -24,7 +25,7 @@ return new class extends Migration
 
             // Categorization
             // Note: Using your specific types from the TS error earlier
-            $table->enum('payment_method', $typeOfPayments)->nullable(); // e.g., 'Credit Card', 'Cash'
+            $table->enum('payment_type', $typeOfPayments)->nullable(); // e.g., 'Credit Card', 'Cash'
 
             // Business Context
             $table->foreignId('user_id')->constrained()->onDelete('cascade');

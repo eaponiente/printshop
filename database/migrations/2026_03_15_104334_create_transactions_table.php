@@ -23,6 +23,9 @@ return new class extends Migration
             // Financials (Decimal prevents rounding errors common with floats)
             $table->decimal('amount_total', 12, 2)->comment('The gross amount to be charged');
             $table->decimal('amount_paid', 12, 2)->default(0)->comment('The total amount successfully collected');
+            $table->decimal('balance', 12, 2)
+                ->virtualAs('amount_total - amount_paid')
+                ->comment('The remaining amount due');
 
             // Metadata
             $table->string('payment_type')->nullable()->comment('Method used (e.g., Cash, GCash, Card)');

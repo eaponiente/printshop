@@ -33,6 +33,7 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('tags', TagController::class);
 
     Route::get('/sublimation-tags', [SublimationTagController::class, 'index']);
+    Route::patch('/sublimation/{sublimation}/complete', [SublimationController::class, 'complete'])->name('sublimations.complete');
     Route::post('/sublimations/{sublimation}/tags', [SublimationTagController::class, 'addTag'])->name('sublimations.tags.add');
     Route::delete('/sublimations/{sublimation}/tags/{tag}', [SublimationTagController::class, 'removeTag'])->name('sublimations.tags.remove');
     Route::resource('sublimations', SublimationController::class);

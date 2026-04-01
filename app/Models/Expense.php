@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Concerns\SaleFilterTrait;
 use Illuminate\Database\Eloquent\Model;
 
 class Expense extends Model
 {
+    use SaleFilterTrait;
     protected $table = 'expenses';
 
     protected $casts = [

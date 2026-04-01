@@ -16,7 +16,8 @@ export interface PurchaseOrder {
     branch_id: number;
     staff_id: number;
     grand_total: number;
-    ordered_at: string;
+    received_at: string;
+    due_at: string;
 
     // Timestamps
     created_at: string;

@@ -7,6 +7,12 @@ export type SublimationsList = {
     availableTags: Tag[];
 }
 
+export type SublimationStatus = {
+    key: string;
+    value: string;
+    color: string;
+}
+
 export type Sublimation = {
     id: number;
     notes: string;
@@ -14,7 +20,9 @@ export type Sublimation = {
     branch_id: number;
     customer_id: number;
     user_id: number;
-    status: 'pending' | 'active' | 'finished' | 'released';
+    status: string;
+    status_color: string;
+    status_label: string;
     due_at: string;
     branch?: Branch;
     user?: User;

@@ -1,32 +1,42 @@
 import { Head, router } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
-import { ArrowUpDown, CreditCard, Pencil, Plus, Trash2 } from 'lucide-react';
+import {
+    ArrowUpDown,
+    CreditCard,
+    Pencil,
+    Plus,
+    Trash2,
+    Wallet,
+} from 'lucide-react';
 import { Banknote, TrendingUp } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { route } from 'ziggy-js';
 import { DataTable } from '@/components/data-table';
 import {
-    AlertDialog, AlertDialogAction, AlertDialogCancel,
-    AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+    AlertDialog,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger
+    AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from "@/components/ui/card"; // Ensure you have these shadcn components
+import { Card, CardContent } from '@/components/ui/card'; // Ensure you have these shadcn components
 import AppLayout from '@/layouts/app-layout';
+import CollectPaymentDialog from '@/pages/sales/components/collect-payment-dialog';
 import TableFilters from '@/pages/sales/components/table-filters';
 import SaleDialog from '@/pages/sales/sales-dialog';
 import type { BreadcrumbItem } from '@/types';
 import type { Branch } from '@/types/branches';
 import type { PaginatedResponse } from '@/types/pagination';
+import type { TypeOfPayment } from '@/types/settings';
 import type { Transaction } from '@/types/transaction';
 import type { Customer } from '@/types/user';
-import { TypeOfPayment } from '@/types/settings';
 import { formatCurrency } from '@/utils/formatters';
 import { sortBy } from '@/utils/helpers';
-import CollectPaymentDialog from '@/pages/sales/components/collect-payment-dialog';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -40,63 +50,94 @@ interface SaleIndexProps {
     customers: Customer[];
     types_of_payment: TypeOfPayment[];
     total_sales: number;
-    total_balance: number;
+    net_income: number;
+    cash_amount: number;
+    gcash_amount: number;
+    check_amount: number;
+    bank_transfer_amount: number;
+    card_amount: number;
+    cash_on_hand_amount: number;
+    total_expenses: number;
 }
 
-export default function SaleIndex({ transactions, filters, branches, customers, types_of_payment, total_sales = 0, total_balance = 0 }: SaleIndexProps) {
-
+export default function SaleIndex({
+    transactions,
+    filters,
+    branches,
+    customers,
+    types_of_payment,
+    total_sales = 0,
+    net_income = 0,
+    cash_amount = 0,
+    gcash_amount = 0,
+    check_amount = 0,
+    bank_transfer_amount = 0,
+    card_amount = 0,
+    cash_on_hand_amount = 0,
+    total_expenses = 0,
+}: SaleIndexProps) {
     const [getTransaction, setTransaction] = useState<any | null>(null);
+
     const openEditForm = (transaction: any) => {
         setTransaction(transaction);
         setIsDialogOpen(true);
     };
 
     // 1. Add local state for the search input
-    const [searchTerm, setSearchTerm] = useState(filters.search || "");
+    const [searchTerm, setSearchTerm] = useState(filters.search || '');
     const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
 
     // 2. Debounce Search Logic: Updates the URL after user stops typing
     useEffect(() => {
         const delayDebounceFn = setTimeout(() => {
-            if (searchTerm !== (filters.search || "")) {
-                router.get(route('sales.index'),
+            if (searchTerm !== (filters.search || '')) {
+                router.get(
+                    route('sales.index'),
                     { ...filters, search: searchTerm, page: 1 },
-                    { preserveState: true, replace: true }
+                    { preserveState: true, replace: true },
                 );
             }
         }, 300);
 
         return () => clearTimeout(delayDebounceFn);
-    }, [searchTerm]);
+    }, [filters, searchTerm]);
 
     const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [isCollectPaymentDialogOpen, setIsCollectPaymentDialogOpen] = useState(false);
+    const [isCollectPaymentDialogOpen, setIsCollectPaymentDialogOpen] =
+        useState(false);
 
-    const [mode, setMode] = useState(filters.mode || "daily")
+    const [mode, setMode] = useState(filters.mode || 'daily');
 
-    const handleFilterChange = (value: string, type: 'mode' | 'date' | 'status' | 'branch_id') => {
+    const handleFilterChange = (
+        value: string,
+        type: 'mode' | 'date' | 'status' | 'branch_id' | 'payment_type',
+    ) => {
         const params = { ...filters, search: searchTerm };
 
         if (type === 'mode') {
             setMode(value);
             params.mode = value;
             // Reset date when switching modes to avoid invalid matches
-            params.date = "";
+            params.date = '';
         } else if (type === 'status') {
             params.status = value;
+        } else if (type === 'payment_type') {
+            params.payment_type = value;
         } else if (type === 'branch_id') {
             params.branch_id = value;
 
-            setSelectedBranch(branches.find((b) => b.id === Number(params.branch_id)));
+            setSelectedBranch(
+                branches.find((b) => b.id === Number(params.branch_id)),
+            );
         } else {
             params.date = value;
         }
 
         router.get(`/sales`, params, { preserveState: true, replace: true });
-    }
+    };
 
     const clearFilters = () => {
-        setMode("daily");
+        setMode('daily');
 
         router.get(route('sales.index'), {}, { replace: true });
     };
@@ -113,12 +154,14 @@ export default function SaleIndex({ transactions, filters, branches, customers, 
                 return (
                     <Button
                         variant="ghost"
-                        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+                        onClick={() =>
+                            column.toggleSorting(column.getIsSorted() === 'asc')
+                        }
                     >
                         Invoice #
                         <ArrowUpDown className="ml-2 h-4 w-4" />
                     </Button>
-                )
+                );
             },
         },
         {
@@ -138,19 +181,27 @@ export default function SaleIndex({ transactions, filters, branches, customers, 
             header: 'Total',
         },
         {
+            accessorKey: 'balance',
+            header: 'Balance',
+        },
+        {
             accessorKey: 'status',
             header: 'Status',
             cell: ({ row }: any) => {
                 const status = row.original.status.toLowerCase();
                 const statusConfig = {
-                    paid: "bg-green-100 text-green-700 border-green-200",
-                    pending: "bg-yellow-100 text-yellow-700 border-yellow-200",
-                    partial: "bg-blue-100 text-blue-700 border-blue-200",
+                    paid: 'bg-green-100 text-green-700 border-green-200',
+                    pending: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+                    partial: 'bg-blue-100 text-blue-700 border-blue-200',
                 };
-                const badgeStyle = statusConfig[status as keyof typeof statusConfig] || "bg-gray-100 text-gray-700";
+                const badgeStyle =
+                    statusConfig[status as keyof typeof statusConfig] ||
+                    'bg-gray-100 text-gray-700';
 
                 return (
-                    <Badge className={`capitalize font-medium shadow-none border ${badgeStyle}`}>
+                    <Badge
+                        className={`border font-medium capitalize shadow-none ${badgeStyle}`}
+                    >
                         {status}
                     </Badge>
                 );
@@ -169,22 +220,26 @@ export default function SaleIndex({ transactions, filters, branches, customers, 
                     <Button
                         variant="ghost"
                         // Pass the field, the current filters object, and the route
-                        onClick={() => sortBy('transaction_date', filters, 'sales.index')}
-                        className="hover:bg-transparent p-0"
+                        onClick={() =>
+                            sortBy('transaction_date', filters, 'sales.index')
+                        }
+                        className="p-0 hover:bg-transparent"
                     >
                         Date
-                        <ArrowUpDown className={`ml-2 h-4 w-4 ${isSorted ? "text-primary" : "text-muted-foreground/50"}`} />
+                        <ArrowUpDown
+                            className={`ml-2 h-4 w-4 ${isSorted ? 'text-primary' : 'text-muted-foreground/50'}`}
+                        />
                     </Button>
                 );
             },
         },
         {
-            id: "payment",
-            header: "Collection",
+            id: 'payment',
+            header: 'Collection',
             cell: ({ row }: any) => {
                 const status = row.original.status.toLowerCase();
 
-                if ( status === 'paid') {
+                if (status === 'paid') {
                     return;
                 }
 
@@ -192,43 +247,56 @@ export default function SaleIndex({ transactions, filters, branches, customers, 
                     <Button
                         size="sm"
                         variant="default"
-                        className="h-8 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+                        className="h-8 bg-indigo-600 text-white shadow-sm hover:bg-indigo-700"
                         onClick={() => handleReceivePayment(row.original)}
                     >
                         <CreditCard className="mr-2 h-3.5 w-3.5" />
                         Collect Pay
                     </Button>
                 );
-            }
+            },
         },
         {
             header: 'Actions',
             cell: ({ row }: CellContext<any, any>) => {
                 return (
                     <>
-                        <Button variant="ghost" size="sm" onClick={() => openEditForm(row.original)}><Pencil /></Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditForm(row.original)}
+                        >
+                            <Pencil />
+                        </Button>
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="sm"><Trash2 /></Button>
+                                <Button variant="ghost" size="sm">
+                                    <Trash2 />
+                                </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                                 <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                    <AlertDialogTitle>
+                                        Are you absolutely sure?
+                                    </AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        This action cannot be undone. This will permanently delete your
-                                        user from our servers.
+                                        This action cannot be undone. This will
+                                        permanently delete your user from our
+                                        servers.
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogCancel>
+                                        Cancel
+                                    </AlertDialogCancel>
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
                     </>
-                )
-            }
-        }
-    ]
+                );
+            },
+        },
+    ];
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -237,8 +305,12 @@ export default function SaleIndex({ transactions, filters, branches, customers, 
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-xl font-semibold">Sale Management</h1>
-                        <p className="text-sm text-muted-foreground">Manage your sale.</p>
+                        <h1 className="text-xl font-semibold">
+                            Sale Management
+                        </h1>
+                        <p className="text-sm text-muted-foreground">
+                            Manage your sale.
+                        </p>
                     </div>
 
                     {/* Create Staff Button */}
@@ -249,64 +321,192 @@ export default function SaleIndex({ transactions, filters, branches, customers, 
                 </div>
 
                 {/* Summary Stats Section */}
-                <div className="grid gap-4 md:grid-cols-3">
-                    <Card className="bg-sidebar border-sidebar-border">
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between space-y-0 pb-2">
-                                <p className="text-sm font-medium">Total Revenue {selectedBranch && `for ${selectedBranch.name}`}</p>
-                                <Banknote className="h-4 w-4 text-muted-foreground" />
+                <div className="grid gap-3 md:grid-cols-3">
+                    {/* 1. Total Revenue - Ultra Compact */}
+                    <Card className="border-sidebar-border bg-sidebar">
+                        <CardContent className="p-3">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="mb-1 text-[10px] leading-none font-bold tracking-wider text-muted-foreground uppercase">
+                                        Cash on Hand
+                                    </p>
+                                    <h2 className="text-lg leading-none font-bold">
+                                        {formatCurrency(cash_on_hand_amount)}
+                                    </h2>
+                                </div>
+                                <Banknote className="h-4 w-4 text-primary/40" />
                             </div>
-                            <div className="flex items-baseline gap-2">
-                                <h2 className="text-2xl font-bold">{formatCurrency(total_sales)}</h2>
-                                <span className="text-xs text-muted-foreground">
-                                    for selected {mode}
-                                </span>
-                            </div>
+                            <p className="mt-1.5 truncate text-[9px] text-muted-foreground italic opacity-70">
+                                {selectedBranch?.name || ''}
+                            </p>
                         </CardContent>
                     </Card>
-                    <Card className="bg-sidebar border-sidebar-border">
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between space-y-0 pb-2">
-                                <p className="text-sm font-medium">Total Balance</p>
-                                <Banknote className="h-4 w-4 text-muted-foreground" />
+
+                    <Card className="border-sidebar-border bg-sidebar">
+                        <CardContent className="p-3">
+                            <div className="mb-2 flex items-center justify-between">
+                                <p className="text-[10px] leading-none font-bold tracking-wider text-muted-foreground uppercase">
+                                    Payment Breakdown
+                                </p>
+                                <Wallet className="h-4 w-4 text-orange-500/40" />
                             </div>
-                            <div className="flex items-baseline gap-2">
-                                <h2 className="text-2xl font-bold">{formatCurrency(total_balance)}</h2>
-                                <span className="text-xs text-muted-foreground">
-                                    for selected {mode}
-                                </span>
+
+                            {/* 3x2 Grid for 5-6 Payment Types */}
+                            <div className="grid grid-cols-3 gap-x-2 gap-y-2">
+                                {/* Cash */}
+                                <div className="border-r border-sidebar-border pr-1">
+                                    <p className="mb-1 text-[8px] leading-none font-medium text-muted-foreground uppercase">
+                                        Cash
+                                    </p>
+                                    <p className="truncate text-[11px] leading-none font-bold">
+                                        {formatCurrency(cash_amount || 0)}
+                                    </p>
+                                </div>
+
+                                {/* GCash */}
+                                <div className="border-r border-sidebar-border pr-1">
+                                    <p className="mb-1 text-[8px] leading-none font-medium text-muted-foreground uppercase">
+                                        GCash
+                                    </p>
+                                    <p className="truncate text-[11px] leading-none font-bold">
+                                        {formatCurrency(gcash_amount || 0)}
+                                    </p>
+                                </div>
+
+                                {/* Bank Transfer */}
+                                <div className="pl-0.5">
+                                    <p className="mb-1 text-[8px] leading-none font-medium text-muted-foreground uppercase">
+                                        Bank
+                                    </p>
+                                    <p className="truncate text-[11px] leading-none font-bold">
+                                        {formatCurrency(
+                                            bank_transfer_amount || 0,
+                                        )}
+                                    </p>
+                                </div>
+
+                                {/* Card */}
+                                <div className="border-t border-r border-sidebar-border pt-2 pr-1">
+                                    <p className="mb-1 text-[8px] leading-none font-medium text-muted-foreground uppercase">
+                                        Card
+                                    </p>
+                                    <p className="truncate text-[11px] leading-none font-bold">
+                                        {formatCurrency(card_amount || 0)}
+                                    </p>
+                                </div>
+
+                                {/* Check */}
+                                <div className="border-t border-r border-sidebar-border pt-2 pr-1">
+                                    <p className="mb-1 text-[8px] leading-none font-medium text-muted-foreground uppercase">
+                                        Check
+                                    </p>
+                                    <p className="truncate text-[11px] leading-none font-bold">
+                                        {formatCurrency(check_amount || 0)}
+                                    </p>
+                                </div>
+
+                                {/* Placeholder / Other */}
+                                <div className="border-t border-sidebar-border pt-2 pl-0.5 opacity-40">
+                                    <p className="mb-1 text-[8px] leading-none font-medium uppercase">
+                                        Other
+                                    </p>
+                                    <p className="text-[11px] leading-none font-bold italic">
+                                        —
+                                    </p>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
 
-                    {/* Optional: Add more stats like Transaction Count */}
-                    <Card className="bg-sidebar border-sidebar-border">
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between space-y-0 pb-2">
-                                <p className="text-sm font-medium">Transactions</p>
-                                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                    {/* 3. Income - Single Row logic */}
+                    <Card className="overflow-hidden border-sidebar-border bg-sidebar">
+                        <CardContent className="p-3">
+                            {/* Top Section: The Breakdown */}
+                            <div className="mb-2.5 flex items-center justify-between gap-4">
+                                <div className="flex-1">
+                                    <p className="mb-1 text-[9px] leading-none font-bold text-muted-foreground uppercase">
+                                        Revenue
+                                    </p>
+                                    <p className="text-sm leading-none font-semibold text-primary/90">
+                                        {formatCurrency(total_sales)}
+                                    </p>
+                                </div>
+
+                                <div className="flex-1 border-l border-sidebar-border pl-3">
+                                    <p className="mb-1 text-[9px] leading-none font-bold text-muted-foreground uppercase">
+                                        Expenses
+                                    </p>
+                                    <p className="text-sm leading-none font-semibold text-destructive/80">
+                                        {formatCurrency(total_expenses)}
+                                    </p>
+                                </div>
+
+                                <TrendingUp className="h-4 w-4 self-start text-green-500/30" />
                             </div>
-                            <h2 className="text-2xl font-bold">{transactions.total || 0}</h2>
+
+                            {/* Bottom Section: The Result */}
+                            <div className="border-t border-sidebar-border/50 pt-2">
+                                <div className="flex items-baseline justify-between">
+                                    <div>
+                                        <p className="mb-1.5 text-[10px] leading-none font-bold tracking-wider text-muted-foreground uppercase">
+                                            Net Income
+                                        </p>
+                                        <div className="flex items-baseline gap-1.5">
+                                            <h2 className="text-lg leading-none font-black tracking-tight">
+                                                {formatCurrency(net_income)}
+                                            </h2>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Visual Progress Bar (Revenue vs Expenses Ratio) */}
+                                <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-sidebar-border">
+                                    <div
+                                        className="h-full bg-green-500 opacity-60"
+                                        style={{
+                                            width: `${Math.min((net_income / total_sales) * 100, 100)}%`,
+                                        }}
+                                    />
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
                 </div>
 
                 <div className="rounded-md border border-sidebar-border bg-sidebar">
-
-                    <TableFilters searchTerm={searchTerm} setSearchTerm={setSearchTerm} mode={mode} filters={filters} handleFilterChange={handleFilterChange} clearFilters={clearFilters} branches={branches}/>
+                    <TableFilters
+                        searchTerm={searchTerm}
+                        setSearchTerm={setSearchTerm}
+                        mode={mode}
+                        types_of_payment={types_of_payment}
+                        filters={filters}
+                        handleFilterChange={handleFilterChange}
+                        clearFilters={clearFilters}
+                        branches={branches}
+                    />
 
                     <DataTable columns={columns} pagination={transactions} />
                 </div>
             </div>
 
             {isDialogOpen && (
-                <SaleDialog open={isDialogOpen} setOpen={setIsDialogOpen} branches={branches} transaction={getTransaction}  customers={customers} />
+                <SaleDialog
+                    open={isDialogOpen}
+                    setOpen={setIsDialogOpen}
+                    branches={branches}
+                    transaction={getTransaction}
+                    customers={customers}
+                />
             )}
 
             {isCollectPaymentDialogOpen && (
-                <CollectPaymentDialog transaction={getTransaction}  open={isCollectPaymentDialogOpen} typesOfPayment={types_of_payment} setOpen={setIsCollectPaymentDialogOpen} />
+                <CollectPaymentDialog
+                    transaction={getTransaction}
+                    open={isCollectPaymentDialogOpen}
+                    typesOfPayment={types_of_payment}
+                    setOpen={setIsCollectPaymentDialogOpen}
+                />
             )}
-
         </AppLayout>
     );
 }

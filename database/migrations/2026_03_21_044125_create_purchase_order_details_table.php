@@ -24,6 +24,9 @@ return new class extends Migration
             // Quantities & Pricing
             $table->integer('quantity')->default(1);
             $table->decimal('unit_price', 12, 2)->default(0);
+            $table->decimal('total_cost', 12, 2)
+                ->virtualAs('quantity * unit_price')
+                ->comment('total cost = quantity * unit_price');
 
             $table->timestamps();
         });

@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Sales;
 
+use App\Enums\Shared\TypeOfPaymentEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Expense;
+use App\Services\Sales\CashOnHandService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -18,24 +20,33 @@ class ExpenseController extends Controller
 
     public function index(Request $request): Response
     {
-        $query = Expense::query()->with(['user', 'branch']);
+        $query = Expense::query()->with(['user', 'branch'])
+            ->when($request->filled('branch_id'), function ($q) use ($request) {
+                $q->where('branch_id', $request->branch_id);
+            })
+            ->when($request->filled('payment_type'), function ($q) use ($request) {
+                $q->where('payment_type', $request->payment_type);
+            })
+            ->latest('expense_date');
 
         return Inertia::render('expenses/list', [
+            'filters' => $request->all(),
+            'expenses_amount' => $query->sum('amount'),
             'expenses' => $query->paginate(30)->withQueryString(),
             'branches' => Branch::all(),
-            'payment_methods' => config()->get('settings.type_of_payment'),
+            'payment_methods' => TypeOfPaymentEnum::map(),
         ]);
     }
 
     public function store(Request $request)
     {
-        $typeOfPayments = collect(config('settings.type_of_payment'))->pluck('key')->toArray();
+        $typeOfPayments = TypeOfPaymentEnum::cases();
 
         $validated = $request->validate([
             'description' => 'required|string|max:1000',
             'vendor_name' => 'nullable|string|max:255',
             'amount' => 'required|numeric|min:0',
-            'payment_method' => ['nullable', Rule::in($typeOfPayments)],
+            'payment_type' => ['nullable', Rule::in($typeOfPayments)],
             'branch_id' => 'required|exists:branches,id',
             'expense_date' => 'required|date',
             'receipt' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
@@ -49,7 +60,18 @@ class ExpenseController extends Controller
         $validated['user_id'] = auth()->id();
         $validated['expense_date'] = now();
 
-        Expense::create($validated);
+        $expense = Expense::create($validated);
+
+        if ($expense->payment_type === TypeOfPaymentEnum::CASH->value) {
+            // Decrease the Cash on Hand
+            app(CashOnHandService::class)->adjustBalance(
+                $expense->branch_id,
+                $expense->amount,
+                'expense',
+                "Expense: {$expense->description}"
+            );
+        }
+
 
         // Inertia expects a redirect back to the index or current page
         return back()->with('success', 'Expense created successfully.');
@@ -60,13 +82,13 @@ class ExpenseController extends Controller
      */
     public function update(Request $request, Expense $expense)
     {
-        $typeOfPayments = collect(config('settings.type_of_payment'))->pluck('key')->toArray();
+        $typeOfPayments = TypeOfPaymentEnum::cases();
 
         $validated = $request->validate([
             'description' => 'required|string|max:1000',
             'vendor_name' => 'nullable|string|max:255',
             'amount' => 'required|numeric|min:0',
-            'payment_method' => ['nullable', Rule::in($typeOfPayments)],
+            'payment_type' => ['nullable', Rule::in($typeOfPayments)],
             'status' => 'required|in:pending,approved,rejected,reimbursed',
             'expense_date' => 'required|date',
             'receipt' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',

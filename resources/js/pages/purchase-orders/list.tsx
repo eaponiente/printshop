@@ -52,7 +52,7 @@ export default function PurchaseOrderIndex({ purchase_orders, branches }: Purcha
             header: 'Total',
             cell: ({ row }: CellContext<any, any>) => {
                 return formatCurrency(row.original.total_price);
-            }
+            },
         },
         {
             accessorKey: 'status',
@@ -62,16 +62,23 @@ export default function PurchaseOrderIndex({ purchase_orders, branches }: Purcha
 
                 // Mapping your Laravel Seeder statuses to Tailwind colors
                 const statusConfig = {
-                    pending: "bg-amber-100 text-amber-700 hover:bg-amber-200 border-amber-200",
-                    active: "bg-blue-100 text-blue-700 hover:bg-blue-200 border-blue-200",
-                    finished: "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-emerald-200",
-                    released: "bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-200",
+                    pending:
+                        'bg-amber-100 text-amber-700 hover:bg-amber-200 border-amber-200',
+                    active: 'bg-blue-100 text-blue-700 hover:bg-blue-200 border-blue-200',
+                    finished:
+                        'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-emerald-200',
+                    released:
+                        'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-200',
                 };
 
-                const badgeStyle = statusConfig[status as keyof typeof statusConfig] || "bg-gray-100 text-gray-700";
+                const badgeStyle =
+                    statusConfig[status as keyof typeof statusConfig] ||
+                    'bg-gray-100 text-gray-700';
 
                 return (
-                    <Badge className={`capitalize font-medium shadow-none border ${badgeStyle}`}>
+                    <Badge
+                        className={`border font-medium capitalize shadow-none ${badgeStyle}`}
+                    >
                         {status}
                     </Badge>
                 );
@@ -82,38 +89,57 @@ export default function PurchaseOrderIndex({ purchase_orders, branches }: Purcha
             header: 'Staff',
         },
         {
-            accessorKey: 'ordered_at',
-            header: 'Ordered At'
+            accessorKey: 'received_at',
+            header: 'Ordered At',
         },
         {
             header: 'Actions',
             cell: ({ row }: CellContext<any, any>) => {
                 return (
                     <>
-                        <Button variant="ghost" size="sm" onClick={() => openEditForm(row.original)}><Pencil /></Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditForm(row.original)}
+                        >
+                            <Pencil />
+                        </Button>
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="sm"><Trash2 /></Button>
+                                <Button variant="ghost" size="sm">
+                                    <Trash2 />
+                                </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                                 <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                    <AlertDialogTitle>
+                                        Are you absolutely sure?
+                                    </AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        This action cannot be undone. This will permanently delete your
-                                        user from our servers.
+                                        This action cannot be undone. This will
+                                        permanently delete your user from our
+                                        servers.
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => deletePurchaseOrder(row.original)}>Continue</AlertDialogAction>
+                                    <AlertDialogCancel>
+                                        Cancel
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                        onClick={() =>
+                                            deletePurchaseOrder(row.original)
+                                        }
+                                    >
+                                        Continue
+                                    </AlertDialogAction>
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
                     </>
-                )
-            }
-        }
-    ]
+                );
+            },
+        },
+    ];
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>

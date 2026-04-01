@@ -1,11 +1,14 @@
 import type { Branch } from '@/types/branches';
 import type { PaginatedResponse } from '@/types/pagination';
+import type { TypeOfPayment } from '@/types/settings';
 import type { User } from '@/types/user';
 
 export type ExpensesList = {
     expenses: PaginatedResponse<Expense>;
     branches: Branch[];
-    payment_methods: any;
+    payment_methods: TypeOfPayment[];
+    expenses_amount: number;
+    filters: any;
 }
 
 export type ExpenseStatus = 'pending' | 'approved' | 'rejected' | 'reimbursed';
@@ -20,7 +23,7 @@ export interface Expense {
     amount: string | number;
 
     // This should match the keys in your config/settings.type_of_payment
-    payment_method: string | null;
+    payment_type: string | null;
 
     user_id: number;
     branch_id: number;
@@ -44,7 +47,7 @@ export interface ExpenseForm {
     description: string;
     vendor_name: string;
     amount: string | number;
-    payment_method: string;
+    payment_type: string;
     user_id: number;
     branch_id: number;
     expense_date: string;

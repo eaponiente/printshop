@@ -1,0 +1,79 @@
+<?php
+
+namespace App\Enums\Sublimations;
+
+enum SublimationStatus: string
+{
+    case FOR_APPROVAL = 'for approval';
+    case DONE_LAYOUT = 'done layout';
+    case WAITING_FOR_DP = 'waiting for dp';
+    case FOR_SIZING = 'for sizing';
+    case DONE_SIZING = 'done sizing';
+    case PRINTED = 'printed';
+    case CUT = 'cut';
+    case PRINTED_RED = 'printed_alt'; // Handling the duplicate "Printed" in red
+    case SEWING = 'sewing';
+    case SEWED = 'sewed';
+    case CHECKED = 'checked';
+    case READY_FOR_PICKUP = 'ready for pickup';
+    case CLAIMED = 'claimed';
+    case COMPLETED = 'completed';
+
+    /**
+     * Get the human-readable label for the UI.
+     */
+    public function label(): string
+    {
+        return match ($this) {
+            self::FOR_APPROVAL => 'For Approval',
+            self::DONE_LAYOUT => 'Done Layout',
+            self::WAITING_FOR_DP => 'Waiting for DP',
+            self::FOR_SIZING => 'For Sizing',
+            self::DONE_SIZING => 'Done Sizing',
+            self::PRINTED => 'Printed',
+            self::CUT => 'Cut',
+            self::PRINTED_RED => 'Printed',
+            self::SEWING => 'Sewing',
+            self::SEWED => 'Sewed',
+            self::CHECKED => 'Checked',
+            self::READY_FOR_PICKUP => 'Ready for Pickup',
+            self::CLAIMED => 'Claimed',
+            self::COMPLETED => 'Completed',
+        };
+    }
+
+    /**
+     * Returns Tailwind CSS classes based on your screenshot's colors.
+     */
+    public function color(): string
+    {
+        return match ($this) {
+            self::FOR_APPROVAL => 'bg-blue-500 text-white',
+            self::DONE_LAYOUT => 'bg-green-400 text-black',
+            self::WAITING_FOR_DP => 'bg-gray-400 text-black',
+            self::FOR_SIZING => 'bg-pink-300 text-black',
+            self::DONE_SIZING => 'bg-cyan-400 text-black',
+            self::PRINTED => 'bg-teal-200 text-black',
+            self::CUT => 'bg-purple-300 text-black',
+            self::PRINTED_RED => 'bg-red-400 text-white',
+            self::SEWING => 'bg-indigo-300 text-black',
+            self::SEWED => 'bg-orange-400 text-white',
+            self::CHECKED => 'bg-rose-400 text-white',
+            self::READY_FOR_PICKUP => 'bg-amber-500 text-white',
+            self::CLAIMED => 'bg-yellow-400 text-black',
+            self::COMPLETED => '',
+        };
+    }
+
+    public static function map(): array
+    {
+        return collect(self::cases())
+            ->map(fn ($case) => [
+                'key' => $case->value,
+                'value' => $case->label(),
+                'color' => $case->color(),
+            ])
+            ->values()
+            ->toArray();
+    }
+}

@@ -2,141 +2,89 @@
 
 namespace App\Http\Controllers\Sales;
 
-use App\Enums\Sales\TransactionStatus;
+use App\Enums\Shared\TypeOfPaymentEnum;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Settings\ProfileDeleteRequest;
 use App\Http\Requests\Transactions\GetTransactionsRequest;
 use App\Http\Requests\Transactions\StoreTransactionRequest;
 use App\Http\Requests\Transactions\UpdateTransactionPaymentRequest;
-use App\Http\Requests\Transactions\UpdateTransactionRequest;
 use App\Models\Branch;
-use App\Models\Customer;
+use App\Models\CashOnHand;
 use App\Models\Transaction;
-use Carbon\Carbon;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
+use App\Services\Sales\CashOnHandService;
+use App\Services\Sales\SalesService;
 use Inertia\Inertia;
 
 class SaleController extends Controller
 {
+    public function __construct(protected SalesService $salesService) {}
+
     public function index(GetTransactionsRequest $request)
     {
-        // 1. Extract and Default Filters
-        $filters = $request->validated();
+        $filters = array_merge([
+            'date' => now()->toDateString(),
+            'mode' => 'daily',
+        ], $request->validated());
 
-        // Apply defaults: If no date is selected, use today's date in 'daily' mode
-        $filters['date'] = $filters['date'] ?? now()->toDateString();
-        $filters['mode'] = $filters['mode'] ?? 'daily';
-
-        // 2. Build Base Transaction Query
         $query = Transaction::query()
-            ->with([
-                'user:id,first_name,last_name', // Short-hand eager loading
-                'branch:id,name',
-                'customer',
-            ])
-            ->tap(function ($q) use ($filters) {
-                $this->applyDateFilter($q, $filters['date'], $filters['mode']);
-            })
-            ->when($request->filled('status') && $request->status !== 'all', fn ($q) => $q->where('status', $request->status)
-            )
-            ->when($request->filled('branch_id') && $request->branch_id !== 'all',
-                fn ($q) => $q->where('branch_id', $request->branch_id)
-            )
-            ->when($filters['search'] ?? null, function ($q, $search) {
-                $term = "%{$search}%";
-                $q->where(function ($sub) use ($term) {
-                    $sub->where('invoice_number', 'like', $term)
-                        ->orWhereHas('customer', fn ($c) => $c->whereAny(['first_name', 'last_name'], 'like', $term)
-                        );
-                });
-            });
+            ->with(['user:id,first_name,last_name', 'branch:id,name', 'customer'])
+            ->filtered($filters)
+            ->when($filters['status'] ?? null, fn ($q, $s) => $s !== 'all' ? $q->where('status', $s) : $q)
+            ->when($filters['payment_type'] ?? null, fn ($q, $s) => $s !== 'all' ? $q->where('payment_type', $s) : $q)
+            ->latest('transaction_date');
 
-        // 3. Customer Lookup (Separated logic)
-        $customers = Customer::query()
-            ->when($filters['customer'] ?? null, fn ($q, $search) => $q->whereAny(['first_name', 'last_name', 'company'], 'like', "%{$search}%")
-            )
-            ->limit(10)
-            ->get();
+        $cashOnHandQuery = CashOnHand::query();
+        $cashOnHandQuery->when($request->filled('branch_id') && $request->branch_id !== 'all', function ($q) use ($request) {
+            $q->where('branch_id', $request->branch_id);
+        });
 
-        // 4. Calculate Totals (Clone before Sort/Pagination)
-        $totalsQuery = clone $query;
 
         return Inertia::render('sales/list', [
             'filters' => $filters,
-            'customers' => $customers,
             'branches' => Branch::all(['id', 'name']),
-            'transactions' => $query->latest('transaction_date')->paginate(30)->withQueryString(),
-            'total_sales' => (float) $totalsQuery->sum('amount_paid'),
-            'total_balance' => (float) $totalsQuery->sum(DB::raw('amount_total - amount_paid')),
-            'types_of_payment' => config('settings.type_of_payment'),
+            'customers' => $this->salesService->searchCustomers($filters['search'] ?? null),
+            'transactions' => $query->paginate(30)->withQueryString(),
+            'types_of_payment' => TypeOfPaymentEnum::map(),
+            'total_sales' => (float) $query->sum('amount_paid'),
+            'gcash_amount' => (float) (clone $query)->where('payment_type', 'gcash')->sum('amount_paid'),
+            'card_amount' => (float) (clone $query)->where('payment_type', 'card')->sum('amount_paid'),
+            'check_amount' => (float) (clone $query)->where('payment_type', 'check')->sum('amount_paid'),
+            'bank_transfer_amount' => (float) (clone $query)->where('payment_type', 'bank_transfer')->sum('amount_paid'),
+            'cash_amount' => (float) (clone $query)->where('payment_type', 'cash')->sum('amount_paid'),
+            'cash_on_hand_amount' => (float) $cashOnHandQuery->sum('amount'),
+            ...$this->salesService->getFinanceSummary($filters),
         ]);
-    }
-
-    /**
-     * Extracted helper for cleaner date logic
-     */
-    private function applyDateFilter($query, $date, $mode)
-    {
-        match ($mode) {
-            'daily' => $query->whereDate('transaction_date', $date),
-            'weekly' => $query->whereRaw('YEARWEEK(transaction_date, 1) = ?', [str_replace('-W', '', $date)]),
-            'monthly' => $query->whereMonth('transaction_date', Carbon::parse($date)->month)
-                ->whereYear('transaction_date', Carbon::parse($date)->year),
-            default => $query->whereDate('transaction_date', now()),
-        };
     }
 
     public function store(StoreTransactionRequest $request)
     {
-        $validated = $request->validated();
+        Transaction::create(array_merge($request->validated(), [
+            'staff_id' => auth()->id(),
+            'transaction_date' => now(),
+            'invoice_number' => Transaction::generateNumber(),
+        ]));
 
-        $validated['staff_id'] = auth()->id();
-        $validated['transaction_date'] = now();
-        $validated['invoice_number'] = Transaction::generateNumber();
-
-        Transaction::query()->create($validated);
-
-        return redirect()->back();
+        return back();
     }
 
-    /**
-     * Update the user's profile information.
-     */
-    public function update(UpdateTransactionRequest $request, Transaction $transaction): RedirectResponse
+    public function updatePayment(UpdateTransactionPaymentRequest $request, Transaction $transaction)
     {
-        $validated = $request->validated();
+        try {
+            // Logic moved to a transition method on the Model (Encapsulation)
+            $transaction->recordPayment($request->amount_paid, $request->payment_type);
 
-        $transaction->update($validated);
+            if ($transaction->payment_type === TypeOfPaymentEnum::CASH->value) {
+                app(CashOnHandService::class)->adjustBalance(
+                    $transaction->branch_id,
+                    $request->amount_paid,
+                    'revenue',
+                    "Payment for Invoice #{$transaction->invoice_number}"
+                );
+            }
 
-        return to_route('profile.edit');
-    }
 
-    /**
-     * Delete the user's profile.
-     */
-    public function destroy(ProfileDeleteRequest $request): RedirectResponse
-    {
-        $user = $request->user();
-
-        Auth::logout();
-
-        $user->delete();
-
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
-
-        return redirect('/');
-    }
-
-    public function updatePayment(UpdateTransactionPaymentRequest $request, Transaction $transaction) {
-
-        if ($request->amount_paid == $transaction->amount_total) {
-            $transaction->status = TransactionStatus::PAID;
-            $transaction->save();
+            return back()->with('success', 'Payment updated.');
+        } catch (\Exception $e) {
+            return back()->withErrors(['amount_paid' => $e->getMessage()]);
         }
-
-        return redirect()->back();
     }
 }

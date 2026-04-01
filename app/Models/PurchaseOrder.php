@@ -13,7 +13,7 @@ class PurchaseOrder extends Model
     protected $guarded = ['id'];
 
     protected $casts = [
-        'ordered_at' => 'datetime:M d Y',
+        'received_at' => 'datetime:M d Y',
     ];
 
     public function details()

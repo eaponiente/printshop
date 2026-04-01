@@ -37,22 +37,27 @@ class TransactionSeeder extends Seeder
 
         $totalToSeed = rand(300, 500);
 
-        foreach (range(1, $totalToSeed) as $i) {
+        foreach (range(1, 50) as $i) {
             $service = fake()->randomElement($services);
 
-            // 1. Financial Logic
+            // 1. Financial Logic (Integers only)
             $amountTotal = match ($service['name']) {
-                'Event Hall Rental' => fake()->randomFloat(2, 2000, 8000),
-                'Room Accommodation' => fake()->randomFloat(2, 500, 1500),
-                default => fake()->randomFloat(2, 50, 450),
+                'Event Hall Rental' => fake()->numberBetween(2000, 8000),
+                'Room Accommodation' => fake()->numberBetween(500, 1500),
+                default => fake()->numberBetween(50, 450),
             };
 
             $roll = fake()->numberBetween(1, 100);
+
             if ($roll <= 60) {
+                // 100% Paid
                 $amountPaid = $amountTotal;
             } elseif ($roll <= 90) {
-                $amountPaid = floor($amountTotal * fake()->randomFloat(2, 0.2, 0.7));
+                // Partial Payment: 20% to 80% of total, rounded to no decimals
+                $percentage = fake()->numberBetween(20, 80) / 100;
+                $amountPaid = round($amountTotal * $percentage);
             } else {
+                // 0% Paid
                 $amountPaid = 0;
             }
 

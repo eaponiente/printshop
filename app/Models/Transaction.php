@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Concerns\SaleFilterTrait;
 use App\Concerns\Sortable;
+use App\Enums\Sales\TransactionStatus;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class Transaction extends Model
 {
-    use Sortable;
+    use SaleFilterTrait, Sortable;
 
     public $guarded = ['id'];
 
@@ -46,5 +49,46 @@ class Transaction extends Model
         $sequence = $lastInvoice ? ((int) substr($lastInvoice->invoice_number, -4)) + 1 : 1;
 
         return 'INV-'.$year.'-'.str_pad($sequence, 4, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Update the payment progress and auto-transition status.
+     *
+     * * @param float $paymentAmount The incremental amount being paid now
+     * @param  string|null  $reason  Optional audit trail note
+     *
+     * @throws \Exception
+     */
+    public function recordPayment(float $paymentAmount, string $paymentType): void
+    {
+        DB::transaction(function () use ($paymentAmount, $paymentType) {
+            // 1. Calculate new totals
+            $newTotalPaid = $this->amount_paid + $paymentAmount;
+
+            // 2. Business Rule: Prevent Overpayment
+            if ($newTotalPaid > $this->amount_total) {
+                throw new \Exception("Payment exceeds the remaining balance of {$this->balance}");
+            }
+
+            // 3. Determine Status and Fulfillment logic
+            $status = TransactionStatus::PARTIAL;
+            $fulfilledAt = $this->fulfilled_at;
+
+            if ($newTotalPaid >= $this->amount_total) {
+                $status = TransactionStatus::PAID;
+                $fulfilledAt = now();
+            } elseif ($newTotalPaid <= 0) {
+                $status = TransactionStatus::PENDING;
+            }
+
+            // 4. Update the record
+            $this->update([
+                'payment_type' => $paymentType,
+                'amount_paid' => $newTotalPaid,
+                'status' => $status,
+                'fulfilled_at' => $fulfilledAt,
+                'change_reason' => $reason ?? $this->change_reason,
+            ]);
+        });
     }
 }

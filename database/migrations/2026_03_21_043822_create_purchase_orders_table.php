@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Shared\TypeOfPaymentEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -24,12 +25,14 @@ return new class extends Migration
             // Relationships
             $table->foreignId('branch_id')->constrained()->onDelete('cascade');
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+            $table->enum('payment_type', TypeOfPaymentEnum::cases())->nullable(); // e.g., 'Credit Card', 'Cash'
+
 
             // Financial Summary (Total of all details)
             $table->decimal('grand_total', 12, 2)->default(0);
 
             $table->dateTime('received_at')->nullable();
-            $table->dateTime('ordered_at')->nullable();
+            $table->dateTime('due_at')->nullable();
 
             $table->timestamps();
             $table->softDeletes();

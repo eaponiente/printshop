@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Sublimations\SublimationStatus;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -16,7 +17,7 @@ return new class extends Migration
             $table->integer('branch_id');
             $table->integer('customer_id');
             $table->integer('user_id');
-            $table->enum('status', ['pending', 'active', 'finished', 'released'])->default('pending');
+            $table->enum('status', SublimationStatus::cases())->default(SublimationStatus::FOR_APPROVAL);
             $table->string('description');
             $table->text('notes')->nullable();
             $table->date('due_at');

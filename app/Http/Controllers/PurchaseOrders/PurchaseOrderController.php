@@ -39,6 +39,8 @@ class PurchaseOrderController extends Controller
             'po_number' => ['required', 'string', 'max:255'],
             'branch_id' => ['required', Rule::exists('branches', 'id')],
             'status' => ['required', 'string'],
+            'received_at' => ['required', 'date'],
+            'due_at' => ['required', 'date'],
 
             // Detail (Items) Validation
             'details' => ['required', 'array', 'min:1'], // Must have at least one item
@@ -56,9 +58,8 @@ class PurchaseOrderController extends Controller
             $po = PurchaseOrder::create([
                 'po_number' => $request->po_number,
                 'branch_id' => $request->branch_id,
-                'status' => $request->status,
                 'user_id' => auth()->id(),
-                'ordered_at' => now(),
+                'received_at' => now(),
                 'grand_total' => $grandTotal, // Set calculated total
             ]);
 

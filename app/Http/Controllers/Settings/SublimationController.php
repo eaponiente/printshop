@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Settings;
 
+use App\Enums\Sublimations\SublimationStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Sublimation;
@@ -19,13 +20,23 @@ class SublimationController extends Controller
 
     public function index(Request $request): Response
     {
-        $filters = $request->only(['branch_id', 'tags', 'user']);
-
         $query = Sublimation::with('tags', 'branch', 'user', 'customer');
 
         $query->when($request->filled('branch_id') && $request->branch_id !== 'all', function ($q) use ($request) {
             $q->where('branch_id', $request->branch_id);
         });
+
+        $query->when($request->filled('status') && $request->status !== 'all', function ($q) use ($request) {
+            $q->where('status', $request->status);
+        });
+
+        $query->when(
+            ! $request->boolean('include_completed'),
+            function ($q) {
+                // If we are NOT including completed, we filter them out
+                $q->where('status', '!=', 'completed');
+            }
+        );
 
         $query->when($request->tags, function ($q) use ($request) {
             $tagIds = explode(',', $request->tags);
@@ -53,6 +64,7 @@ class SublimationController extends Controller
             'filters' => $request->all(),
             'branches' => Branch::all(['id', 'name']),
             'users' => User::all(['id', 'first_name', 'last_name']),
+            'statuses' => SublimationStatus::map(),
         ]);
     }
 
@@ -95,5 +107,15 @@ class SublimationController extends Controller
         $this->authorize('delete', auth()->user());
 
         $sublimation->delete();
+    }
+
+    public function complete(Sublimation $sublimation)
+    {
+        $sublimation->update(['status' => SublimationStatus::COMPLETED]);
+
+        // Optional: Log this in your CashOnHandService if completion
+        // triggers a final financial adjustment.
+
+        return back()->with('success', 'Transaction marked as completed.');
     }
 }

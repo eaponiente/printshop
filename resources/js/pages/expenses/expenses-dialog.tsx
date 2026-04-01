@@ -37,11 +37,12 @@ export default function ExpenseDialog({
     const isEdit = !!expense;
     const { auth } = usePage().props as any;
 
+    console.log('aa', paymentMethods);
     const { data, setData, post, put, processing, errors, reset } = useForm({
         description: expense?.description ?? '',
         vendor_name: expense?.vendor_name ?? '',
         amount: expense?.amount ?? '',
-        payment_method: expense?.payment_method ?? '',
+        payment_type: expense?.payment_type ?? '',
         user_id: expense?.user_id ?? auth.user.id,
         branch_id: expense?.branch_id ?? auth.user.branch_id,
         status: expense?.status ?? 'pending',
@@ -83,48 +84,59 @@ export default function ExpenseDialog({
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogContent className="sm:max-w-[700px]">
                 <DialogHeader>
-                    <DialogTitle>{isEdit ? 'Edit' : 'Add New'} Expense</DialogTitle>
+                    <DialogTitle>
+                        {isEdit ? 'Edit' : 'Add New'} Expense
+                    </DialogTitle>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="flex flex-col gap-5">
                     {/* Description - Full Width */}
                     <div className="grid gap-2">
-                        <Label htmlFor="description">Particulars / Description</Label>
+                        <Label htmlFor="description">
+                            Particulars / Description
+                        </Label>
                         <Textarea
                             id="description"
                             className="min-h-[120px] resize-none"
                             value={data.description}
-                            onChange={e => setData('description', e.target.value)}
+                            onChange={(e) =>
+                                setData('description', e.target.value)
+                            }
                             placeholder="Describe the expense details..."
                         />
                         <InputError message={errors.description} />
                     </div>
 
                     <div className="grid grid-cols-1 gap-4">
-
-
                         {/* Vendor & Amount */}
                         <div className="grid gap-2">
                             <Label htmlFor="vendor_name">Vendor Name</Label>
                             <Input
                                 id="vendor_name"
                                 value={data.vendor_name}
-                                onChange={e => setData('vendor_name', e.target.value)}
+                                onChange={(e) =>
+                                    setData('vendor_name', e.target.value)
+                                }
                             />
                             <InputError message={errors.vendor_name} />
                         </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-
                         {/* Branch & User */}
                         <div className="grid gap-2">
                             <Label htmlFor="branch_id">Branch</Label>
                             <NativeSelect
                                 value={data.branch_id}
-                                onChange={e => setData('branch_id', e.target.value)}
+                                onChange={(e) =>
+                                    setData('branch_id', e.target.value)
+                                }
                             >
-                                {branches.map(b => <NativeSelectOption key={b.id} value={b.id}>{b.name}</NativeSelectOption>)}
+                                {branches.map((b) => (
+                                    <NativeSelectOption key={b.id} value={b.id}>
+                                        {b.name}
+                                    </NativeSelectOption>
+                                ))}
                             </NativeSelect>
                         </div>
 
@@ -135,36 +147,47 @@ export default function ExpenseDialog({
                                 type="number"
                                 step="0.01"
                                 value={data.amount}
-                                onChange={e => setData('amount', e.target.value)}
+                                onChange={(e) =>
+                                    setData('amount', e.target.value)
+                                }
                             />
                             <InputError message={errors.amount} />
                         </div>
 
                         {/* Payment Method & Date */}
                         <div className="grid gap-2">
-                            <Label htmlFor="payment_method">Payment Method</Label>
+                            <Label htmlFor="payment_type">Payment Type</Label>
                             <NativeSelect
-                                id="payment_method"
-                                value={data.payment_method}
-                                onChange={e => setData('payment_method', e.target.value)}
+                                id="payment_type"
+                                value={data.payment_type}
+                                onChange={(e) =>
+                                    setData('payment_type', e.target.value)
+                                }
                             >
-                                <NativeSelectOption value="">Select Method</NativeSelectOption>
+                                <NativeSelectOption value="">
+                                    Select Method
+                                </NativeSelectOption>
                                 {paymentMethods.map((method) => (
-                                    <NativeSelectOption key={method.key} value={method.key}>
+                                    <NativeSelectOption
+                                        key={method.key}
+                                        value={method.key}
+                                    >
                                         {method.value}
                                     </NativeSelectOption>
                                 ))}
                             </NativeSelect>
-                            <InputError message={errors.payment_method} />
+                            <InputError message={errors.payment_type} />
                         </div>
 
                         <div className="grid gap-2">
-                            <Label htmlFor="expense_date">Expense Date</Label>
+                            <Label htmlFor="expense_date">Date Purchased</Label>
                             <Input
                                 id="expense_date"
                                 type="date"
                                 value={data.expense_date}
-                                onChange={e => setData('expense_date', e.target.value)}
+                                onChange={(e) =>
+                                    setData('expense_date', e.target.value)
+                                }
                             />
                             <InputError message={errors.expense_date} />
                         </div>
@@ -172,31 +195,30 @@ export default function ExpenseDialog({
 
                     {/* Status & Receipt Upload */}
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="status">Status</Label>
-                            <NativeSelect
-                                value={data.status}
-                                onChange={e => setData('status', e.target.value)}
-                            >
-                                <NativeSelectOption value="pending">Pending</NativeSelectOption>
-                                <NativeSelectOption value="approved">Approved</NativeSelectOption>
-                                <NativeSelectOption value="rejected">Rejected</NativeSelectOption>
-                                <NativeSelectOption value="reimbursed">Reimbursed</NativeSelectOption>
-                            </NativeSelect>
-                        </div>
 
                         <div className="grid gap-2">
                             <Label htmlFor="receipt">Receipt (Image/PDF)</Label>
                             <Input
                                 id="receipt"
                                 type="file"
-                                onChange={e => setData('receipt', e.target.files ? e.target.files[0] : null)}
+                                onChange={(e) =>
+                                    setData(
+                                        'receipt',
+                                        e.target.files
+                                            ? e.target.files[0]
+                                            : null,
+                                    )
+                                }
                             />
                             <InputError message={errors.receipt} />
                         </div>
                     </div>
 
-                    <Button type="submit" className="mt-2" disabled={processing}>
+                    <Button
+                        type="submit"
+                        className="mt-2"
+                        disabled={processing}
+                    >
                         {processing && <Spinner className="mr-2" />}
                         {isEdit ? 'Update Expense' : 'Save Expense'}
                     </Button>

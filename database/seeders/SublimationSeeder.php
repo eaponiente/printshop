@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\Sublimations\SublimationStatus;
 use App\Models\Branch;
 use App\Models\Customer;
 use App\Models\Sublimation;
@@ -80,19 +81,19 @@ class SublimationSeeder extends Seeder
             ],
         ];
 
-        foreach (range(1, 40) as $index) {
+        foreach (range(1, 120) as $index) {
             $particular = $faker->randomElement(array_keys($products));
             // Pick a sub-description from that category
             $subDesc = $faker->randomElement($products[$particular]);
 
-            $status = $faker->randomElement(['pending', 'active', 'finished', 'released']);
+            $status = $faker->randomElement(SublimationStatus::cases());
 
             $sublimation = Sublimation::create([
                 'branch_id' => $branchIds->random(),
                 'customer_id' => $customerIds->random(),
                 'user_id' => $userIds->random(),
                 'status' => $status,
-                'notes' => fake()->paragraph,
+                'notes' => fake()->words(7, true),
                 'description' => "Order for {$faker->numberBetween(10, 100)} pcs: $subDesc. ".$faker->sentence(),
                 // Randomize dates: some due soon, some later
                 'due_at' => now()->subDays(rand(2, 30)),

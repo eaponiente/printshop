@@ -10,25 +10,32 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import type { Branch } from '@/types/branches';
+import type { TypeOfPayment } from '@/types/settings';
 
 interface SalesTableFiltersProps {
     searchTerm: string;
     setSearchTerm: (value: string) => void;
     mode: string;
+    types_of_payment: TypeOfPayment[];
     filters: {
         date?: string;
         status?: string;
         branch_id?: string;
+        payment_type?: string;
     };
-    handleFilterChange: (value: string, type: 'mode' | 'date' | 'status' | 'branch_id') => void;
+    handleFilterChange: (
+        value: string,
+        type: 'mode' | 'date' | 'status' | 'branch_id' | 'payment_type',
+    ) => void;
     clearFilters: () => void;
-    branches: Branch[]
+    branches: Branch[];
 }
 
 const SalesTableFilters = ({
                                searchTerm,
                                setSearchTerm,
                                mode,
+                               types_of_payment,
                                filters,
                                handleFilterChange,
                                clearFilters,
@@ -37,30 +44,32 @@ const SalesTableFilters = ({
 
     // Map mode to HTML input types
     return (
-        <div className="flex flex-wrap items-end gap-3 mb-6 p-4 rounded-lg bg-slate-50/50">
-
+        <div className="mb-6 flex flex-wrap items-end gap-3 rounded-lg bg-slate-50/50 p-4">
             {/* 3. The New Search Input */}
-            <div className="space-y-1.5 flex-1 min-w-[250px]">
-                <label className="text-xs font-semibold uppercase text-muted-foreground ml-1">
+            <div className="min-w-[250px] flex-1 space-y-1.5">
+                <label className="ml-1 text-xs font-semibold text-muted-foreground uppercase">
                     Search
                 </label>
                 <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                         placeholder="Search invoice or guest..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-9 bg-white"
+                        className="bg-white pl-9"
                     />
                 </div>
             </div>
 
             {/* Mode Selection */}
             <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase text-muted-foreground ml-1">
+                <label className="ml-1 text-xs font-semibold text-muted-foreground uppercase">
                     Frequency
                 </label>
-                <Select value={mode} onValueChange={(v) => handleFilterChange(v, 'mode')}>
+                <Select
+                    value={mode}
+                    onValueChange={(v) => handleFilterChange(v, 'mode')}
+                >
                     <SelectTrigger className="w-[140px] bg-white">
                         <SelectValue />
                     </SelectTrigger>
@@ -74,31 +83,37 @@ const SalesTableFilters = ({
 
             {/* Date Selection - Placed directly beside */}
             <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase text-muted-foreground ml-1">
+                <label className="ml-1 text-xs font-semibold text-muted-foreground uppercase">
                     Select {mode}
                 </label>
                 <div className="flex items-center gap-2">
-                    {mode === "daily" && (
+                    {mode === 'daily' && (
                         <Input
                             type="date"
-                            value={filters.date || ""}
-                            onChange={(e) => handleFilterChange(e.target.value, 'date')}
+                            value={filters.date || ''}
+                            onChange={(e) =>
+                                handleFilterChange(e.target.value, 'date')
+                            }
                             className="w-[180px] bg-white"
                         />
                     )}
-                    {mode === "weekly" && (
+                    {mode === 'weekly' && (
                         <Input
                             type="week"
-                            value={filters.date || ""}
-                            onChange={(e) => handleFilterChange(e.target.value, 'date')}
+                            value={filters.date || ''}
+                            onChange={(e) =>
+                                handleFilterChange(e.target.value, 'date')
+                            }
                             className="w-[200px] bg-white"
                         />
                     )}
-                    {mode === "monthly" && (
+                    {mode === 'monthly' && (
                         <Input
                             type="month"
-                            value={filters.date || ""}
-                            onChange={(e) => handleFilterChange(e.target.value, 'date')}
+                            value={filters.date || ''}
+                            onChange={(e) =>
+                                handleFilterChange(e.target.value, 'date')
+                            }
                             className="w-[180px] bg-white"
                         />
                     )}
@@ -107,11 +122,11 @@ const SalesTableFilters = ({
 
             {/* Status Filter */}
             <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase text-muted-foreground ml-1">
+                <label className="ml-1 text-xs font-semibold text-muted-foreground uppercase">
                     Status
                 </label>
                 <Select
-                    value={filters.status || "all"}
+                    value={filters.status || 'all'}
                     onValueChange={(v) => handleFilterChange(v, 'status')}
                 >
                     <SelectTrigger className="w-[140px] bg-white text-sm">
@@ -126,13 +141,36 @@ const SalesTableFilters = ({
                 </Select>
             </div>
 
+            {/* Mode of Payment Filter */}
+            <div className="space-y-1.5">
+                <label className="ml-1 text-xs font-semibold text-muted-foreground uppercase">
+                    Mode of Payment
+                </label>
+                <Select
+                    value={filters.payment_type || 'all'}
+                    onValueChange={(v) => handleFilterChange(v, 'payment_type')}
+                >
+                    <SelectTrigger className="w-[140px] bg-white text-sm">
+                        <SelectValue placeholder="All Modes" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Modes</SelectItem>
+                        {types_of_payment.map((payment: TypeOfPayment) => (
+                            <SelectItem value={payment.key}>
+                                {payment.value}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+
             {/* Status Filter */}
             <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase text-muted-foreground ml-1">
+                <label className="ml-1 text-xs font-semibold text-muted-foreground uppercase">
                     Branch
                 </label>
                 <Select
-                    value={filters.branch_id || "all"}
+                    value={filters.branch_id || 'all'}
                     onValueChange={(v) => handleFilterChange(v, 'branch_id')}
                 >
                     <SelectTrigger className="w-[140px] bg-white text-sm">
@@ -141,7 +179,9 @@ const SalesTableFilters = ({
                     <SelectContent>
                         <SelectItem value="all">All Branch</SelectItem>
                         {branches.map((branch) => (
-                            <SelectItem value={String(branch.id)}>{branch.name}</SelectItem>
+                            <SelectItem value={String(branch.id)}>
+                                {branch.name}
+                            </SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
@@ -153,7 +193,7 @@ const SalesTableFilters = ({
                 onClick={clearFilters}
                 className="h-10 px-2 text-muted-foreground hover:text-destructive"
             >
-                <X className="h-4 w-4 mr-1" />
+                <X className="mr-1 h-4 w-4" />
                 Clear
             </Button>
         </div>

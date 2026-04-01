@@ -31,19 +31,34 @@ class UsersSeeder extends Seeder
             'role' => 'superadmin',
         ]);
 
+        // 1. Fixed Super Admin (The "Speaker" of the System)
+        User::create([
+            'first_name' => 'Edgar',
+            'last_name' => 'Poniente',
+            'username' => 'staff',
+            'password' => Hash::make('password'),
+            'role' => 'staff',
+            'branch_id' => $branches->random(),
+        ]);
+
+        User::create([
+            'first_name' => 'Stone Cold',
+            'last_name' => 'Steve Austin',
+            'username' => 'admin',
+            'password' => Hash::make('password'),
+            'role' => 'admin',
+            'branch_id' => $branches->random(),
+        ]);
+
         // 2. The Prosecution Panel & Key Complainants
         // Data based on the House Prosecution Team and lead signatories
         $congressionalLeaders = [
-            ['first' => 'Benny', 'last' => 'Abante', 'role' => 'admin'], // Lead Prosecutor
-            ['first' => 'France', 'last' => 'Castro', 'role' => 'admin'],    // Lead Complainant
             ['first' => 'Zaldy', 'last' => 'Co', 'role' => 'staff'], // 1-Rider (Prosecutor)
             ['first' => 'Gerville', 'last' => 'Luistro', 'role' => 'admin'], // Batangas (Prosecutor)
             ['first' => 'Joel', 'last' => 'Chua', 'role' => 'admin'],       // Manila (Good Gov Chair)
             ['first' => 'Jude', 'last' => 'Acidre', 'role' => 'staff'], // Ako Bicol (Prosecutor)
-            ['first' => 'Romeo', 'last' => 'Acop', 'role' => 'admin'],      // Antipolo (Prosecutor)
             ['first' => 'Zia Alonto', 'last' => 'Adiong', 'role' => 'staff'], // Lanao del Sur
             ['first' => 'Terry', 'last' => 'Ridon', 'role' => 'admin'],
-            ['first' => 'Stella', 'last' => 'Quimbo', 'role' => 'staff'],   // Marikina (Appropriations)
         ];
 
         foreach ($congressionalLeaders as $leader) {
