@@ -173,10 +173,6 @@ export default function SaleIndex({
             header: 'Branch',
         },
         {
-            accessorKey: 'payment_type',
-            header: 'Payment',
-        },
-        {
             accessorKey: 'amount_total',
             header: 'Total',
         },

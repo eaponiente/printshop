@@ -8,13 +8,16 @@ class UpdatePurchaseOrderRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()->can('update', $this->user());
+        return $this->user()->can('update', $this->route('purchase_order'));
+
     }
 
     public function rules(): array
     {
         return [
             'status' => ['required'],
+            'due_at' => ['required'],
+            'received_at' => ['required'],
             'po_number' => ['sometimes', 'string'],
             'details' => ['sometimes', 'array'],
             'details.*.quantity' => ['required_with:details', 'integer', 'gte:1'],

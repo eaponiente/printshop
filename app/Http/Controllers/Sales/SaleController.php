@@ -65,12 +65,11 @@ class SaleController extends Controller
             // Logic moved to a transition method on the Model (Encapsulation)
             $transaction->recordPayment($request->amount_paid, $request->payment_type);
 
-            if ($transaction->payment_type === TypeOfPaymentEnum::CASH->value) {
+            if ($request->payment_type === TypeOfPaymentEnum::CASH->value) {
                 app(CashOnHandService::class)->adjustBalance(
                     $transaction->branch_id,
                     $request->amount_paid,
-                    'revenue',
-                    "Payment for Invoice #{$transaction->invoice_number}"
+                    'revenue'
                 );
             }
 

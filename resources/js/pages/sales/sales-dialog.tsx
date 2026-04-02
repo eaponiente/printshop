@@ -1,7 +1,7 @@
-import { Form, useForm } from '@inertiajs/react';
+import { useForm } from '@inertiajs/react';
 import { usePage } from '@inertiajs/react';
 import { Building2, Check, ChevronsUpDown, Loader2, PlusIcon, Search, User } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from "sonner"
 import { route } from 'ziggy-js';
 import InputError from '@/components/input-error';
@@ -18,12 +18,11 @@ import { Label } from "@/components/ui/label"
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea"
+import { cn } from '@/lib/utils';
 import type { Branch } from '@/types/branches';
-import type { TypeOfPayment } from '@/types/settings';
 import type { Transaction } from '@/types/transaction';
 import type { Customer } from '@/types/user';
 import { AddGuestModal } from './components/add-guest-dialog';
-import { cn } from '@/lib/utils';
 
 interface SaleDialogProps {
     open: boolean;

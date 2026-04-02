@@ -3,7 +3,6 @@
 namespace App\Services\Sales;
 
 use App\Models\CashOnHand;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class CashOnHandService
@@ -13,16 +12,13 @@ class CashOnHandService
      *
      * @param  string  $type  'revenue' or 'expense'
      */
-    public function adjustBalance(int $branchId, float $amount, string $type, ?string $remarks = null): void
+    public function adjustBalance(int $branchId, float $amount, string $type): void
     {
-        $date = Carbon::now()->toDateString();
-        $userId = auth()->id();
-
-        DB::transaction(function () use ($branchId, $date, $amount, $type, $remarks, $userId) {
+        DB::transaction(function () use ($branchId, $amount, $type) {
             // 1. Find the record for today or create a base one with 0 amount
             $record = CashOnHand::firstOrCreate(
-                ['branch_id' => $branchId, 'date' => $date],
-                ['amount' => 0, 'user_id' => $userId, 'remarks' => 'Daily initialization']
+                ['branch_id' => $branchId],
+                ['amount' => 0]
             );
 
             // 2. Perform Atomic math
@@ -31,12 +27,6 @@ class CashOnHandService
             } else {
                 $record->decrement('amount', $amount);
             }
-
-            // 3. Update metadata (Who was the last person to touch this today)
-            $record->update([
-                'user_id' => $userId,
-                'remarks' => $remarks ?? $record->remarks,
-            ]);
         });
     }
 }

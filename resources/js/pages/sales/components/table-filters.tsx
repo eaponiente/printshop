@@ -77,6 +77,7 @@ const SalesTableFilters = ({
                         <SelectItem value="daily">Daily</SelectItem>
                         <SelectItem value="weekly">Weekly</SelectItem>
                         <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="yearly">Yearly</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
@@ -116,6 +117,29 @@ const SalesTableFilters = ({
                             }
                             className="w-[180px] bg-white"
                         />
+                    )}
+                    {mode === 'yearly' && (
+                        <select
+                            value={
+                                filters.date
+                                    ? filters.date.substring(0, 4)
+                                    : new Date().getFullYear()
+                            }
+                            onChange={(e) =>
+                                handleFilterChange(e.target.value, 'date')
+                            }
+                            className="h-10 w-[180px] rounded-md border bg-white px-3 py-2 shadow-sm focus:ring-2 focus:ring-ring focus:outline-none"
+                        >
+                            {Array.from({ length: 6 }, (_, i) => {
+                                const year = new Date().getFullYear() - i;
+
+                                return (
+                                    <option key={year} value={year}>
+                                        {year}
+                                    </option>
+                                );
+                            })}
+                        </select>
                     )}
                 </div>
             </div>

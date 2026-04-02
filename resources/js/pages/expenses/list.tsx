@@ -5,12 +5,11 @@ import {
     Pencil,
     Plus,
     Trash2,
-    TrendingUp,
-    Wallet,
     XCircle,
 } from 'lucide-react';
 import React, { useState } from 'react';
 import { toast } from 'sonner';
+import { route } from 'ziggy-js';
 import { DataTable } from '@/components/data-table';
 import {
     AlertDialog,
@@ -25,13 +24,13 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import ExpenseDialog from '@/pages/expenses/expenses-dialog';
 import type { BreadcrumbItem } from '@/types';
 import type { Expense, ExpensesList } from '@/types/expenses';
 import { formatCurrency } from '@/utils/formatters';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { route } from 'ziggy-js';
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Expenses', href: '/expenses' },
@@ -39,7 +38,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function ExpenseIndex({ expenses, branches, payment_methods, expenses_amount, filters }: ExpensesList) {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
-
+    const [mode, setMode] = useState(filters.mode || 'daily');
     const [getExpense, setExpense] = useState<any | null>(null);
     const openEditForm = (expense: Expense | null) => {
         setExpense(expense);
@@ -58,7 +57,7 @@ export default function ExpenseIndex({ expenses, branches, payment_methods, expe
 
     const handleFilterChange = (
         value: string,
-        type: 'payment_type' | 'branch_id',
+        type: 'payment_type' | 'branch_id' | 'date' | 'mode',
     ) => {
         const params = { ...filters };
 
@@ -66,6 +65,11 @@ export default function ExpenseIndex({ expenses, branches, payment_methods, expe
             params.branch_id = value;
         } else if (type === 'payment_type') {
             params.payment_type = value;
+        } else if (type === 'mode') {
+            setMode(value);
+            params.mode = value;
+            // Reset date when switching modes to avoid invalid matches
+            params.date = '';
         }
 
         router.get(`/expenses`, params, {
@@ -225,6 +229,110 @@ export default function ExpenseIndex({ expenses, branches, payment_methods, expe
                                     <SelectItem value="paid">Paid</SelectItem>
                                 </SelectContent>
                             </Select>
+                        </div>
+
+                        {/* Mode Selection */}
+                        <div className="space-y-1.5">
+                            <label className="ml-1 text-xs font-semibold text-muted-foreground uppercase">
+                                Frequency
+                            </label>
+                            <Select
+                                value={mode}
+                                onValueChange={(v) =>
+                                    handleFilterChange(v, 'mode')
+                                }
+                            >
+                                <SelectTrigger className="w-[140px] bg-white">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="daily">Daily</SelectItem>
+                                    <SelectItem value="weekly">
+                                        Weekly
+                                    </SelectItem>
+                                    <SelectItem value="monthly">
+                                        Monthly
+                                    </SelectItem>
+                                    <SelectItem value="yearly">
+                                        Yearly
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Date Selection - Placed directly beside */}
+                        <div className="space-y-1.5">
+                            <label className="ml-1 text-xs font-semibold text-muted-foreground uppercase">
+                                Select {mode}
+                            </label>
+                            <div className="flex items-center gap-2">
+                                {mode === 'daily' && (
+                                    <Input
+                                        type="date"
+                                        value={filters.date || ''}
+                                        onChange={(e) =>
+                                            handleFilterChange(
+                                                e.target.value,
+                                                'date',
+                                            )
+                                        }
+                                        className="w-[180px] bg-white"
+                                    />
+                                )}
+                                {mode === 'weekly' && (
+                                    <Input
+                                        type="week"
+                                        value={filters.date || ''}
+                                        onChange={(e) =>
+                                            handleFilterChange(
+                                                e.target.value,
+                                                'date',
+                                            )
+                                        }
+                                        className="w-[200px] bg-white"
+                                    />
+                                )}
+                                {mode === 'monthly' && (
+                                    <Input
+                                        type="month"
+                                        value={filters.date || ''}
+                                        onChange={(e) =>
+                                            handleFilterChange(
+                                                e.target.value,
+                                                'date',
+                                            )
+                                        }
+                                        className="w-[180px] bg-white"
+                                    />
+                                )}
+                                {mode === 'yearly' && (
+                                    <select
+                                        value={
+                                            filters.date
+                                                ? filters.date.substring(0, 4)
+                                                : new Date().getFullYear()
+                                        }
+                                        onChange={(e) =>
+                                            handleFilterChange(
+                                                e.target.value,
+                                                'date',
+                                            )
+                                        }
+                                        className="h-10 w-[180px] rounded-md border bg-white px-3 py-2 shadow-sm focus:ring-2 focus:ring-ring focus:outline-none"
+                                    >
+                                        {Array.from({ length: 6 }, (_, i) => {
+                                            const year =
+                                                new Date().getFullYear() - i;
+
+                                            return (
+                                                <option key={year} value={year}>
+                                                    {year}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                )}
+                            </div>
                         </div>
 
                         {/* 3. Clear Button (Beside the next filter) */}

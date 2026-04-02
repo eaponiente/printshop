@@ -36,6 +36,7 @@ trait SaleFilterTrait
             'weekly' => $query->whereRaw("YEARWEEK($column, 1) = ?", [str_replace('-W', '', $date)]),
             'monthly' => $query->whereMonth($column, Carbon::parse($date)->month)
                 ->whereYear($column, Carbon::parse($date)->year),
+            'yearly' => $query->whereYear($column, $date), // Added yearly
             default => $query->whereDate($column, now()->toDateString()),
         };
     }

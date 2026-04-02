@@ -4,7 +4,9 @@ namespace Database\Seeders;
 
 use App\Enums\Shared\TypeOfPaymentEnum;
 use App\Models\Branch;
+use App\Models\Expense;
 use App\Models\User;
+use App\Services\Sales\CashOnHandService;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -29,7 +31,7 @@ class ExpenseSeeder extends Seeder
 
             $date = Carbon::now()->subDays(rand(1, 30))->format('Y-m-d');
 
-            DB::table('expenses')->insert([
+            $expense = Expense::create([
                 'description' => $descriptions[array_rand($descriptions)],
                 'vendor_name' => $vendors[array_rand($vendors)],
                 'amount' => $amount,
@@ -43,6 +45,14 @@ class ExpenseSeeder extends Seeder
                 'created_at' => $date,
                 'updated_at' => $date,
             ]);
+
+            if ($expense->payment_type === TypeOfPaymentEnum::CASH->value) {
+                app(CashOnHandService::class)->adjustBalance(
+                    $expense->branch_id,
+                    $expense->amount,
+                    'expense'
+                );
+            }
         }
     }
 }

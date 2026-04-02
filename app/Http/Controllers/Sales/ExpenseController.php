@@ -4,17 +4,17 @@ namespace App\Http\Controllers\Sales;
 
 use App\Enums\Shared\TypeOfPaymentEnum;
 use App\Http\Controllers\Controller;
-use App\Models\Branch;
-use App\Models\Expense;
-use App\Services\Sales\CashOnHandService;
 use App\Http\Requests\Sales\StoreExpenseRequest;
 use App\Http\Requests\Sales\UpdateExpenseRequest;
+use App\Models\Branch;
+use App\Models\Expense;
 use App\Services\Files\FileUploadService;
+use App\Services\Sales\CashOnHandService;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -37,7 +37,7 @@ class ExpenseController extends Controller
             'filters' => $request->all(),
             'expenses_amount' => $query->sum('amount'),
             'expenses' => $query->paginate(30)->withQueryString(),
-            'branches' => Branch::all(),
+            'branches' => Branch::accessibleBy(auth()->user())->get(['id', 'name']),
             'payment_methods' => TypeOfPaymentEnum::map(),
         ]);
     }
@@ -61,15 +61,15 @@ class ExpenseController extends Controller
                     app(CashOnHandService::class)->adjustBalance(
                         $expense->branch_id,
                         $expense->amount,
-                        'expense',
-                        "Expense: {$expense->description}"
+                        'expense'
                     );
                 }
             });
 
             return back()->with('success', 'Expense created successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to create expense: ' . $e->getMessage());
+            Log::error('Failed to create expense: '.$e->getMessage());
+
             return back()->withErrors(['error' => 'An error occurred while creating the expense.']);
         }
     }
@@ -91,7 +91,8 @@ class ExpenseController extends Controller
 
             return back()->with('success', 'Expense updated successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to update expense: ' . $e->getMessage());
+            Log::error('Failed to update expense: '.$e->getMessage());
+
             return back()->withErrors(['error' => 'An error occurred while updating the expense.']);
         }
     }
@@ -106,7 +107,8 @@ class ExpenseController extends Controller
 
             return back()->with('success', 'Expense deleted successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to delete expense: ' . $e->getMessage());
+            Log::error('Failed to delete expense: '.$e->getMessage());
+
             return back()->withErrors(['error' => 'An error occurred while deleting the expense.']);
         }
     }

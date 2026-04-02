@@ -163,6 +163,12 @@ export default function SublimationDialog({
                     <div className="grid grid-cols-2 gap-4">
                         {/* Customer Search */}
                         <div className="grid gap-2">
+                            <input
+                                type="hidden"
+                                name="customer_id"
+                                defaultValue={data?.customer_id ?? ''}
+                            />
+
                             <Label>Customer</Label>
                             <Popover
                                 open={searchOpen}
@@ -275,28 +281,31 @@ export default function SublimationDialog({
                         )}
 
                         {/* Status */}
-                        <div className="grid gap-2">
-                            <Label htmlFor="status">Status</Label>
-                            <NativeSelect
-                                value={data.status}
-                                onChange={(e) =>
-                                    setData('status', e.target.value as any)
-                                }
-                            >
-                                <NativeSelectOption value="">
-                                    Select staff
-                                </NativeSelectOption>
-                                {statuses.map((u) => (
-                                    <NativeSelectOption
-                                        key={u.key}
-                                        value={u.key}
-                                    >
-                                        {u.value}
+                        {!isEdit && (
+                            <div className="grid gap-2">
+                                <Label htmlFor="status">Status</Label>
+                                <NativeSelect
+                                    value={data.status}
+                                    onChange={(e) =>
+                                        setData('status', e.target.value as any)
+                                    }
+                                >
+                                    <NativeSelectOption value="">
+                                        Select status
                                     </NativeSelectOption>
-                                ))}
-                            </NativeSelect>
-                            <InputError message={errors.status} />
-                        </div>
+                                    {statuses.map((u) => (
+                                        <NativeSelectOption
+                                            key={u.key}
+                                            value={u.key}
+                                        >
+                                            {u.value}
+                                        </NativeSelectOption>
+                                    ))}
+                                </NativeSelect>
+                                <InputError message={errors.status} />
+                            </div>
+                        )}
+
 
                         {!isEdit && (
                             <div className="grid gap-2">

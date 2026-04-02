@@ -29,6 +29,21 @@ class SublimationController extends Controller
             $q->where('branch_id', $request->branch_id);
         });
 
+        $filters = $request->all();
+
+        $query->where(function ($query) use ($filters) {
+            $user = auth()->user();
+            $filterId = $filters['branch_id'] ?? null;
+
+            if ($user->role !== 'superadmin') {
+                // Non-admins are FORCED to their branch, regardless of the filter
+                $query->where('branch_id', $user->branch_id);
+            } elseif ($filterId && $filterId !== 'all') {
+                // Superadmins only get a WHERE clause if they picked a specific branch
+                $query->where('branch_id', $filterId);
+            }
+        });
+
         $query->when($request->filled('status') && $request->status !== 'all', function ($q) use ($request) {
             $q->where('status', $request->status);
         });

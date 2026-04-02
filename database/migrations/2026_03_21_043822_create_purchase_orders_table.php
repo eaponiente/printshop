@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\PurchaseOrders\PurchaseOrderStatus;
 use App\Enums\Shared\TypeOfPaymentEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -20,13 +21,11 @@ return new class extends Migration
             $table->text('description')->nullable();
 
             // Status
-            $table->enum('status', ['pending', 'active', 'finished', 'released'])->default('pending');
+            $table->enum('status', PurchaseOrderStatus::cases())->default('pending');
 
             // Relationships
             $table->foreignId('branch_id')->constrained()->onDelete('cascade');
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
-            $table->enum('payment_type', TypeOfPaymentEnum::cases())->nullable(); // e.g., 'Credit Card', 'Cash'
-
 
             // Financial Summary (Total of all details)
             $table->decimal('grand_total', 12, 2)->default(0);

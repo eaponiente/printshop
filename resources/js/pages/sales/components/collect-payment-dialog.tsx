@@ -35,7 +35,7 @@ export default function PaymentDialog({ open, setOpen, transaction, typesOfPayme
     const { data, setData, patch, processing, errors, reset } = useForm({
         amount_paid: transaction.balance ?? 0,
         status: transaction.status ?? 'pending',
-        payment_type: transaction.payment_type ?? '',
+        payment_type: '',
     });
 
     const submit = (e: React.FormEvent) => {
@@ -98,6 +98,27 @@ export default function PaymentDialog({ open, setOpen, transaction, typesOfPayme
                             </div>
                         </div>
                     </div>
+
+                    {/* Show payment history if any exists */}
+                    {transaction.payments && transaction.payments.length > 0 && (
+                        <div className="border-t border-border/30 pt-3">
+                            <Label className="text-[10px] tracking-widest text-muted-foreground uppercase">
+                                Payment History
+                            </Label>
+                            <div className="mt-1.5 space-y-1.5">
+                                {transaction.payments.map((payment: any) => (
+                                    <div key={payment.id} className="flex justify-between text-xs items-center bg-background/50 p-1.5 rounded-md border border-border/40">
+                                        <div className="flex gap-2">
+                                            <span className="font-medium text-foreground capitalize">{payment.payment_type || 'Unknown'}</span>
+                                        </div>
+                                        <div className="font-mono text-green-600 dark:text-green-400 font-medium">
+                                            {formatCurrency(payment.amount)}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <form onSubmit={submit} className="space-y-5">

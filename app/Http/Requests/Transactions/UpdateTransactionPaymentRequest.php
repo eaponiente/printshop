@@ -34,7 +34,7 @@ class UpdateTransactionPaymentRequest extends FormRequest
             'amount_paid' => [
                 'required',
                 'numeric',
-                'min:0',
+                'min:1',
                 'lte:'.$transaction->amount_total,
             ],
 

@@ -5,6 +5,7 @@ namespace App\Services\Sales;
 use App\Models\Customer;
 use App\Models\Expense;
 use App\Models\Transaction;
+use App\Models\Payment;
 use App\Models\CashOnHand;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -14,21 +15,24 @@ class SalesService
     public function getTransactionQuery(array $filters): Builder
     {
         return Transaction::query()
-            ->with(['user:id,first_name,last_name', 'branch:id,name', 'customer'])
+            ->with(['user:id,first_name,last_name', 'branch:id,name', 'customer', 'payments'])
             ->filtered($filters)
             ->when($filters['status'] ?? null, fn ($q, $s) => $s !== 'all' ? $q->where('status', $s) : $q)
-            ->when($filters['payment_type'] ?? null, fn ($q, $s) => $s !== 'all' ? $q->where('payment_type', $s) : $q)
+            ->when($filters['payment_type'] ?? null, function ($q, $s) {
+                if ($s !== 'all') {
+                    $q->whereHas('payments', fn ($sq) => $sq->where('payment_type', $s));
+                }
+            })
             ->latest('transaction_date');
     }
 
     public function getPaymentAggregates(Builder $query): array
     {
-        // Run an optimized grouped query to avoid executing 6 separate DB queries
-        $totals = (clone $query)
-            ->without(['user', 'branch', 'customer'])
-            ->reorder()
-            ->select('payment_type', DB::raw('SUM(amount_paid) as total'))
-            ->groupBy('payment_type')
+        // Join the payments table natively against the filtered transactions query
+        $totals = Payment::query()
+            ->joinSub((clone $query)->select('transactions.id')->reorder(), 't', 'payments.transaction_id', '=', 't.id')
+            ->select('payments.payment_type', DB::raw('SUM(payments.amount) as total'))
+            ->groupBy('payments.payment_type')
             ->pluck('total', 'payment_type')
             ->toArray();
 

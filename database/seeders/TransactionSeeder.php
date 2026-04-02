@@ -2,10 +2,12 @@
 
 namespace Database\Seeders;
 
+use App\Enums\Shared\TypeOfPaymentEnum;
 use App\Models\Branch;
 use App\Models\Customer;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\Sales\CashOnHandService;
 use Illuminate\Database\Seeder;
 
 class TransactionSeeder extends Seeder
@@ -71,7 +73,7 @@ class TransactionSeeder extends Seeder
             // Grab a single staff object from the collection
             $staff = $staffMembers->random();
 
-            Transaction::create([
+            $transaction = Transaction::create([
                 'invoice_number' => 'INV-'.date('Y').'-'.str_pad($i + 1000, 6, '0', STR_PAD_LEFT),
                 'customer_id' => $customerIds->random(),
                 'particular' => $service['name'],
@@ -86,6 +88,18 @@ class TransactionSeeder extends Seeder
                 'fulfilled_at' => $status === 'paid' ? now()->subMinutes(rand(1, 1000)) : null,
                 'change_reason' => $status === 'partial' ? 'Guest promised to pay balance upon checkout.' : null,
             ]);
+
+            if(in_array($status, ['partial', 'paid']) ) {
+                $transaction->recordPayment($transaction->amount_paid, $transaction->payment_type);
+            }
+
+            if ($transaction->payment_type === TypeOfPaymentEnum::CASH->value) {
+                app(CashOnHandService::class)->adjustBalance(
+                    $transaction->branch_id,
+                    $transaction->amount_paid,
+                    'revenue'
+                );
+            }
         }
     }
 }

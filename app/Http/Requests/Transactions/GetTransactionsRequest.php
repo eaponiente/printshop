@@ -24,7 +24,7 @@ class GetTransactionsRequest extends FormRequest
     {
         return [
             'date' => 'nullable|string',
-            'mode' => 'nullable|in:daily,weekly,monthly',
+            'mode' => 'nullable|in:daily,weekly,monthly,yearly',
             'status' => 'nullable|string',
             'search' => 'nullable|string',
             'branch_id' => 'nullable',

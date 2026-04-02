@@ -49,7 +49,8 @@ class PurchaseOrderController extends Controller
                     'po_number' => $validated['po_number'],
                     'branch_id' => $validated['branch_id'],
                     'user_id' => auth()->id(),
-                    'received_at' => now(),
+                    'received_at' => $validated['received_at'],
+                    'due_at' => $validated['due_at'],
                     'grand_total' => $grandTotal,
                 ]);
 
@@ -66,8 +67,6 @@ class PurchaseOrderController extends Controller
 
     public function update(UpdatePurchaseOrderRequest $request, PurchaseOrder $purchaseOrder): RedirectResponse
     {
-        $this->authorize('update', auth()->user());
-
         try {
             DB::transaction(function () use ($request, $purchaseOrder) {
                 if ($request->has('details')) {
@@ -81,7 +80,7 @@ class PurchaseOrderController extends Controller
                     $purchaseOrder->grand_total = $grandTotal;
                 }
 
-                $purchaseOrder->status = $request->status;
+                $purchaseOrder->update($request->except('details'));
                 $purchaseOrder->save();
             });
 

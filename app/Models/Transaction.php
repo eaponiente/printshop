@@ -33,6 +33,11 @@ class Transaction extends Model
         return $this->belongsTo(Branch::class, 'branch_id');
     }
 
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
+    }
+
     /**
      * Generate a unique invoice number.
      * Format: INV-2026-0001
@@ -81,9 +86,15 @@ class Transaction extends Model
                 $status = TransactionStatus::PENDING;
             }
 
-            // 4. Update the record
-            $this->update([
+            // 4. Create the split payment record
+            $this->payments()->create([
+                'amount' => $paymentAmount,
                 'payment_type' => $paymentType,
+                'staff_id' => auth()->id(),
+            ]);
+
+            // 5. Update the parent transaction record
+            $this->update([
                 'amount_paid' => $newTotalPaid,
                 'status' => $status,
                 'fulfilled_at' => $fulfilledAt,

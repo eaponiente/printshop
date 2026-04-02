@@ -90,7 +90,7 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
         },
         {
             accessorKey: 'received_at',
-            header: 'Ordered At',
+            header: 'Received At',
         },
         {
             header: 'Actions',

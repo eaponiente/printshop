@@ -8,13 +8,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class PurchaseOrder extends Model
 {
-    use HasFactory, SoftDeletes;
+    use SoftDeletes;
 
     protected $guarded = ['id'];
-
-    protected $casts = [
-        'received_at' => 'datetime:M d Y',
-    ];
 
     public function details()
     {

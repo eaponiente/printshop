@@ -21,8 +21,11 @@ class UserController extends Controller
     public function index(Request $request): Response
     {
         return Inertia::render('users/list', [
-            'branches' => Branch::get(),
+            'branches' => Branch::accessibleBy(auth()->user())->get(['id', 'name']),
             'users' => User::with('branch')
+                ->when(auth()->user()->role !== 'superadmin', function ($q) use ($request) {
+                    $q->where('branch_id', auth()->user()->branch_id);
+                })
                 ->whereIn('role', ['staff', 'admin'])->get(),
         ]);
     }

@@ -36,13 +36,18 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches, st
 
     const { auth } = usePage().props;
 
+    console.log(order);
+
     // 1. Initialize useForm with v2.0 standards
     const { data, setData, post, put, processing, errors, reset } = useForm({
         po_number: order?.po_number ?? '',
         branch_id: order?.branch_id ?? auth.user.branch_id,
         status: order?.status ?? '',
-        due_at: order?.due_at ?? '',
-        received_at: order?.received_at ?? format(new Date(), 'yyyy-MM-dd'),
+        due_at: order?.due_at ? format(new Date(order.due_at), 'yyyy-MM-dd') : '',
+        received_at: format(
+            order?.received_at ? new Date(order.received_at) : new Date(),
+            'yyyy-MM-dd',
+        ),
         details: order?.details ?? [
             { item_name: '', quantity: 1, unit_price: 0 },
         ],
@@ -148,14 +153,18 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches, st
                                     <NativeSelectOption value="">
                                         Select status
                                     </NativeSelectOption>
-                                    {statuses.map((status: PurchaseOrderStatus) => (
-                                        <NativeSelectOption
-                                            key={status.key}
-                                            value={status.key}
-                                        >
-                                            {capitalizeFirstLetter(status.value)}
-                                        </NativeSelectOption>
-                                    ))}
+                                    {statuses.map(
+                                        (status: PurchaseOrderStatus) => (
+                                            <NativeSelectOption
+                                                key={status.key}
+                                                value={status.key}
+                                            >
+                                                {capitalizeFirstLetter(
+                                                    status.value,
+                                                )}
+                                            </NativeSelectOption>
+                                        ),
+                                    )}
                                 </NativeSelect>
                                 <InputError message={errors.status} />
                             </div>
@@ -173,7 +182,7 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches, st
                                     setData('received_at', e.target.value)
                                 }
                             />
-                            <InputError message={errors.due_at} />
+                            <InputError message={errors.received_at} />
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="due_at">Due</Label>
