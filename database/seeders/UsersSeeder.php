@@ -26,6 +26,9 @@ class UsersSeeder extends Seeder
             ]
         );
 
+        if (app()->environment('production')) {
+            return;
+        }
         // 3. Create 4 Staff and 4 Admins (1 for each branch)
         foreach (['babak', 'penaplata', 'malita', 'tibungco'] as $key => $name) {
 

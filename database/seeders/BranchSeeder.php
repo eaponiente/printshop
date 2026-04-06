@@ -20,8 +20,9 @@ class BranchSeeder extends Seeder
         ];
 
         foreach ($branches as $branch) {
-            // Using Branch::create ensures timestamps are handled automatically
-            Branch::create($branch);
+            // This looks for a branch with the same name.
+            // If found, it does nothing. If not found, it creates it.
+            Branch::firstOrCreate(['name' => $branch['name']]);
         }
     }
 }
