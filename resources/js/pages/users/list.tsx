@@ -54,6 +54,10 @@ export default function UserIndex({ users, branches }: UsersList) {
             header: 'First Name',
         },
         {
+            accessorKey: 'role',
+            header: 'Role',
+        },
+        {
             header: 'Actions',
             cell: ({ row }: CellContext<any, any>) => {
                 return (

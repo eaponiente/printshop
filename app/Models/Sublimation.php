@@ -72,8 +72,7 @@ class Sublimation extends Model
         // 3. If moving into Production (Sizing, Printing, Sewing, etc.)
         if ($targetStatus->isProductionPhase()) {
             // Must have reached 'Downpayment Complete' OR have a payment record
-            return $this->status === SublimationStatus::DOWNPAYMENT_COMPLETE
-                || $this->transaction?->payments()->exists();
+            return $this->status === SublimationStatus::DOWNPAYMENT_COMPLETE;
         }
 
         return true;

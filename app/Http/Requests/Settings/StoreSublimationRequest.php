@@ -20,12 +20,10 @@ class StoreSublimationRequest extends FormRequest
             'branch_id' => ['required', 'exists:branches,id'],
             'customer_id' => ['required', 'exists:customers,id'],
             'user_id' => ['required', 'exists:users,id'],
-            'status' => ['required', Rule::in(SublimationStatus::cases())],
             'due_at' => ['required', 'date'],
             // Financials (numeric handles decimal input; gte:0 prevents negative numbers)
             'amount_total' => 'required|numeric|min:0|max:99999999.99',
-            // amount_paid must not be greater than amount_total
-            'amount_paid' => 'required|numeric|min:0|max:99999999.99|lte:amount_total',
+            'notes' => 'nullable|string',
         ];
     }
 }

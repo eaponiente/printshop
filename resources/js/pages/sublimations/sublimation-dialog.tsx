@@ -1,12 +1,11 @@
 import { useForm, usePage } from '@inertiajs/react';
-import { ChevronsUpDown } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect } from 'react';
 import { toast } from 'sonner';
 import { route } from 'ziggy-js';
 import InputError from '@/components/input-error';
+import SearchCustomersField from '@/components/shared/search-customers-field';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import {
     Dialog,
     DialogContent,
@@ -16,22 +15,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
-import { AddGuestModal } from '@/pages/sales/components/add-guest-dialog';
 import type { Branch } from '@/types/branches';
 import type { Sublimation, SublimationStatus } from '@/types/sublimations';
-import type { Customer, User } from '@/types/user';
-
-function debounce<T extends (...args: any[]) => any>(fn: T, delay: number) {
-    let timeoutId: ReturnType<typeof setTimeout>;
-
-    return function (...args: Parameters<T>) {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => fn(...args), delay);
-    };
-}
+import type { User } from '@/types/user';
+import { submitFormOptions } from '@/components/shared/submit-form-options';
 
 interface SublimationDialogProps {
     open: boolean;
@@ -69,48 +58,6 @@ export default function SublimationDialog({
             : '',
     });
 
-    const [showAddCustomer, setShowAddCustomer] = useState(false);
-    const [customers, setCustomers] = useState<Customer[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [searchOpen, setSearchOpen] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [displayName, setDisplayName] = useState(
-        sublimation?.customer
-            ? `${sublimation.customer.first_name} ${sublimation.customer.last_name}`
-            : '',
-    );
-
-    const fetchCustomers = async (query = '') => {
-        setIsLoading(true);
-
-        try {
-            const response = await fetch(route('api.customers.index'));
-            const result = await response.json();
-            setCustomers(result);
-        } catch (e) {
-            console.error('Search failed', e);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const debouncedSearch = useMemo(
-        () => debounce((val: string) => fetchCustomers(val), 400),
-        [],
-    );
-
-    useEffect(() => {
-        if (open) {
-            fetchCustomers();
-        }
-    }, [open]);
-
-    const handleCustomerSelect = (id: number, name: string) => {
-        setData('customer_id', id as any);
-        setDisplayName(name);
-        setSearchOpen(false);
-    };
-
     // Automatically uncheck/reset if the transaction type changes to PO
     useEffect(() => {
         if (data.transaction_type === 'purchase_order') {
@@ -121,26 +68,12 @@ export default function SublimationDialog({
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        const options = {
-            onSuccess: () => {
-                toast.success(
-                    isEdit ? 'Sublimation updated' : 'Sublimation created',
-                );
-                setOpen(false);
-
-                if (!isEdit) {
-                    reset();
-                }
-            },
-            onError: (errors: any) => {
-                // Check if the specific 'message' error from the backend exists
-                if (errors.message) {
-                    toast.error(errors.message);
-                } else {
-                    toast.error('Please check the form for errors.');
-                }
-            },
-        };
+        const options = submitFormOptions({
+            isEdit,
+            resourceName: 'Sublimation',
+            onSuccess: () => setOpen(false),
+            reset
+        });
 
         if (isEdit) {
             put(route('sublimations.update', sublimation.id), options);
@@ -197,90 +130,13 @@ export default function SublimationDialog({
 
                         <div className="grid grid-cols-2 gap-4">
                             {/* Customer Search */}
-                            <div className="grid gap-2">
-                                <input
-                                    type="hidden"
-                                    name="customer_id"
-                                    defaultValue={data?.customer_id ?? ''}
-                                />
-                                <Label>Customer</Label>
-
-                                <Popover
-                                    open={searchOpen}
-                                    onOpenChange={setSearchOpen}
-                                >
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            className="w-full justify-between"
-                                        >
-                                            {displayName ||
-                                                'Select customer...'}
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
-                                        </Button>
-                                    </PopoverTrigger>
-
-                                    <PopoverContent
-                                        className="w-[300px] p-0"
-                                        align="start"
-                                    >
-                                        <Command shouldFilter={false}>
-                                            <CommandInput
-                                                placeholder="Search customer..."
-                                                onValueChange={(value) => {
-                                                    setSearchQuery(value); // Capture the typed text
-                                                    debouncedSearch(value); // Keep your existing debounced logic
-                                                }}
-                                            />
-                                            <CommandList>
-                                                {isLoading && (
-                                                    <div className="p-4 text-center text-sm">
-                                                        Searching...
-                                                    </div>
-                                                )}
-
-                                                <CommandEmpty className="p-2">
-                                                    <p className="mb-2 text-center text-sm">
-                                                        No customers found.
-                                                    </p>
-                                                    <Button
-                                                        variant="secondary"
-                                                        className="w-full text-xs"
-                                                        onClick={() => {
-                                                            setSearchOpen(
-                                                                false,
-                                                            ); // Close search dropdown
-                                                            setShowAddCustomer(
-                                                                true,
-                                                            ); // Open your "Create Customer" dialog
-                                                        }}
-                                                    >
-                                                        + Add New Customer
-                                                    </Button>
-                                                </CommandEmpty>
-
-                                                <CommandGroup>
-                                                    {customers.map((c) => (
-                                                        <CommandItem
-                                                            key={c.id}
-                                                            onSelect={() =>
-                                                                handleCustomerSelect(
-                                                                    c.id,
-                                                                    `${c.first_name} ${c.last_name}`,
-                                                                )
-                                                            }
-                                                        >
-                                                            {c.first_name}{' '}
-                                                            {c.last_name}
-                                                        </CommandItem>
-                                                    ))}
-                                                </CommandGroup>
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
-                                <InputError message={errors.customer_id} />
-                            </div>
+                            <SearchCustomersField
+                                field={sublimation}
+                                selectCustomer={(id: any) =>
+                                    setData('customer_id', id)
+                                }
+                                errors={errors}
+                            />
 
                             {/* Branch */}
                             <div className="grid gap-2">
@@ -504,18 +360,6 @@ export default function SublimationDialog({
                     </form>
                 </DialogContent>
             </Dialog>
-
-            <AddGuestModal
-                open={showAddCustomer}
-                setOpen={setShowAddCustomer}
-                searchQuery={searchQuery}
-                onCustomerCreated={(newCustomer: Customer) =>
-                    handleCustomerSelect(
-                        newCustomer.id,
-                        `${newCustomer.first_name} ${newCustomer.last_name}`,
-                    )
-                }
-            />
         </>
     );
 }

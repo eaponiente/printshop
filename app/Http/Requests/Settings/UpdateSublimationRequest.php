@@ -10,13 +10,14 @@ class UpdateSublimationRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()->can('update', $this->user());
+        return true;
     }
 
     public function rules(): array
     {
         return [
             'description' => ['required', 'string'],
+            'notes' => ['nullable', 'string'],
             'branch_id' => ['required', 'exists:branches,id'],
             'customer_id' => ['required', 'exists:customers,id'],
             'user_id' => ['required', 'exists:users,id'],

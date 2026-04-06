@@ -90,6 +90,9 @@ enum SublimationStatus: string
             self::SEWING,
             self::SEWED,
             self::CHECKED,
+            self::READY_FOR_PICKUP,
+            self::CLAIMED,
+            self::COMPLETED,
         ]);
     }
 }

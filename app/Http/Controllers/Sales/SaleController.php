@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Sales;
 
+use App\Enums\Sales\TransactionStatus;
 use App\Enums\Shared\TypeOfPaymentEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Transactions\GetTransactionsRequest;
 use App\Http\Requests\Transactions\StoreTransactionRequest;
 use App\Http\Requests\Transactions\UpdateTransactionPaymentRequest;
+use App\Http\Requests\Transactions\UpdateTransactionRequest;
 use App\Models\Branch;
 use App\Models\Transaction;
 use App\Services\Sales\CashOnHandService;
@@ -57,6 +59,25 @@ class SaleController extends Controller
 
             return back()->withErrors(['error' => 'An error occurred while creating the sale.']);
         }
+    }
+
+    public function update(UpdateTransactionRequest $request, Transaction $sale)
+    {
+        // 1. Fill the model with the validated data (in-memory only)
+        $sale->fill($request->validated());
+
+        // 2. Check if 'amount_total' was actually changed to a new value
+        if ($sale->isDirty('amount_total')) {
+
+            // Custom logic: e.g., only allow change if status is pending
+            if ($sale->getOriginal('status') !== TransactionStatus::PENDING) {
+                return back()->withErrors(['message' => 'Cannot change amount on processed sales.']);
+            }
+        }
+
+        $sale->save();
+
+        return back()->with('success', 'Sale updated successfully.');
     }
 
     public function updatePayment(UpdateTransactionPaymentRequest $request, Transaction $transaction): RedirectResponse

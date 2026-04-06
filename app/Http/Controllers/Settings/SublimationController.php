@@ -114,18 +114,15 @@ class SublimationController extends Controller
 
     public function update(UpdateSublimationRequest $request, Sublimation $sublimation): RedirectResponse
     {
-        $this->authorize('update', auth()->user());
-
         $newStatus = SublimationStatus::from($request->status);
 
-        // ENFORCE THE BUSINESS RULE
-        if (! $sublimation->canMoveTo($newStatus)) {
-            return back()->withErrors([
-                'message' => "Cannot move to '{$newStatus->value}'. Please settle the Downpayment or select 'Purchase Order' / 'Authorize Production' first.",
-            ]);
-        }
         try {
-
+            // ENFORCE THE BUSINESS RULE
+            if (! $sublimation->canMoveTo($newStatus)) {
+                return back()->withErrors([
+                    'message' => "Cannot move to '{$newStatus->value}'. Please settle the downpayment or select 'Purchase Order' / 'Authorize Production' first.",
+                ]);
+            }
 
             $sublimation->update($request->validated());
 

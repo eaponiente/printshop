@@ -135,7 +135,7 @@ export default function SublimationIndex({
                 return (
                     <div className="flex items-center gap-2">
                         <Link
-                            href={route('sales.index', { search: transaction.invoice_number, mode: 'yearly' })}
+                            href={route('sales.index', { search: transaction?.invoice_number, mode: 'yearly' })}
                             className={`font-medium ${isRecent ? 'text-green-700' : 'text-indigo-600'} hover:underline`}
                         >
                             {customer.full_name}

@@ -40,7 +40,8 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('customers', CustomerController::class);
 
     Route::patch('sales/payment/{transaction}', [SaleController::class, 'updatePayment'])->name('sales.update-payment');
-    Route::resource('sales', SaleController::class)->only(['index', 'store', 'update']);
+    Route::resource('sales', SaleController::class)
+        ->only(['index', 'store', 'update']);
     Route::resource('purchase-orders', PurchaseOrderController::class);
     Route::resource('endorsements', EndorsementController::class);
     Route::resource('expenses', ExpenseController::class);

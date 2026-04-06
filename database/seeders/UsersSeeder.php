@@ -14,69 +14,44 @@ class UsersSeeder extends Seeder
      */
     public function run(): void
     {
-        $branches = Branch::pluck('id');
-
-        if ($branches->isEmpty()) {
-            $this->command->warn('No branches found. Please seed branches before users.');
-
-            return;
-        }
-
-        // 1. Fixed Super Admin (The "Speaker" of the System)
-        User::create([
-            'first_name' => 'Jacob',
-            'last_name' => 'Elemento',
-            'username' => 'superadmin',
-            'password' => Hash::make('password'),
-            'role' => 'superadmin',
-        ]);
-
-        // 1. Fixed Super Admin (The "Speaker" of the System)
-        User::create([
-            'first_name' => 'Edgar',
-            'last_name' => 'Poniente',
-            'username' => 'staff',
-            'password' => Hash::make('password'),
-            'role' => 'staff',
-            'branch_id' => $branches->random(),
-        ]);
-
-        User::create([
-            'first_name' => 'Stone Cold',
-            'last_name' => 'Steve Austin',
-            'username' => 'admin',
-            'password' => Hash::make('password'),
-            'role' => 'admin',
-            'branch_id' => $branches->random(),
-        ]);
-
-        // 2. The Prosecution Panel & Key Complainants
-        // Data based on the House Prosecution Team and lead signatories
-        $congressionalLeaders = [
-            ['first' => 'Zaldy', 'last' => 'Co', 'role' => 'staff'], // 1-Rider (Prosecutor)
-            ['first' => 'Gerville', 'last' => 'Luistro', 'role' => 'admin'], // Batangas (Prosecutor)
-            ['first' => 'Joel', 'last' => 'Chua', 'role' => 'admin', 'branch_id' => 3],       // Manila (Good Gov Chair)
-            ['first' => 'Jude', 'last' => 'Acidre', 'role' => 'staff', 'branch_id' => 2], // Ako Bicol (Prosecutor)
-            ['first' => 'Zia Alonto', 'last' => 'Adiong', 'role' => 'staff', 'branch_id' => 1], // Lanao del Sur
-            ['first' => 'Terry', 'last' => 'Ridon', 'role' => 'admin', 'branch_id' => 4],
-        ];
-
-        foreach ($congressionalLeaders as $leader) {
-            $firstName = $leader['first'];
-            $lastName = $leader['last'];
-
-            // Clean username generation: "m.libanan"
-            $username = strtolower(substr($firstName, 0, 1).'.'.str_replace(' ', '', $lastName));
-
-            User::create([
-                'first_name' => $firstName,
-                'last_name' => $lastName,
-                'username' => $username,
+        // 2. Create 1 Super Admin
+        User::updateOrCreate(
+            ['username' => 'superadmin'],
+            [
+                'first_name' => 'Jacob',
+                'last_name' => 'Elemento',
                 'password' => Hash::make('password'),
-                'role' => $leader['role'],
-                'branch_id' => $leader['branch_id'] ?? $branches->random(),
-                'created_at' => now()->subMonths(rand(1, 6)),
-            ]);
+                'role' => 'superadmin',
+                'branch_id' => null, // Super admins usually aren't tied to a branch
+            ]
+        );
+
+        // 3. Create 4 Staff and 4 Admins (1 for each branch)
+        foreach (['babak', 'penaplata', 'malita', 'tibungco'] as $key => $name) {
+
+            // Create Staff for this branch
+            User::updateOrCreate(
+                ['username' => "{$name}_staff"],
+                [
+                    'first_name' => fake()->firstName,
+                    'last_name' => 'Staff',
+                    'password' => Hash::make('password'),
+                    'role' => 'staff',
+                    'branch_id' => $key + 1,
+                ]
+            );
+
+            // Create Admin for this branch
+            User::updateOrCreate(
+                ['username' => "{$name}_admin"],
+                [
+                    'first_name' => fake()->firstName,
+                    'last_name' => 'Admin',
+                    'password' => Hash::make('password'),
+                    'role' => 'admin',
+                    'branch_id' => $key + 1,
+                ]
+            );
         }
     }
 }

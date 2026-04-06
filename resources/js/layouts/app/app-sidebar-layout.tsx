@@ -16,7 +16,7 @@ export default function AppSidebarLayout({
             <AppContent variant="sidebar" className="overflow-x-hidden">
                 <AppSidebarHeader breadcrumbs={breadcrumbs} />
                 {children}
-                <Toaster toastOptions={
+                <Toaster closeButton toastOptions={
                     {
                         classNames: {
                             toast: 'bg-blue-500', // Default background for all toasts

@@ -19,14 +19,7 @@ class TransactionSeeder extends Seeder
 
         // We get the collection of staff/admins
         $staffMembers = User::whereIn('role', ['staff', 'admin'])
-            ->select(['id', 'branch_id'])
             ->get();
-
-        if ($staffMembers->isEmpty()) {
-            $this->command->error('No staff members found. Please seed users first.');
-
-            return;
-        }
 
         $services = [
             ['name' => 'Room Accommodation', 'desc' => 'Deluxe Suite - 2 Nights Stay'],
