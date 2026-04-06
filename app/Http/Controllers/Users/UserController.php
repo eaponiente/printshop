@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Users;
 
+use App\Enums\Sales\TransactionStatus;
+use App\Enums\Sublimations\SublimationStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Users\StoreUserRequest;
 use App\Http\Requests\Users\UpdateUserRequest;
@@ -20,13 +22,15 @@ class UserController extends Controller
 
     public function index(Request $request): Response
     {
+        $users = User::query()->with('branch')
+            ->whereIn('role', ['staff', 'admin'])
+            ->when(auth()->user()->role !== 'superadmin', function ($q) {
+                $q->where('branch_id', auth()->user()->branch_id);
+            });
+
         return Inertia::render('users/list', [
             'branches' => Branch::accessibleBy(auth()->user())->get(['id', 'name']),
-            'users' => User::with('branch')
-                ->when(auth()->user()->role !== 'superadmin', function ($q) use ($request) {
-                    $q->where('branch_id', auth()->user()->branch_id);
-                })
-                ->whereIn('role', ['staff', 'admin'])->get(),
+            'users' => $users->paginate()->withQueryString(),
         ]);
     }
 
@@ -76,13 +80,22 @@ class UserController extends Controller
         $this->authorize('delete', auth()->user());
 
         try {
+            // throw exception if user transactions (where status is not paid) or sublimations (status is not completed) > 0
+            if ($user->transactions()->where('status', '!=', TransactionStatus::PAID)->count() > 0 ||
+                $user->sublimations()->where('status', '!=', SublimationStatus::COMPLETED->value)->count() > 0) {
+                throw new \Exception('User has active transactions or sublimations');
+            }
+
             $user->delete();
 
             return redirect()->back()->with('success', 'User deleted successfully.');
         } catch (\Exception $e) {
             Log::error('Failed to delete user: '.$e->getMessage());
 
-            return redirect()->back()->withErrors(['error' => 'An error occurred while deleting the user.']);
+            return redirect()->back()->withErrors([
+                'message' => $e->getMessage(),
+                'error' => 'An error occurred while deleting the user.'
+            ]);
         }
     }
 }

@@ -52,7 +52,7 @@ export default function SaleDialog({ open, setOpen, transaction, branches }: Sal
     // 1. Initialize useForm with conditional data
     const { data, setData, post, put, processing, errors, reset } = useForm({
         customer_id: transaction?.customer_id || '',
-        branch_id: transaction?.branch_id || auth.user.branch_id || '',
+        branch_id: transaction?.branch_id ?? auth.user?.branch_id ?? '',
         particular: transaction?.particular || '',
         description: transaction?.description || '',
         status: transaction?.status || 'pending',
@@ -315,6 +315,7 @@ export default function SaleDialog({ open, setOpen, transaction, branches }: Sal
             <AddGuestModal
                 open={showAddCustomer}
                 setOpen={setShowAddCustomer}
+                searchQuery={searchQuery}
                 onCustomerCreated={(newCustomer: Customer) => handleCustomerSelect(newCustomer.id, `${newCustomer.first_name} ${newCustomer.last_name}`)}
             />
         </>

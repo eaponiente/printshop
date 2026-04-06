@@ -1,8 +1,9 @@
 import { Head, router } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowUpDown, Pencil, Plus, Trash2, XCircle } from 'lucide-react';
+import React, { useState } from 'react';
 import { toast } from 'sonner';
+import { route } from 'ziggy-js';
 import { DataTable } from '@/components/data-table';
 import {
     AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -13,18 +14,23 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import PurchaseOrderDialog from '@/pages/purchase-orders/purchase-order-dialog';
 import type { BreadcrumbItem } from '@/types';
 import type { PurchaseOrder, PurchaseOrdersList } from '@/types/purchase-order';
 import { formatCurrency } from '@/utils/formatters';
+import { sortBy } from '@/utils/helpers';
+import { toManilaTime } from '@/utils/dateHelper';
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Purchase Orders', href: '/purchase-orders' },
 ];
 
-export default function PurchaseOrderIndex({ purchase_orders, branches, statuses }: PurchaseOrdersList) {
+export default function PurchaseOrderIndex({ purchase_orders, branches, statuses, filters }: PurchaseOrdersList) {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [mode, setMode] = useState(filters.mode || 'monthly');
 
     const [getPurchaseOrder, setPurchaseOrder] = useState<PurchaseOrder | null>(null);
     const openEditForm = (purchaseOrder: PurchaseOrder | null) => {
@@ -32,11 +38,40 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
         setIsDialogOpen(true);
     };
 
+    const handleFilterChange = (
+        value: string,
+        type: 'branch_id' | 'date' | 'mode' | 'date_field',
+    ) => {
+        const params = { ...filters };
+
+        if (type === 'branch_id') {
+            params.branch_id = value;
+        } else if (type === 'mode') {
+            setMode(value);
+            params.mode = value;
+            // Reset date when switching modes to avoid invalid matches
+            params.date = '';
+        } else if (type === 'date') {
+            params.date = value;
+        } else if (type === 'date_field') {
+            params.date_field = value;
+        }
+
+        router.get(route('purchase-orders.index'), params, {
+            preserveState: true,
+            replace: true,
+        });
+    };
+
     const deletePurchaseOrder = (purchaseOrder: PurchaseOrder) => {
         router.delete(`/purchase-orders/${purchaseOrder.id}`, {
             onSuccess: () => toast.success('Purchase Order deleted', { position: 'top-center' }),
         });
     }
+
+    const clearFilters = () => {
+        router.get(route('purchase-orders.index'), {}, { replace: true });
+    };
 
     const columns: ColumnDef<unknown, any>[] = [
         {
@@ -90,7 +125,57 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
         },
         {
             accessorKey: 'received_at',
-            header: 'Received At',
+            header: () => {
+                const isSorted = filters.sort_field === 'received_at';
+
+                return (
+                    <Button
+                        variant="ghost"
+                        // Pass the field, the current filters object, and the route
+                        onClick={() =>
+                            sortBy(
+                                'received_at',
+                                filters,
+                                'purchase-orders.index',
+                            )
+                        }
+                        className="p-0 hover:bg-transparent"
+                    >
+                        Received At
+                        <ArrowUpDown
+                            className={`ml-2 h-4 w-4 ${isSorted ? 'text-primary' : 'text-muted-foreground/50'}`}
+                        />
+                    </Button>
+                );
+            },
+            cell: ({ row }: any) => {
+                return toManilaTime(row.original.received_at);
+            },
+        },
+        {
+            accessorKey: 'due_at',
+            header: () => {
+                const isSorted = filters.sort_field === 'due_at';
+
+                return (
+                    <Button
+                        variant="ghost"
+                        // Pass the field, the current filters object, and the route
+                        onClick={() =>
+                            sortBy('due_at', filters, 'purchase-orders.index')
+                        }
+                        className="p-0 hover:bg-transparent"
+                    >
+                        Due Date
+                        <ArrowUpDown
+                            className={`ml-2 h-4 w-4 ${isSorted ? 'text-primary' : 'text-muted-foreground/50'}`}
+                        />
+                    </Button>
+                );
+            },
+            cell: ({ row }: any) => {
+                return toManilaTime(row.original.due_at);
+            },
         },
         {
             header: 'Actions',
@@ -148,8 +233,12 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-xl font-semibold">Purchase Order Management</h1>
-                        <p className="text-sm text-muted-foreground">Manage your purchase order.</p>
+                        <h1 className="text-xl font-semibold">
+                            Purchase Order Management
+                        </h1>
+                        <p className="text-sm text-muted-foreground">
+                            Manage your purchase order.
+                        </p>
                     </div>
 
                     <Button onClick={() => openEditForm(null)}>
@@ -158,19 +247,188 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                     </Button>
                 </div>
 
-                <div className="rounded-md border border-sidebar-border bg-sidebar">
-                    <div className="rounded-md border border-sidebar-border bg-sidebar">
+                <div className="rounded-md border border-sidebar-border bg-sidebar p-2">
+                    <div className="mb-6 flex flex-wrap items-end gap-4">
+                        <div className="flex flex-col gap-1.5">
+                            <label className="ml-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+                                Branch
+                            </label>
+                            <Select
+                                value={filters.branch_id || 'all'}
+                                onValueChange={(v) =>
+                                    handleFilterChange(v, 'branch_id')
+                                }
+                            >
+                                <SelectTrigger className="h-10 w-[180px] bg-white text-sm shadow-sm">
+                                    <SelectValue placeholder="All Branches" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">
+                                        All Branches
+                                    </SelectItem>
+                                    {branches.map((branch) => (
+                                        <SelectItem
+                                            key={branch.id}
+                                            value={String(branch.id)}
+                                        >
+                                            {branch.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
 
-                        <DataTable columns={columns} pagination={purchase_orders} />
+                        {/* Date Column Selection */}
+                        <div className="flex flex-col gap-1.5">
+                            <label className="ml-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+                                Filter By Date Type
+                            </label>
+                            <Select
+                                value={filters.date_field || 'due_at'} // Default to 'date'
+                                onValueChange={(v) =>
+                                    handleFilterChange(v, 'date_field')
+                                }
+                            >
+                                <SelectTrigger className="h-10 w-[180px] bg-white text-sm shadow-sm">
+                                    <SelectValue placeholder="Select Date Field" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="due_at">
+                                        Due Date
+                                    </SelectItem>
+                                    <SelectItem value="received_at">
+                                        Received Date
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Mode Selection */}
+                        <div className="space-y-1.5">
+                            <label className="ml-1 text-xs font-semibold text-muted-foreground uppercase">
+                                Frequency
+                            </label>
+                            <Select
+                                value={mode}
+                                onValueChange={(v) =>
+                                    handleFilterChange(v, 'mode')
+                                }
+                            >
+                                <SelectTrigger className="w-[140px] bg-white">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="weekly">
+                                        Weekly
+                                    </SelectItem>
+                                    <SelectItem value="monthly">
+                                        Monthly
+                                    </SelectItem>
+                                    <SelectItem value="yearly">
+                                        Yearly
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label className="ml-1 text-xs font-semibold text-muted-foreground uppercase">
+                                Select {mode}
+                            </label>
+                            <div className="flex items-center gap-2">
+                                {mode === 'daily' && (
+                                    <Input
+                                        type="date"
+                                        value={filters.date || ''}
+                                        onChange={(e) =>
+                                            handleFilterChange(
+                                                e.target.value,
+                                                'date',
+                                            )
+                                        }
+                                        className="w-[180px] bg-white"
+                                    />
+                                )}
+                                {mode === 'weekly' && (
+                                    <Input
+                                        type="week"
+                                        value={filters.date || ''}
+                                        onChange={(e) =>
+                                            handleFilterChange(
+                                                e.target.value,
+                                                'date',
+                                            )
+                                        }
+                                        className="w-[200px] bg-white"
+                                    />
+                                )}
+                                {mode === 'monthly' && (
+                                    <Input
+                                        type="month"
+                                        value={filters.date || ''}
+                                        onChange={(e) =>
+                                            handleFilterChange(
+                                                e.target.value,
+                                                'date',
+                                            )
+                                        }
+                                        className="w-[180px] bg-white"
+                                    />
+                                )}
+                                {mode === 'yearly' && (
+                                    <select
+                                        value={
+                                            filters.date
+                                                ? filters.date.substring(0, 4)
+                                                : new Date().getFullYear()
+                                        }
+                                        onChange={(e) =>
+                                            handleFilterChange(
+                                                e.target.value,
+                                                'date',
+                                            )
+                                        }
+                                        className="h-10 w-[180px] rounded-md border bg-white px-3 py-2 shadow-sm focus:ring-2 focus:ring-ring focus:outline-none"
+                                    >
+                                        {Array.from({ length: 6 }, (_, i) => {
+                                            const year =
+                                                new Date().getFullYear() - i;
+
+                                            return (
+                                                <option key={year} value={year}>
+                                                    {year}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 3. Clear Button (Beside the next filter) */}
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={clearFilters}
+                            className="h-10 px-3 text-muted-foreground transition-colors hover:text-destructive"
+                        >
+                            <XCircle className="mr-2 h-4 w-4" />
+                            Clear
+                        </Button>
                     </div>
+
+                    <DataTable columns={columns} pagination={purchase_orders} />
                 </div>
-
-
             </div>
             {isDialogOpen && (
-                <PurchaseOrderDialog open={isDialogOpen} statuses={statuses} setOpen={setIsDialogOpen} order={getPurchaseOrder} branches={branches} />
+                <PurchaseOrderDialog
+                    open={isDialogOpen}
+                    statuses={statuses}
+                    setOpen={setIsDialogOpen}
+                    order={getPurchaseOrder}
+                    branches={branches}
+                />
             )}
-
         </AppLayout>
     );
 }

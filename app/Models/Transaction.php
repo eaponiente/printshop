@@ -14,10 +14,6 @@ class Transaction extends Model
 
     public $guarded = ['id'];
 
-    protected $casts = [
-        'transaction_date' => 'datetime:Y-m-d h:i A',
-    ];
-
     public function user()
     {
         return $this->belongsTo(User::class, 'staff_id');
@@ -45,15 +41,31 @@ class Transaction extends Model
     public static function generateNumber(): string
     {
         $year = now()->year;
+        $prefix = "INV-{$year}-";
 
-        // Get the last invoice number from this year
-        $lastInvoice = self::whereYear('created_at', $year)
-            ->orderBy('id', 'desc')
-            ->first();
+        // 1. Use a more robust way to find the max sequence in one query
+        $lastInvoiceNumber = self::whereYear('created_at', $year)
+            ->where('invoice_number', 'like', "{$prefix}%")
+            ->latest('id')
+            ->value('invoice_number');
 
-        $sequence = $lastInvoice ? ((int) substr($lastInvoice->invoice_number, -4)) + 1 : 1;
+        // 2. Extract sequence using a null-safe approach
+        $lastSequence = $lastInvoiceNumber
+            ? (int) substr($lastInvoiceNumber, -4)
+            : 0;
 
-        return 'INV-'.$year.'-'.str_pad($sequence, 4, '0', STR_PAD_LEFT);
+        $sequence = $lastSequence + 1;
+
+        // 3. Loop instead of recursion to prevent Stack Overflow on high collision
+        while (true) {
+            $candidate = $prefix.str_pad($sequence, 5, '0', STR_PAD_LEFT);
+
+            if (! self::where('invoice_number', $candidate)->exists()) {
+                return $candidate;
+            }
+
+            $sequence++;
+        }
     }
 
     /**

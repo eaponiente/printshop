@@ -55,10 +55,10 @@ class UsersSeeder extends Seeder
         $congressionalLeaders = [
             ['first' => 'Zaldy', 'last' => 'Co', 'role' => 'staff'], // 1-Rider (Prosecutor)
             ['first' => 'Gerville', 'last' => 'Luistro', 'role' => 'admin'], // Batangas (Prosecutor)
-            ['first' => 'Joel', 'last' => 'Chua', 'role' => 'admin'],       // Manila (Good Gov Chair)
-            ['first' => 'Jude', 'last' => 'Acidre', 'role' => 'staff'], // Ako Bicol (Prosecutor)
-            ['first' => 'Zia Alonto', 'last' => 'Adiong', 'role' => 'staff'], // Lanao del Sur
-            ['first' => 'Terry', 'last' => 'Ridon', 'role' => 'admin'],
+            ['first' => 'Joel', 'last' => 'Chua', 'role' => 'admin', 'branch_id' => 3],       // Manila (Good Gov Chair)
+            ['first' => 'Jude', 'last' => 'Acidre', 'role' => 'staff', 'branch_id' => 2], // Ako Bicol (Prosecutor)
+            ['first' => 'Zia Alonto', 'last' => 'Adiong', 'role' => 'staff', 'branch_id' => 1], // Lanao del Sur
+            ['first' => 'Terry', 'last' => 'Ridon', 'role' => 'admin', 'branch_id' => 4],
         ];
 
         foreach ($congressionalLeaders as $leader) {
@@ -74,7 +74,7 @@ class UsersSeeder extends Seeder
                 'username' => $username,
                 'password' => Hash::make('password'),
                 'role' => $leader['role'],
-                'branch_id' => $branches->random(),
+                'branch_id' => $leader['branch_id'] ?? $branches->random(),
                 'created_at' => now()->subMonths(rand(1, 6)),
             ]);
         }

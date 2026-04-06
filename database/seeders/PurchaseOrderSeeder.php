@@ -41,6 +41,7 @@ class PurchaseOrderSeeder extends Seeder
 
             $user = $users->random();
             $orderedAt = Carbon::now()->subDays(rand(0, 30));
+            $dueAt = Carbon::parse($orderedAt)->addDays(rand(4,8));
             $status = $faker->randomElement(['pending', 'active', 'finished', 'released']);
 
             // Create the Parent PO
@@ -50,6 +51,7 @@ class PurchaseOrderSeeder extends Seeder
                 'status' => $status,
                 'grand_total' => 0, // Placeholder
                 'received_at' => $orderedAt,
+                'due_at' => $dueAt,
                 'user_id' => $user->id,
                 'branch_id' => $user->branch_id,
                 'created_at' => $orderedAt,

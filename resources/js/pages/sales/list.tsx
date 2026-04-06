@@ -37,6 +37,7 @@ import type { Transaction } from '@/types/transaction';
 import type { Customer } from '@/types/user';
 import { formatCurrency } from '@/utils/formatters';
 import { sortBy } from '@/utils/helpers';
+import { toManilaTime } from '@/utils/dateHelper';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -169,6 +170,10 @@ export default function SaleIndex({
             header: 'Customer Name',
         },
         {
+            accessorKey: 'particular',
+            header: 'Particular',
+        },
+        {
             accessorKey: 'branch.name',
             header: 'Branch',
         },
@@ -209,6 +214,12 @@ export default function SaleIndex({
         },
         {
             accessorKey: 'transaction_date',
+            cell: ({ row }: any) => {
+                return toManilaTime(
+                    row.original.transaction_date,
+                    'MMM DD, YYYY',
+                );
+            },
             header: () => {
                 const isSorted = filters.sort_field === 'transaction_date';
 

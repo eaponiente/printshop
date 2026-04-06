@@ -7,6 +7,7 @@ export interface PurchaseOrdersList {
     purchase_orders: PaginatedResponse<PurchaseOrder>;
     branches: Branch[];
     statuses: PurchaseOrderStatus[];
+    filters: any;
 }
 
 export type PurchaseOrderStatus = {
@@ -21,7 +22,7 @@ export interface PurchaseOrder {
     description: string | null;
     status: POStatus;
     branch_id: number;
-    staff_id: number;
+    user_id: number;
     grand_total: number;
     received_at: string;
     due_at: string;
@@ -36,7 +37,7 @@ export interface PurchaseOrder {
         id: number;
         name: string;
     };
-    staff?: {
+    user?: {
         id: number;
         name: string;
     };

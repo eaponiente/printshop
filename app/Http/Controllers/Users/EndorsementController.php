@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Users\StoreEndorsementRequest;
 use App\Http\Requests\Users\UpdateEndorsementRequest;
 use App\Models\Branch;
+use App\Models\CashOnHand;
 use App\Models\Endorsement;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\RedirectResponse;
@@ -31,7 +32,14 @@ class EndorsementController extends Controller
     public function store(StoreEndorsementRequest $request): RedirectResponse
     {
         try {
-            auth()->user()->endorsements()->create($request->validated());
+            Endorsement::create([
+                'branch_id' => $request->branch_id,
+                'amount' => $request->validated()['amount'],
+                'user_id' => auth()->id(),
+            ]);
+
+            $cashOnHand = CashOnHand::where('branch_id', $request->branch_id)->first();
+            $cashOnHand->decrement('amount', $request->validated()['amount']);
 
             return redirect()->back()->with('success', 'Endorsement created successfully.');
         } catch (\Exception $e) {

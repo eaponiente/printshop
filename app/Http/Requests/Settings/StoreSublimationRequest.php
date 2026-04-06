@@ -2,13 +2,15 @@
 
 namespace App\Http\Requests\Settings;
 
+use App\Enums\Sublimations\SublimationStatus;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreSublimationRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true; 
+        return true;
     }
 
     public function rules(): array
@@ -18,8 +20,12 @@ class StoreSublimationRequest extends FormRequest
             'branch_id' => ['required', 'exists:branches,id'],
             'customer_id' => ['required', 'exists:customers,id'],
             'user_id' => ['required', 'exists:users,id'],
-            'status' => ['required', 'in:pending,active,finished,released'],
+            'status' => ['required', Rule::in(SublimationStatus::cases())],
             'due_at' => ['required', 'date'],
+            // Financials (numeric handles decimal input; gte:0 prevents negative numbers)
+            'amount_total' => 'required|numeric|min:0|max:99999999.99',
+            // amount_paid must not be greater than amount_total
+            'amount_paid' => 'required|numeric|min:0|max:99999999.99|lte:amount_total',
         ];
     }
 }

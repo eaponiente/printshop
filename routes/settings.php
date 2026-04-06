@@ -46,7 +46,7 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('expenses', ExpenseController::class);
 
     Route::prefix('api')->group(function () {
-        Route::get('/customers', [CustomerController::class, 'indexApiList']);
+        Route::get('/customers', [CustomerController::class, 'indexApiList'])->name('api.customers.index');
     });
 });
 

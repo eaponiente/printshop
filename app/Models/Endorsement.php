@@ -14,10 +14,6 @@ class Endorsement extends Model
         'user_id',
     ];
 
-    protected $casts = [
-        'created_at' => 'datetime:M d Y',
-    ];
-
     public function branch()
     {
         return $this->belongsTo(Branch::class);

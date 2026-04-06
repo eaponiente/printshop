@@ -1,8 +1,9 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
+import { differenceInMinutes, parseISO } from 'date-fns';
 import {
     ArrowRightCircle,
-    Filter,
+    ArrowUpDown,
     Pencil,
     Plus,
     Trash2,
@@ -26,7 +27,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
     Select,
     SelectContent,
@@ -42,6 +42,7 @@ import type { PaginatedResponse } from '@/types/pagination';
 import type { Tag } from '@/types/settings';
 import type { Sublimation, SublimationStatus } from '@/types/sublimations';
 import type { User } from '@/types/user';
+import { sortBy } from '@/utils/helpers';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -62,9 +63,9 @@ export default function SublimationIndex({
     branches,
     filters,
     statuses,
-    availableTags,
     users,
 }: SublimationIndexProps) {
+    console.log('u', users);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [selectedSublimation, setSelectedSublimation] = useState<Sublimation | null>(null);
 
@@ -86,7 +87,7 @@ export default function SublimationIndex({
 
     const handleFilterChange = (
         value: string,
-        type: 'date' | 'status' | 'branch_id' | 'include_completed',
+        type: 'date' | 'status' | 'branch_id' | 'include_completed' | 'user_id',
     ) => {
         const params = { ...filters };
 
@@ -96,32 +97,14 @@ export default function SublimationIndex({
             params.status = value;
         } else if (type === 'include_completed') {
             params.include_completed = value;
+        } else if (type === 'user_id') {
+            params.user_id = value;
         }
 
         router.get(`/sublimations`, params, {
             preserveState: true,
             replace: true,
         });
-    };
-
-    const toggleTagFilter = (tagId: string) => {
-        const currentTags = filters.tags ? String(filters.tags).split(',') : [];
-        const newTags = currentTags.includes(tagId)
-            ? currentTags.filter((id: string) => id !== tagId)
-            : [...currentTags, tagId];
-
-        router.get(
-            `/sublimations`,
-            {
-                ...filters,
-                tags: newTags.length > 0 ? newTags.join(',') : undefined,
-            },
-            {
-                preserveState: true,
-                preserveScroll: true, // This ensures the UI doesn't "jump" or lose focus
-                replace: true,
-            },
-        );
     };
 
     const completeTransaction = (sublimation: Sublimation) => {
@@ -143,6 +126,31 @@ export default function SublimationIndex({
         {
             accessorKey: 'customer.full_name',
             header: 'Customer',
+            cell: ({ row }) => {
+                const { transaction, customer, created_at } = row.original;
+
+                // Logic: Is this record less than 10 minutes old?
+                const isRecent = differenceInMinutes(new Date(), parseISO(created_at)) < 10;
+
+                return (
+                    <div className="flex items-center gap-2">
+                        <Link
+                            href={route('sales.index', { search: transaction.invoice_number, mode: 'yearly' })}
+                            className={`font-medium ${isRecent ? 'text-green-700' : 'text-indigo-600'} hover:underline`}
+                        >
+                            {customer.full_name}
+                        </Link>
+
+                        {isRecent && (
+                            <span className="relative flex h-2 w-2">
+                        {/* Ping animation to grab attention */}
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                    </span>
+                        )}
+                    </div>
+                );
+            },
         },
         {
             accessorKey: 'notes',
@@ -150,7 +158,25 @@ export default function SublimationIndex({
         },
         {
             accessorKey: 'due_at',
-            header: 'Due',
+            header: () => {
+                const isSorted = filters.sort_field === 'due_at';
+
+                return (
+                    <Button
+                        variant="ghost"
+                        // Pass the field, the current filters object, and the route
+                        onClick={() =>
+                            sortBy('due_at', filters, 'sublimations.index')
+                        }
+                        className="p-0 hover:bg-transparent"
+                    >
+                        Due At
+                        <ArrowUpDown
+                            className={`ml-2 h-4 w-4 ${isSorted ? 'text-primary' : 'text-muted-foreground/50'}`}
+                        />
+                    </Button>
+                );
+            },
         },
         {
             accessorKey: 'status',
@@ -161,7 +187,9 @@ export default function SublimationIndex({
 
                 return (
                     <div className="flex items-center gap-2">
-                        <Badge className={`border font-medium capitalize shadow-none ${item.status_color}`}>
+                        <Badge
+                            className={`border font-medium capitalize shadow-none ${item.status_color}`}
+                        >
                             {item.status_label}
                         </Badge>
 
@@ -284,6 +312,51 @@ export default function SublimationIndex({
                                 </Select>
                             </div>
 
+                            {/* User Filter - Only shows when a specific branch is selected */}
+                            {filters.branch_id &&
+                                filters.branch_id !== 'all' && (
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="ml-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+                                            User / Staff
+                                        </label>
+                                        <Select
+                                            value={filters.user_id || 'all'}
+                                            onValueChange={(v) =>
+                                                handleFilterChange(v, 'user_id')
+                                            }
+                                        >
+                                            <SelectTrigger className="h-10 w-[160px] bg-white text-sm">
+                                                <SelectValue placeholder="All Users" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">
+                                                    All Users
+                                                </SelectItem>
+                                                {users
+                                                    .filter(
+                                                        (user) =>
+                                                            String(
+                                                                user.branch_id,
+                                                            ) ===
+                                                            String(
+                                                                filters.branch_id,
+                                                            ),
+                                                    )
+                                                    .map((user: User) => (
+                                                        <SelectItem
+                                                            key={user.id}
+                                                            value={String(
+                                                                user.id,
+                                                            )}
+                                                        >
+                                                            {user.fullname}
+                                                        </SelectItem>
+                                                    ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+
                             {/* Status Filter */}
                             <div className="flex flex-col gap-1.5">
                                 <label className="ml-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
@@ -314,81 +387,6 @@ export default function SublimationIndex({
                                         )}
                                     </SelectContent>
                                 </Select>
-                            </div>
-
-                            {/* Tags Filter */}
-                            <div className="flex flex-col gap-1.5">
-                                <label className="ml-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-                                    Tags
-                                </label>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            className="h-10 border-dashed bg-white px-3 text-sm font-normal"
-                                        >
-                                            <Filter className="mr-2 h-3.5 w-3.5" />
-                                            Filter Tags
-                                            {filters.tags && (
-                                                <Badge
-                                                    variant="secondary"
-                                                    className="ml-2 h-5 px-1.5 text-[10px] font-medium"
-                                                >
-                                                    {
-                                                        filters.tags.split(',')
-                                                            .length
-                                                    }
-                                                </Badge>
-                                            )}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent
-                                        className="w-[200px] p-2"
-                                        align="start"
-                                    >
-                                        <div className="flex flex-col gap-2">
-                                            {availableTags.map((tag) => {
-                                                // 1. Ensure we are doing a string-to-string comparison
-                                                // 2. Use !! to force a boolean type
-                                                const tagIdStr = String(tag.id);
-                                                const currentTagsArray =
-                                                    filters.tags
-                                                        ? String(
-                                                              filters.tags,
-                                                          ).split(',')
-                                                        : [];
-                                                const isSelected =
-                                                    currentTagsArray.includes(
-                                                        tagIdStr,
-                                                    );
-
-                                                return (
-                                                    <div
-                                                        key={tag.id}
-                                                        className="flex items-center space-x-2 rounded p-1 hover:bg-accent"
-                                                    >
-                                                        <Checkbox
-                                                            id={`tag-${tag.id}`}
-                                                            // Force the checkbox to follow the prop strictly
-                                                            checked={isSelected}
-                                                            onCheckedChange={() => {
-                                                                toggleTagFilter(
-                                                                    tagIdStr,
-                                                                );
-                                                            }}
-                                                        />
-                                                        <label
-                                                            htmlFor={`tag-${tag.id}`}
-                                                            className="flex-1 cursor-pointer text-sm leading-none font-medium"
-                                                        >
-                                                            {tag.name}
-                                                        </label>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </PopoverContent>
-                                </Popover>
                             </div>
 
                             {/* New Checkbox Filter */}

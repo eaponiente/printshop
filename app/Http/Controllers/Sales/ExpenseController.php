@@ -25,9 +25,7 @@ class ExpenseController extends Controller
     public function index(Request $request): Response
     {
         $query = Expense::query()->with(['user', 'branch'])
-            ->when($request->filled('branch_id'), function ($q) use ($request) {
-                $q->where('branch_id', $request->branch_id);
-            })
+            ->filtered($request->all())
             ->when($request->filled('payment_type'), function ($q) use ($request) {
                 $q->where('payment_type', $request->payment_type);
             })

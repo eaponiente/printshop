@@ -48,10 +48,6 @@ class User extends Authenticatable
         'fullname',
     ];
 
-    protected $casts = [
-        'created_at' => 'date:format,M d Y',
-    ];
-
     /**
      * Get the attributes that should be cast.
      *
@@ -79,5 +75,15 @@ class User extends Authenticatable
     public function endorsements()
     {
         return $this->hasMany(Endorsement::class);
+    }
+
+    public function transactions()
+    {
+        return $this->hasMany(Transaction::class, 'staff_id');
+    }
+
+    public function sublimations()
+    {
+        return $this->hasMany(Sublimation::class, 'user_id');
     }
 }

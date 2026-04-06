@@ -73,27 +73,37 @@ class TransactionSeeder extends Seeder
             // Grab a single staff object from the collection
             $staff = $staffMembers->random();
 
+            $paymentType = in_array($status, ['partial', 'paid']) ? fake()->randomElement(['cash', 'card', 'gcash', 'bank_transfer']) : null;
+
             $transaction = Transaction::create([
-                'invoice_number' => 'INV-'.date('Y').'-'.str_pad($i + 1000, 6, '0', STR_PAD_LEFT),
+                'invoice_number' => Transaction::generateNumber(),
                 'customer_id' => $customerIds->random(),
                 'particular' => $service['name'],
                 'description' => $service['desc'],
                 'amount_total' => $amountTotal,
-                'amount_paid' => $amountPaid,
-                'payment_type' => $status == 'paid' ? fake()->randomElement(['cash', 'card', 'gcash', 'bank_transfer']) : null,
-                'status' => $status,
+                'amount_paid' => 0,
+                'payment_type' => $paymentType,
+                'status' => 'pending',
                 'staff_id' => $staff->id,        // Linked directly
                 'branch_id' => $staff->branch_id, // Guaranteed to match staff's branch
                 'transaction_date' => now()->subDays(rand(0, 30))->setTime(rand(7, 18), rand(0, 59)),
-                'fulfilled_at' => $status === 'paid' ? now()->subMinutes(rand(1, 1000)) : null,
+                'fulfilled_at' => null,
                 'change_reason' => $status === 'partial' ? 'Guest promised to pay balance upon checkout.' : null,
             ]);
 
-            if(in_array($status, ['partial', 'paid']) ) {
-                $transaction->recordPayment($transaction->amount_paid, $transaction->payment_type);
+            if (in_array($status, ['partial', 'paid']) && $amountPaid > 0) {
+                // To bypass auth()->id() checking in model (or if auth is missing)
+                auth()->login($staff);
+
+                $transaction->recordPayment($amountPaid, $paymentType);
+
+                // Set the fulfilled_at for mock data if needed
+                if ($status === 'paid') {
+                    $transaction->update(['fulfilled_at' => now()->subMinutes(rand(1, 1000))]);
+                }
             }
 
-            if ($transaction->payment_type === TypeOfPaymentEnum::CASH->value) {
+            if ($paymentType === TypeOfPaymentEnum::CASH->value) {
                 app(CashOnHandService::class)->adjustBalance(
                     $transaction->branch_id,
                     $transaction->amount_paid,

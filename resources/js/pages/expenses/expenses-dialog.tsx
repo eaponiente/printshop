@@ -37,14 +37,14 @@ export default function ExpenseDialog({
     const isEdit = !!expense;
     const { auth } = usePage().props as any;
 
-    console.log('aa', paymentMethods);
+    console.log('auth', auth.user?.branch_id ?? '');
     const { data, setData, post, put, processing, errors, reset } = useForm({
         description: expense?.description ?? '',
         vendor_name: expense?.vendor_name ?? '',
         amount: expense?.amount ?? '',
         payment_type: expense?.payment_type ?? '',
-        user_id: expense?.user_id ?? auth.user.id,
-        branch_id: expense?.branch_id ?? auth.user.branch_id,
+        user_id: expense?.user_id ?? auth.user?.id,
+        branch_id: expense?.branch_id ?? auth.user?.branch_id ?? '',
         status: expense?.status ?? 'pending',
         expense_date: expense?.expense_date
             ? new Date(expense.expense_date).toISOString().split('T')[0]
@@ -132,6 +132,9 @@ export default function ExpenseDialog({
                                     setData('branch_id', e.target.value)
                                 }
                             >
+                                <NativeSelectOption value={''}>
+                                    Select branch
+                                </NativeSelectOption>
                                 {branches.map((b) => (
                                     <NativeSelectOption key={b.id} value={b.id}>
                                         {b.name}
@@ -195,7 +198,6 @@ export default function ExpenseDialog({
 
                     {/* Status & Receipt Upload */}
                     <div className="grid grid-cols-2 gap-4">
-
                         <div className="grid gap-2">
                             <Label htmlFor="receipt">Receipt (Image/PDF)</Label>
                             <Input

@@ -1,5 +1,5 @@
 import type { Branch } from '@/types/branches';
-import { PaginatedResponse } from '@/types/pagination';
+import type { PaginatedResponse } from '@/types/pagination';
 
 export type User = {
     id: number;
@@ -15,7 +15,7 @@ export type User = {
 };
 
 export type UsersList = {
-    users: User[];
+    users: PaginatedResponse<User>;
     branches: Branch[];
 };
 

@@ -9,7 +9,9 @@ use App\Http\Requests\Settings\UpdateSublimationRequest;
 use App\Models\Branch;
 use App\Models\Sublimation;
 use App\Models\Tag;
+use App\Models\Transaction;
 use App\Models\User;
+use App\Services\Sales\SalesService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,9 +23,11 @@ class SublimationController extends Controller
 {
     use AuthorizesRequests;
 
+    public function __construct(protected SalesService $salesService) {}
+
     public function index(Request $request): Response
     {
-        $query = Sublimation::with('tags', 'branch', 'user', 'customer');
+        $query = Sublimation::with('tags', 'branch', 'user', 'customer', 'transaction');
 
         $query->when($request->filled('branch_id') && $request->branch_id !== 'all', function ($q) use ($request) {
             $q->where('branch_id', $request->branch_id);
@@ -56,13 +60,8 @@ class SublimationController extends Controller
             }
         );
 
-        $query->when($request->tags, function ($q) use ($request) {
-            $tagIds = explode(',', $request->tags);
-
-            // Use whereHas to query the many-to-many relationship
-            $q->whereHas('tags', function ($query) use ($tagIds) {
-                $query->whereIn('tags.id', $tagIds);
-            });
+        $query->when($request->filled('user_id') && $request->user_id !== 'all', function ($q) use ($request) {
+            $q->where('user_id', $request->user_id);
         });
 
         // 2. Sorting Logic
@@ -76,12 +75,16 @@ class SublimationController extends Controller
             $query->orderBy($sortField, $sortDirection === 'asc' ? 'asc' : 'desc');
         }
 
+        // get all users filtered by branch
+        $branchId = $request->query('branch_id');
+        $users = User::whereIn('role', ['admin', 'staff'])->get();
+
         return Inertia::render('sublimations/list', [
             'sublimations' => $query->paginate(30)->withQueryString(),
             'availableTags' => Tag::all(['id', 'name', 'color']),
             'filters' => $request->all(),
             'branches' => Branch::accessibleBy(auth()->user())->get(['id', 'name']),
-            'users' => User::all(['id', 'first_name', 'last_name']),
+            'users' => $users,
             'statuses' => SublimationStatus::map(),
         ]);
     }
@@ -89,7 +92,17 @@ class SublimationController extends Controller
     public function store(StoreSublimationRequest $request): RedirectResponse
     {
         try {
-            Sublimation::create($request->validated());
+            $sublimation = Sublimation::query()->create($request->validated());
+
+            $transactionData = $sublimation->only(['description', 'branch_id', 'customer_id', 'user_id']);
+
+            $transaction = $this->salesService->createTransaction(array_merge($transactionData, [
+                'invoice_number' => Transaction::generateNumber(),
+                'amount_total' => $sublimation->amount_total,
+                'particular' => 'Sublimation',
+                'staff_id' => auth()->id(),
+                'transaction_date' => now(),
+            ]));
 
             return redirect()->back()->with('success', 'Sublimation created successfully.');
         } catch (\Exception $e) {
@@ -103,7 +116,17 @@ class SublimationController extends Controller
     {
         $this->authorize('update', auth()->user());
 
+        $newStatus = SublimationStatus::from($request->status);
+
+        // ENFORCE THE BUSINESS RULE
+        if (! $sublimation->canMoveTo($newStatus)) {
+            return back()->withErrors([
+                'message' => "Cannot move to '{$newStatus->value}'. Please settle the Downpayment or select 'Purchase Order' / 'Authorize Production' first.",
+            ]);
+        }
         try {
+
+
             $sublimation->update($request->validated());
 
             return redirect()->back()->with('success', 'Sublimation updated successfully.');

@@ -17,11 +17,15 @@ import type { Customer } from '@/types/user';
 interface AddGuestModalProps {
     open: boolean;
     setOpen: (open: boolean) => void;
+    searchQuery: string;
     onCustomerCreated: (customer: Customer) => void;
 }
 
-export function AddGuestModal({ open, setOpen, onCustomerCreated }: AddGuestModalProps) {
+export function AddGuestModal({ open, setOpen, searchQuery, onCustomerCreated }: AddGuestModalProps) {
     const form = guestStore.form();
+
+    // split the search query into first and last name, but must not throw error if no space is found
+    const [firstName, lastName] = searchQuery.split(' ', 2);
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -49,13 +53,13 @@ export function AddGuestModal({ open, setOpen, onCustomerCreated }: AddGuestModa
                         <>
                             <div className="grid gap-2">
                                 <Label htmlFor="first_name">First Name</Label>
-                                <Input id="first_name" name="first_name" autoFocus />
+                                <Input id="first_name" name="first_name" value={firstName} autoFocus />
                                 <InputError message={errors.first_name} />
                             </div>
 
                             <div className="grid gap-2">
                                 <Label htmlFor="last_name">Last Name</Label>
-                                <Input id="last_name" name="last_name" autoFocus />
+                                <Input id="last_name" name="last_name" value={lastName} autoFocus />
                                 <InputError message={errors.last_name} />
                             </div>
 

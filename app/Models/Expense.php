@@ -10,11 +10,6 @@ class Expense extends Model
     use SaleFilterTrait;
     protected $table = 'expenses';
 
-    protected $casts = [
-        'expense_date' => 'date:M d Y',
-        'created_at' => 'date:M d Y',
-    ];
-
     protected $guarded = ['id'];
 
     public function branch()

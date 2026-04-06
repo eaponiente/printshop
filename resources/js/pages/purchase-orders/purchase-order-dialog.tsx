@@ -43,6 +43,7 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches, st
         po_number: order?.po_number ?? '',
         branch_id: order?.branch_id ?? auth.user.branch_id,
         status: order?.status ?? '',
+        user_id: order?.user_id ?? '',
         due_at: order?.due_at ? format(new Date(order.due_at), 'yyyy-MM-dd') : '',
         received_at: format(
             order?.received_at ? new Date(order.received_at) : new Date(),

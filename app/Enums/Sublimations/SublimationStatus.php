@@ -7,6 +7,7 @@ enum SublimationStatus: string
     case FOR_APPROVAL = 'for approval';
     case DONE_LAYOUT = 'done layout';
     case WAITING_FOR_DP = 'waiting for dp';
+    case DOWNPAYMENT_COMPLETE = 'downpayment complete';
     case FOR_SIZING = 'for sizing';
     case DONE_SIZING = 'done sizing';
     case PRINTED = 'printed';
@@ -28,6 +29,7 @@ enum SublimationStatus: string
             self::FOR_APPROVAL => 'For Approval',
             self::DONE_LAYOUT => 'Done Layout',
             self::WAITING_FOR_DP => 'Waiting for DP',
+            self::DOWNPAYMENT_COMPLETE => 'Downpayment Complete',
             self::FOR_SIZING => 'For Sizing',
             self::DONE_SIZING => 'Done Sizing',
             self::PRINTED => 'Printed',
@@ -61,7 +63,8 @@ enum SublimationStatus: string
             self::CHECKED => 'bg-rose-400 text-white',
             self::READY_FOR_PICKUP => 'bg-amber-500 text-white',
             self::CLAIMED => 'bg-yellow-400 text-black',
-            self::COMPLETED => '',
+            self::COMPLETED => 'bg-green-400 text-green',
+            self::DOWNPAYMENT_COMPLETE => 'bg-green-400 text-green'
         };
     }
 
@@ -75,5 +78,18 @@ enum SublimationStatus: string
             ])
             ->values()
             ->toArray();
+    }
+
+    public function isProductionPhase(): bool
+    {
+        return in_array($this, [
+            self::FOR_SIZING,
+            self::DONE_SIZING,
+            self::PRINTED,
+            self::CUT,
+            self::SEWING,
+            self::SEWED,
+            self::CHECKED,
+        ]);
     }
 }

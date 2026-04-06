@@ -165,29 +165,6 @@ const SalesTableFilters = ({
                 </Select>
             </div>
 
-            {/* Mode of Payment Filter */}
-            <div className="space-y-1.5">
-                <label className="ml-1 text-xs font-semibold text-muted-foreground uppercase">
-                    Mode of Payment
-                </label>
-                <Select
-                    value={filters.payment_type || 'all'}
-                    onValueChange={(v) => handleFilterChange(v, 'payment_type')}
-                >
-                    <SelectTrigger className="w-[140px] bg-white text-sm">
-                        <SelectValue placeholder="All Modes" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Modes</SelectItem>
-                        {types_of_payment.map((payment: TypeOfPayment) => (
-                            <SelectItem value={payment.key}>
-                                {payment.value}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
-
             {/* Status Filter */}
             <div className="space-y-1.5">
                 <label className="ml-1 text-xs font-semibold text-muted-foreground uppercase">

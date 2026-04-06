@@ -16,11 +16,11 @@ class DatabaseSeeder extends Seeder
             BranchSeeder::class,
             UsersSeeder::class,
             CustomerSeeder::class,
-            TransactionSeeder::class,
-            TagsSeeder::class,
-            SublimationSeeder::class,
-            PurchaseOrderSeeder::class,
-            ExpenseSeeder::class,
+            //TransactionSeeder::class,
+            //TagsSeeder::class,
+            //SublimationSeeder::class,
+            //PurchaseOrderSeeder::class,
+            //ExpenseSeeder::class,
         ]);
     }
 }

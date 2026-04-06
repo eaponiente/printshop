@@ -1,5 +1,6 @@
 import type { Branch } from '@/types/branches';
 import type { Tag } from '@/types/settings';
+import type { Transaction } from '@/types/transaction';
 import type { Customer, User } from '@/types/user';
 
 export type SublimationsList = {
@@ -23,9 +24,14 @@ export type Sublimation = {
     status: string;
     status_color: string;
     status_label: string;
+    amount_total: number;
+    amount_paid: number;
+    transaction_type: number;
+    production_authorized: boolean;
     due_at: string;
     branch?: Branch;
     user?: User;
     customer?: Customer;
     tags?: Tag[];
-}
+    transaction: Transaction;
+};

@@ -31,6 +31,7 @@ import ExpenseDialog from '@/pages/expenses/expenses-dialog';
 import type { BreadcrumbItem } from '@/types';
 import type { Expense, ExpensesList } from '@/types/expenses';
 import { formatCurrency } from '@/utils/formatters';
+import { toManilaTime } from '@/utils/dateHelper';
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Expenses', href: '/expenses' },
@@ -70,7 +71,10 @@ export default function ExpenseIndex({ expenses, branches, payment_methods, expe
             params.mode = value;
             // Reset date when switching modes to avoid invalid matches
             params.date = '';
+        } else if (type === 'date') {
+            params.date = value;
         }
+
 
         router.get(`/expenses`, params, {
             preserveState: true,
@@ -84,7 +88,7 @@ export default function ExpenseIndex({ expenses, branches, payment_methods, expe
             header: 'Amount',
             cell: ({ row }: CellContext<any, any>) => {
                 return formatCurrency(row.original.amount);
-            }
+            },
         },
         {
             accessorKey: 'branch.name',
@@ -96,37 +100,59 @@ export default function ExpenseIndex({ expenses, branches, payment_methods, expe
         },
         {
             accessorKey: 'expense_date',
-            header: 'Date Purchased'
+            header: 'Date Purchased',
+            cell: ({ row }: any) => {
+                return toManilaTime(row.original.expense_date);
+            },
         },
         {
             header: 'Actions',
             cell: ({ row }: CellContext<any, any>) => {
                 return (
                     <>
-                        <Button variant="ghost" size="sm" onClick={() => openEditForm(row.original)}><Pencil /></Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditForm(row.original)}
+                        >
+                            <Pencil />
+                        </Button>
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="sm"><Trash2 /></Button>
+                                <Button variant="ghost" size="sm">
+                                    <Trash2 />
+                                </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                                 <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                    <AlertDialogTitle>
+                                        Are you absolutely sure?
+                                    </AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        This action cannot be undone. This will permanently delete your
-                                        user from our servers.
+                                        This action cannot be undone. This will
+                                        permanently delete your user from our
+                                        servers.
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => deleteExpense(row.original)}>Continue</AlertDialogAction>
+                                    <AlertDialogCancel>
+                                        Cancel
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                        onClick={() =>
+                                            deleteExpense(row.original)
+                                        }
+                                    >
+                                        Continue
+                                    </AlertDialogAction>
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
                     </>
-                )
-            }
-        }
-    ]
+                );
+            },
+        },
+    ];
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>

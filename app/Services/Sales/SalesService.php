@@ -14,16 +14,39 @@ class SalesService
 {
     public function getTransactionQuery(array $filters): Builder
     {
-        return Transaction::query()
+        $query = Transaction::query()
             ->with(['user:id,first_name,last_name', 'branch:id,name', 'customer', 'payments'])
             ->filtered($filters)
+            ->when($filters['search'] ?? null, function ($q, $s) {
+                if ($s !== 'all') {
+                    $q->where(function ($query) use ($s) {
+                        $query->where('invoice_number', 'like', "%{$s}%")
+                            ->orWhereHas('customer', function ($sq) use ($s) {
+                                $sq->where('first_name', 'like', "%{$s}%")
+                                    ->orWhere('last_name', 'like', "%{$s}%");
+                            });
+                    });
+                }
+            })
             ->when($filters['status'] ?? null, fn ($q, $s) => $s !== 'all' ? $q->where('status', $s) : $q)
             ->when($filters['payment_type'] ?? null, function ($q, $s) {
                 if ($s !== 'all') {
                     $q->whereHas('payments', fn ($sq) => $sq->where('payment_type', $s));
                 }
-            })
-            ->latest('transaction_date');
+            });
+
+        // 2. Sorting Logic
+        $sortField = $filters['sort_field'] ?? 'invoice_number'; // Default sort
+        $sortDirection = $filters['sort_direction'] ?? 'desc';
+
+        // Whitelist allowed sortable columns
+        $allowedSorts = ['transaction_date'];
+
+        if (in_array($sortField, $allowedSorts)) {
+            $query->orderBy($sortField, $sortDirection === 'asc' ? 'asc' : 'desc');
+        }
+
+        return $query;
     }
 
     public function getPaymentAggregates(Builder $query): array
@@ -73,5 +96,10 @@ class SalesService
         return Customer::query()
             ->when($search, fn ($q, $t) => $q->whereAny(['first_name', 'last_name', 'company'], 'like', "%{$t}%"))
             ->limit(10)->get();
+    }
+
+    public function createTransaction($data)
+    {
+        return Transaction::create($data);
     }
 }
