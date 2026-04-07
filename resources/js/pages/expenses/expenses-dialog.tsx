@@ -37,7 +37,6 @@ export default function ExpenseDialog({
     const isEdit = !!expense;
     const { auth } = usePage().props as any;
 
-    console.log('auth', auth.user?.branch_id ?? '');
     const { data, setData, post, put, processing, errors, reset } = useForm({
         description: expense?.description ?? '',
         vendor_name: expense?.vendor_name ?? '',

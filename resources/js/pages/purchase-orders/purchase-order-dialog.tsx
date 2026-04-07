@@ -36,8 +36,6 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches, st
 
     const { auth } = usePage().props;
 
-    console.log(order);
-
     // 1. Initialize useForm with v2.0 standards
     const { data, setData, post, put, processing, errors, reset } = useForm({
         po_number: order?.po_number ?? '',

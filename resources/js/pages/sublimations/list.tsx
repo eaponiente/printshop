@@ -65,7 +65,6 @@ export default function SublimationIndex({
     statuses,
     users,
 }: SublimationIndexProps) {
-    console.log('u', users);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [selectedSublimation, setSelectedSublimation] = useState<Sublimation | null>(null);
 

@@ -1,18 +1,19 @@
-import { Form } from '@inertiajs/react';
+import { useForm } from '@inertiajs/react'; // Use the hook instead of the component
+import { useEffect, useRef } from 'react';
+import { route } from 'ziggy-js';
 import InputError from '@/components/input-error';
-import { Button } from "@/components/ui/button"
+import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
     DialogHeader,
-    DialogTitle
+    DialogPortal,
+    DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Spinner } from '@/components/ui/spinner'; // Assuming you have a guest route store
-import { store as guestStore } from '@/routes/customers';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Spinner } from '@/components/ui/spinner';
 import type { Customer } from '@/types/user';
-
 
 interface AddGuestModalProps {
     open: boolean;
@@ -21,61 +22,120 @@ interface AddGuestModalProps {
     onCustomerCreated: (customer: Customer) => void;
 }
 
-export function AddGuestModal({ open, setOpen, searchQuery, onCustomerCreated }: AddGuestModalProps) {
-    const form = guestStore.form();
+export function AddGuestModal({
+    open,
+    setOpen,
+    searchQuery,
+    onCustomerCreated,
+}: AddGuestModalProps) {
+    const form = useForm({
+        first_name: '',
+        last_name: '',
+        company: '',
+    });
 
-    // split the search query into first and last name, but must not throw error if no space is found
-    const [firstName, lastName] = searchQuery.split(' ', 2);
+    const wasOpen = useRef(false);
+
+    useEffect(() => {
+        // Only trigger the data sync when the modal IS opening (false -> true)
+        if (open && !wasOpen.current) {
+            const [f, l] = searchQuery.split(' ', 2);
+            form.setData({
+                first_name: f || '',
+                last_name: l || '',
+                company: '',
+            });
+        }
+
+        wasOpen.current = open;
+    }, [form, open, searchQuery]); // searchQuery is here if it changes while open, but wasOpen prevents the loop
+
+    // Manual submission handler
+    const handleAddCustomerSubmit = (e: React.MouseEvent | React.FormEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        form.post(route('customers.store'), {
+            onSuccess: (page) => {
+                const newCustomer = (page.props as any).flash?.new_customer;
+
+                if (newCustomer) {
+                    onCustomerCreated(newCustomer);
+                    form.reset();
+                    setOpen(false);
+                }
+            },
+        });
+    };
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                    <DialogTitle>Add New Customer</DialogTitle>
-                </DialogHeader>
-
-                <Form
-                    {...form}
-                    className="grid gap-4"
-                    onSuccess={(page) => {
-                        // If you followed the middleware step above, it should be here:
-                        const newCustomer = (page.props as any).flash?.new_customer;
-
-                        if (newCustomer) {
-                            onCustomerCreated(newCustomer);
-                            setOpen(false);
-                        } else {
-                            console.error("New customer data missing from Inertia props!");
-                        }
-                    }}
+            <DialogPortal>
+                <DialogContent
+                    className="sm:max-w-[425px]"
+                    // Prevent the Dialog itself from passing events up
+                    onPointerDownOutside={(e) => e.stopPropagation()}
                 >
-                    {({ processing, errors }) => (
-                        <>
-                            <div className="grid gap-2">
-                                <Label htmlFor="first_name">First Name</Label>
-                                <Input id="first_name" name="first_name" value={firstName} autoFocus />
-                                <InputError message={errors.first_name} />
-                            </div>
+                    <DialogHeader>
+                        <DialogTitle>Add New Customer</DialogTitle>
+                    </DialogHeader>
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="last_name">Last Name</Label>
-                                <Input id="last_name" name="last_name" value={lastName} autoFocus />
-                                <InputError message={errors.last_name} />
-                            </div>
+                    {/* WE USE A DIV HERE INSTEAD OF <Form>.
+                        This is the most reliable way to prevent parent form submission.
+                    */}
+                    <div className="grid gap-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="first_name">First Name</Label>
+                            <Input
+                                id="first_name"
+                                tabIndex={1}
+                                value={form.data.first_name}
+                                onChange={(e) =>
+                                    form.setData('first_name', e.target.value)
+                                }
+                            />
+                            <InputError message={form.errors.first_name} />
+                        </div>
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="company">Company</Label>
-                                <Input id="company" name="company" autoFocus />
-                                <InputError message={errors.company} />
-                            </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="last_name">Last Name</Label>
+                            <Input
+                                id="last_name"
+                                tabIndex={2}
+                                value={form.data.last_name}
+                                onChange={(e) =>
+                                    form.setData('last_name', e.target.value)
+                                }
+                            />
+                            <InputError message={form.errors.last_name} />
+                        </div>
 
-                            <Button type="submit" disabled={processing}>
-                                {processing ? <Spinner /> : "Create Customer"}
-                            </Button>
-                        </>
-                    )}
-                </Form>
-            </DialogContent>
+                        <div className="grid gap-2">
+                            <Label htmlFor="company">Company</Label>
+                            <Input
+                                id="company"
+                                tabIndex={3}
+                                value={form.data.company}
+                                onChange={(e) =>
+                                    form.setData('company', e.target.value)
+                                }
+                            />
+                            <InputError message={form.errors.company} />
+                        </div>
+
+                        {/* Use type="button" and onClick.
+                            This guarantees NO 'submit' event is ever fired.
+                        */}
+                        <Button
+                            type="button"
+                            disabled={form.processing}
+                            onClick={handleAddCustomerSubmit}
+                        >
+                            {form.processing ? <Spinner /> : 'Create Customer'}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </DialogPortal>
         </Dialog>
     );
 }
