@@ -88,7 +88,7 @@ class DashboardController extends Controller
             DB::raw('SUM(amount_total) as total'),
             DB::raw('SUM(amount_paid) as paid')
         )
-            ->where('status', '!=', 'void')
+            ->where('status', '!=', TransactionStatus::PENDING)
             ->where('transaction_date', '>=', Carbon::now()->subDays(30))
             ->groupBy('date')
             ->orderBy('date')
@@ -100,7 +100,7 @@ class DashboardController extends Controller
             DB::raw("DATE_FORMAT(transaction_date, '%Y-%m') as sort_date"),
             DB::raw('SUM(amount_total) as total')
         )
-            ->where('status', '!=', 'void')
+            ->where('status', '!=', TransactionStatus::PENDING)
             ->where('transaction_date', '>=', Carbon::now()->subMonths(6))
             ->groupBy('month', 'sort_date')
             ->orderBy('sort_date', 'asc')
