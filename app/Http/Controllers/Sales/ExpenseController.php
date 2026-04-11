@@ -68,7 +68,7 @@ class ExpenseController extends Controller
         } catch (\Exception $e) {
             Log::error('Failed to create expense: '.$e->getMessage());
 
-            return back()->withErrors(['error' => 'An error occurred while creating the expense.']);
+            return back()->withErrors(['message' => 'An error occurred while creating the expense.']);
         }
     }
 
@@ -91,7 +91,7 @@ class ExpenseController extends Controller
         } catch (\Exception $e) {
             Log::error('Failed to update expense: '.$e->getMessage());
 
-            return back()->withErrors(['error' => 'An error occurred while updating the expense.']);
+            return back()->withErrors(['message' => 'An error occurred while updating the expense.']);
         }
     }
 
@@ -107,7 +107,7 @@ class ExpenseController extends Controller
         } catch (\Exception $e) {
             Log::error('Failed to delete expense: '.$e->getMessage());
 
-            return back()->withErrors(['error' => 'An error occurred while deleting the expense.']);
+            return back()->withErrors(['message' => 'An error occurred while deleting the expense.']);
         }
     }
 }

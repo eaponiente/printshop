@@ -8,6 +8,7 @@ use App\Http\Requests\Users\UpdateEndorsementRequest;
 use App\Models\Branch;
 use App\Models\CashOnHand;
 use App\Models\Endorsement;
+use App\Services\Sales\CashOnHandService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -38,14 +39,17 @@ class EndorsementController extends Controller
                 'user_id' => auth()->id(),
             ]);
 
-            $cashOnHand = CashOnHand::where('branch_id', $request->branch_id)->first();
-            $cashOnHand->decrement('amount', $request->validated()['amount']);
+            app(CashOnHandService::class)->adjustBalance(
+                $request->branch_id,
+                $request->validated()['amount'],
+                'expense' // Endorsements are outflows similar to expenses
+            );
 
             return redirect()->back()->with('success', 'Endorsement created successfully.');
         } catch (\Exception $e) {
             Log::error('Failed to create endorsement: '.$e->getMessage());
 
-            return redirect()->back()->withErrors(['error' => 'An error occurred while creating the endorsement.']);
+            return redirect()->back()->withErrors(['message' => 'An error occurred while creating the endorsement.']);
         }
     }
 
@@ -60,7 +64,7 @@ class EndorsementController extends Controller
         } catch (\Exception $e) {
             Log::error('Failed to update endorsement: '.$e->getMessage());
 
-            return redirect()->back()->withErrors(['error' => 'An error occurred while updating the endorsement.']);
+            return redirect()->back()->withErrors(['message' => 'An error occurred while updating the endorsement.']);
         }
     }
 
@@ -75,7 +79,7 @@ class EndorsementController extends Controller
         } catch (\Exception $e) {
             Log::error('Failed to delete endorsement: '.$e->getMessage());
 
-            return redirect()->back()->withErrors(['error' => 'An error occurred while deleting the endorsement.']);
+            return redirect()->back()->withErrors(['message' => 'An error occurred while deleting the endorsement.']);
         }
     }
 }

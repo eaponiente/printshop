@@ -108,29 +108,20 @@ class SublimationController extends Controller
         } catch (\Exception $e) {
             Log::error('Failed to create sublimation: '.$e->getMessage());
 
-            return redirect()->back()->withErrors(['error' => 'An error occurred while creating the sublimation.']);
+            return redirect()->back()->withErrors(['message' => 'An error occurred while creating the sublimation.']);
         }
     }
 
     public function update(UpdateSublimationRequest $request, Sublimation $sublimation): RedirectResponse
     {
-        $newStatus = SublimationStatus::from($request->status);
-
         try {
-            // ENFORCE THE BUSINESS RULE
-            if (! $sublimation->canMoveTo($newStatus)) {
-                return back()->withErrors([
-                    'message' => "Cannot move to '{$newStatus->value}'. Please settle the downpayment or select 'Purchase Order' / 'Authorize Production' first.",
-                ]);
-            }
-
             $sublimation->update($request->validated());
 
             return redirect()->back()->with('success', 'Sublimation updated successfully.');
         } catch (\Exception $e) {
             Log::error('Failed to update sublimation: '.$e->getMessage());
 
-            return redirect()->back()->withErrors(['error' => 'An error occurred while updating the sublimation.']);
+            return redirect()->back()->withErrors(['message' => 'An error occurred while updating the sublimation.']);
         }
     }
 
@@ -145,20 +136,28 @@ class SublimationController extends Controller
         } catch (\Exception $e) {
             Log::error('Failed to delete sublimation: '.$e->getMessage());
 
-            return redirect()->back()->withErrors(['error' => 'An error occurred while deleting the sublimation.']);
+            return redirect()->back()->withErrors(['message' => 'An error occurred while deleting the sublimation.']);
         }
     }
 
-    public function complete(Sublimation $sublimation): RedirectResponse
+    public function updateStatus(Request $request, Sublimation $sublimation): RedirectResponse
     {
+        $newStatus = SublimationStatus::from($request->status);
+
         try {
-            $sublimation->update(['status' => SublimationStatus::COMPLETED]);
+            if (! $sublimation->canMoveTo($newStatus)) {
+                return back()->withErrors([
+                    'status' => "Cannot move to '{$newStatus->value}'. Please settle the downpayment or select 'Purchase Order' / 'Authorize Production' first.",
+                ]);
+            }
 
-            return back()->with('success', 'Transaction marked as completed.');
+            $sublimation->status = $request->status;
+            $sublimation->save();
+
+            return back()->with('success', 'Status updated.');
         } catch (\Exception $e) {
-            Log::error('Failed to mark sublimation as completed: '.$e->getMessage());
-
-            return back()->withErrors(['error' => 'An error occurred while completing the sublimation.']);
+            // This triggers the onError callback in Inertia
+            return back()->withErrors(['status' => 'The status change is not allowed at this time.']);
         }
     }
 }

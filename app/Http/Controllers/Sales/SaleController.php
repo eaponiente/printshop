@@ -57,7 +57,7 @@ class SaleController extends Controller
         } catch (\Exception $e) {
             Log::error('Failed to create sale: '.$e->getMessage());
 
-            return back()->withErrors(['error' => 'An error occurred while creating the sale.']);
+            return back()->withErrors(['message' => 'An error occurred while creating the sale.']);
         }
     }
 

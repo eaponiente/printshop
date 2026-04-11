@@ -37,7 +37,7 @@ export default function ExpenseDialog({
     const isEdit = !!expense;
     const { auth } = usePage().props as any;
 
-    const { data, setData, post, put, processing, errors, reset } = useForm({
+    const { data, setData, post, transform, processing, errors, reset } = useForm({
         description: expense?.description ?? '',
         vendor_name: expense?.vendor_name ?? '',
         amount: expense?.amount ?? '',
@@ -67,13 +67,11 @@ export default function ExpenseDialog({
         };
 
         if (isEdit) {
-            // Note: In Laravel, multipart/form-data with PUT requires _method: 'PUT'
-            // or using post() with a spoofed method.
-            put(route('expenses.update', expense.id), {
-                ...options,
-                forceFormData: true,
-                data: { ...data, _method: 'PUT' }
-            } as any);
+            transform((currentData: any) => ({
+                ...currentData,
+                _method: 'PUT',
+            }));
+            post(route('expenses.update', expense.id), options);
         } else {
             post(route('expenses.store'), options);
         }

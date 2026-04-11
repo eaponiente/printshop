@@ -117,7 +117,7 @@ class PurchaseOrderController extends Controller
         } catch (\Exception $e) {
             Log::error('Failed to create purchase order: '.$e->getMessage());
 
-            return back()->withErrors(['error' => 'An error occurred while creating the purchase order.']);
+            return back()->withErrors(['message' => 'An error occurred while creating the purchase order.']);
         }
     }
 
@@ -144,7 +144,7 @@ class PurchaseOrderController extends Controller
         } catch (\Exception $e) {
             Log::error('Failed to update purchase order: '.$e->getMessage());
 
-            return back()->withErrors(['error' => 'An error occurred while updating the purchase order.']);
+            return back()->withErrors(['message' => 'An error occurred while updating the purchase order.']);
         }
     }
 
@@ -159,7 +159,7 @@ class PurchaseOrderController extends Controller
         } catch (\Exception $e) {
             Log::error('Failed to delete purchase order: '.$e->getMessage());
 
-            return back()->withErrors(['error' => 'An error occurred while deleting the purchase order.']);
+            return back()->withErrors(['message' => 'An error occurred while deleting the purchase order.']);
         }
     }
 }

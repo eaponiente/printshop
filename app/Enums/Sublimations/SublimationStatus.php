@@ -50,21 +50,26 @@ enum SublimationStatus: string
     public function color(): string
     {
         return match ($this) {
+            // Phase 1: Planning & Payment
             self::FOR_APPROVAL => 'bg-blue-500 text-white',
-            self::DONE_LAYOUT => 'bg-green-400 text-black',
-            self::WAITING_FOR_DP => 'bg-gray-400 text-black',
+            self::DONE_LAYOUT => 'bg-indigo-100 text-indigo-700', // Changed from green to Indigo for distinction
+            self::WAITING_FOR_DP => 'bg-slate-400 text-white',
+            self::DOWNPAYMENT_COMPLETE => 'bg-emerald-500 text-white', // Solid milestone green
+
+            // Phase 2: Production (Varied colors to spot bottlenecks)
             self::FOR_SIZING => 'bg-pink-300 text-black',
             self::DONE_SIZING => 'bg-cyan-400 text-black',
             self::PRINTED => 'bg-teal-200 text-black',
             self::CUT => 'bg-purple-300 text-black',
-            self::PRINTED_RED => 'bg-red-400 text-white',
-            self::SEWING => 'bg-indigo-300 text-black',
+            self::PRINTED_RED => 'bg-red-500 text-white',
+            self::SEWING => 'bg-violet-300 text-black',
             self::SEWED => 'bg-orange-400 text-white',
             self::CHECKED => 'bg-rose-400 text-white',
+
+            // Phase 3: Delivery & Finalization
             self::READY_FOR_PICKUP => 'bg-amber-500 text-white',
             self::CLAIMED => 'bg-yellow-400 text-black',
-            self::COMPLETED => 'bg-green-400 text-green',
-            self::DOWNPAYMENT_COMPLETE => 'bg-green-400 text-green'
+            self::COMPLETED => 'bg-green-700 text-white', // Darker, "Finished" Green
         };
     }
 
@@ -80,6 +85,16 @@ enum SublimationStatus: string
             ->toArray();
     }
 
+    public function isPrePaymentPhase(): bool
+    {
+        return in_array($this, [
+            self::FOR_APPROVAL,
+            self::DONE_LAYOUT,
+            self::WAITING_FOR_DP,
+            self::DOWNPAYMENT_COMPLETE,
+        ]);
+    }
+
     public function isProductionPhase(): bool
     {
         return in_array($this, [
@@ -87,12 +102,12 @@ enum SublimationStatus: string
             self::DONE_SIZING,
             self::PRINTED,
             self::CUT,
+            self::PRINTED_RED,
             self::SEWING,
             self::SEWED,
             self::CHECKED,
             self::READY_FOR_PICKUP,
-            self::CLAIMED,
-            self::COMPLETED,
+            self::CLAIMED, // Claimed is the transition out of production
         ]);
     }
 }

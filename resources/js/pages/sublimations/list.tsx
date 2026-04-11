@@ -1,14 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
 import { differenceInMinutes, parseISO } from 'date-fns';
-import {
-    ArrowRightCircle,
-    ArrowUpDown,
-    Pencil,
-    Plus,
-    Trash2,
-    X,
-} from 'lucide-react';
+import { ArrowUpDown, Pencil, Plus, Trash2, X } from 'lucide-react';
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { route } from 'ziggy-js';
@@ -24,7 +17,6 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -35,6 +27,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
+import { StatusCell } from '@/pages/sublimations/status-cell';
 import SublimationDialog from '@/pages/sublimations/sublimation-dialog';
 import type { BreadcrumbItem } from '@/types';
 import type { Branch } from '@/types/branches';
@@ -129,12 +122,16 @@ export default function SublimationIndex({
                 const { transaction, customer, created_at } = row.original;
 
                 // Logic: Is this record less than 10 minutes old?
-                const isRecent = differenceInMinutes(new Date(), parseISO(created_at)) < 10;
+                const isRecent =
+                    differenceInMinutes(new Date(), parseISO(created_at)) < 10;
 
                 return (
                     <div className="flex items-center gap-2">
                         <Link
-                            href={route('sales.index', { search: transaction?.invoice_number, mode: 'yearly' })}
+                            href={route('sales.index', {
+                                search: transaction?.invoice_number,
+                                mode: 'yearly',
+                            })}
                             className={`font-medium ${isRecent ? 'text-green-700' : 'text-indigo-600'} hover:underline`}
                         >
                             {customer.full_name}
@@ -142,10 +139,10 @@ export default function SublimationIndex({
 
                         {isRecent && (
                             <span className="relative flex h-2 w-2">
-                        {/* Ping animation to grab attention */}
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                    </span>
+                                {/* Ping animation to grab attention */}
+                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
+                                <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500"></span>
+                            </span>
                         )}
                     </div>
                 );
@@ -180,32 +177,7 @@ export default function SublimationIndex({
         {
             accessorKey: 'status',
             header: 'Status',
-            cell: ({ row }) => {
-                const item = row.original;
-                const isClaimed = item.status === 'claimed';
-
-                return (
-                    <div className="flex items-center gap-2">
-                        <Badge
-                            className={`border font-medium capitalize shadow-none ${item.status_color}`}
-                        >
-                            {item.status_label}
-                        </Badge>
-
-                        {/* Subtle "Advance" Arrow */}
-                        {isClaimed && (
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 rounded-full bg-green-50 text-green-600 hover:bg-green-100"
-                                onClick={() => completeTransaction(item)}
-                            >
-                                <ArrowRightCircle className="h-4 w-4" />
-                            </Button>
-                        )}
-                    </div>
-                );
-            },
+            cell: ({ row }) => <StatusCell item={row.original} statuses={statuses} />,
         },
         {
             accessorKey: 'branch.name',

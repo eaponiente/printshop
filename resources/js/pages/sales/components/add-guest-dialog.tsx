@@ -80,10 +80,10 @@ export function AddGuestModal({
                         <DialogTitle>Add New Customer</DialogTitle>
                     </DialogHeader>
 
-                    {/* WE USE A DIV HERE INSTEAD OF <Form>.
-                        This is the most reliable way to prevent parent form submission.
+                    {/* Using form with stopPropagation prevents parent form submission 
+                        while retaining Enter key support.
                     */}
-                    <div className="grid gap-4">
+                    <form onSubmit={handleAddCustomerSubmit} className="grid gap-4">
                         <div className="grid gap-2">
                             <Label htmlFor="first_name">First Name</Label>
                             <Input
@@ -123,17 +123,14 @@ export function AddGuestModal({
                             <InputError message={form.errors.company} />
                         </div>
 
-                        {/* Use type="button" and onClick.
-                            This guarantees NO 'submit' event is ever fired.
-                        */}
+                        {/* Use type="submit" and onSubmit on the form to allow Enter key. */}
                         <Button
-                            type="button"
+                            type="submit"
                             disabled={form.processing}
-                            onClick={handleAddCustomerSubmit}
                         >
                             {form.processing ? <Spinner /> : 'Create Customer'}
                         </Button>
-                    </div>
+                    </form>
                 </DialogContent>
             </DialogPortal>
         </Dialog>

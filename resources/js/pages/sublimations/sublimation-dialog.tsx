@@ -52,7 +52,6 @@ export default function SublimationDialog({
         branch_id: sublimation?.branch_id ?? (auth.user as any).branch_id ?? '',
         customer_id: sublimation?.customer_id ?? '',
         user_id: sublimation?.user_id ?? (auth.user as any).id ?? '',
-        status: sublimation?.status ?? 'for_approval',
         due_at: sublimation?.due_at
             ? new Date(sublimation.due_at).toISOString().split('T')[0]
             : '',
@@ -228,7 +227,7 @@ export default function SublimationDialog({
                         </div>
 
                         <div
-                            className={`grid gap-4 ${isEdit ? 'grid-cols-3' : 'grid-cols-2'}`}
+                            className={`grid gap-4 grid-cols-2`}
                         >
                             {/* Assigned Staff */}
                             <div className="grid gap-2">
@@ -285,31 +284,6 @@ export default function SublimationDialog({
                                             }
                                         />
                                         <InputError message={errors.due_at} />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="status">Status</Label>
-                                        <NativeSelect
-                                            value={data.status}
-                                            onChange={(e) =>
-                                                setData(
-                                                    'status',
-                                                    e.target.value as any,
-                                                )
-                                            }
-                                        >
-                                            <NativeSelectOption value="">
-                                                Select status
-                                            </NativeSelectOption>
-                                            {statuses.map((u) => (
-                                                <NativeSelectOption
-                                                    key={u.key}
-                                                    value={u.key}
-                                                >
-                                                    {u.value}
-                                                </NativeSelectOption>
-                                            ))}
-                                        </NativeSelect>
-                                        <InputError message={errors.status} />
                                     </div>
                                 </>
                             )}
