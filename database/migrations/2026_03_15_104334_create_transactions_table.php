@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Sales\TransactionStatus;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -29,7 +30,7 @@ return new class extends Migration
 
             // Metadata
             $table->string('payment_type')->nullable()->comment('Method used (e.g., Cash, GCash, Card)');
-            $table->string('status')->default('pending')->comment('Current state: pending, partial, paid');
+            $table->enum('status', TransactionStatus::cases())->default('pending')->comment('Current state: pending, partial, paid');
 
             // Relationships
             $table->foreignId('staff_id')->constrained('users')->onDelete('cascade')->comment('The employee who processed this record');

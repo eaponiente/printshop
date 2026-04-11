@@ -11,7 +11,7 @@ export const capitalizeFirstLetter = (str: string): string => {
     return str.charAt(0).toUpperCase() + str.slice(1);
 };
 
-export const formatCurrency = (amount: number) => {
+export const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat('en-US', {
         style: 'currency',
         currency: 'PHP', // Change to your currency, e.g., 'PHP'

@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import {
     Activity,
     CreditCard,
@@ -8,6 +8,7 @@ import {
     Plus,
 } from 'lucide-react';
 
+import { route } from 'ziggy-js';
 import MonthlyPieChart from '@/components/charts/monthly-pie-chart';
 import TransactionBarChart from '@/components/charts/transaction-bar-chart';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -22,7 +23,7 @@ import {
 import AppLayout from '@/layouts/app-layout';
 import { dashboard } from '@/routes';
 import type { BreadcrumbItem } from '@/types';
-import { route } from 'ziggy-js';
+import { formatCurrency } from '@/utils/formatters';
 
 // Shadcn UI Components (Assuming standard installation paths)
 
@@ -33,7 +34,9 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function Dashboard({ chartData, pieData }: any) {
+export default function Dashboard({ chartData, pieData, stats, recentTransactions }: any) {
+    const { auth } = usePage<any>().props;
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard" />
@@ -43,19 +46,11 @@ export default function Dashboard({ chartData, pieData }: any) {
                 <div className="flex items-center justify-between">
                     <div>
                         <h2 className="text-2xl font-bold tracking-tight">
-                            Welcome back, Admin
+                            Welcome back, {auth?.user?.first_name || 'Admin'}
                         </h2>
                         <p className="text-muted-foreground">
                             Here is what's happening with your business today.
                         </p>
-                    </div>
-                    <div className="flex gap-2">
-                        <Button size="sm" variant="outline">
-                            Download Report
-                        </Button>
-                        <Button size="sm">
-                            <Plus className="mr-2 h-4 w-4" /> New Transaction
-                        </Button>
                     </div>
                 </div>
 
@@ -69,9 +64,14 @@ export default function Dashboard({ chartData, pieData }: any) {
                             <DollarSign className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">$45,231.89</div>
-                            <p className="flex items-center gap-1 text-xs text-green-500">
-                                +20.1%{' '}
+                            <div className="text-2xl font-bold">
+                                {formatCurrency(stats.revenue.value)}
+                            </div>
+                            <p
+                                className={`flex items-center gap-1 text-xs ${stats.revenue.growth >= 0 ? 'text-green-500' : 'text-red-500'}`}
+                            >
+                                {stats.revenue.growth > 0 ? '+' : ''}
+                                {stats.revenue.growth}%{' '}
                                 <span className="text-muted-foreground">
                                     from last month
                                 </span>
@@ -81,14 +81,20 @@ export default function Dashboard({ chartData, pieData }: any) {
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle className="text-sm font-medium">
-                                Subscriptions
+                                New Customers
                             </CardTitle>
                             <Users className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">+2,350</div>
-                            <p className="flex items-center gap-1 text-xs text-green-500">
-                                +180.1%{' '}
+                            <div className="text-2xl font-bold">
+                                {stats.customers.value > 0 ? '+' : ''}
+                                {stats.customers.value}
+                            </div>
+                            <p
+                                className={`flex items-center gap-1 text-xs ${stats.customers.growth >= 0 ? 'text-green-500' : 'text-red-500'}`}
+                            >
+                                {stats.customers.growth > 0 ? '+' : ''}
+                                {stats.customers.growth}%{' '}
                                 <span className="text-muted-foreground">
                                     from last month
                                 </span>
@@ -98,28 +104,39 @@ export default function Dashboard({ chartData, pieData }: any) {
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle className="text-sm font-medium">
-                                Sales
+                                Total Sales
                             </CardTitle>
                             <CreditCard className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">+12,234</div>
-                            <p className="text-xs text-muted-foreground">
-                                +19% from last month
+                            <div className="text-2xl font-bold">
+                                {stats.sales.value > 0 ? '+' : ''}
+                                {stats.sales.value}
+                            </div>
+                            <p
+                                className={`flex items-center gap-1 text-xs ${stats.sales.growth >= 0 ? 'text-green-500' : 'text-red-500'}`}
+                            >
+                                {stats.sales.growth > 0 ? '+' : ''}
+                                {stats.sales.growth}%{' '}
+                                <span className="text-muted-foreground">
+                                    from last month
+                                </span>
                             </p>
                         </CardContent>
                     </Card>
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle className="text-sm font-medium">
-                                Active Now
+                                Pending Transactions
                             </CardTitle>
                             <Activity className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">+573</div>
+                            <div className="text-2xl font-bold">
+                                {stats.pending_jobs.value}
+                            </div>
                             <p className="text-xs text-muted-foreground">
-                                +201 since last hour
+                                +{stats.pending_jobs.added_today} added today
                             </p>
                         </CardContent>
                     </Card>
@@ -147,7 +164,7 @@ export default function Dashboard({ chartData, pieData }: any) {
                             <div className="grid gap-1">
                                 <CardTitle>Recent Transactions</CardTitle>
                                 <CardDescription>
-                                    You made 265 sales this month.
+                                    You made {stats.sales.value} sales this month.
                                 </CardDescription>
                             </div>
                             <Button asChild size="sm" className="ml-auto gap-1">
@@ -159,24 +176,30 @@ export default function Dashboard({ chartData, pieData }: any) {
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-8">
-                                {[1, 2, 3, 4, 5].map((_, i) => (
+                                {recentTransactions.map((transaction: any) => (
                                     <div
-                                        key={i}
+                                        key={transaction.id}
                                         className="flex items-center gap-4"
                                     >
                                         <Avatar className="h-9 w-9">
-                                            <AvatarFallback>OM</AvatarFallback>
+                                            <AvatarFallback>
+                                                {transaction.customer_name
+                                                    .substring(0, 2)
+                                                    .toUpperCase()}
+                                            </AvatarFallback>
                                         </Avatar>
                                         <div className="grid gap-1">
                                             <p className="text-sm leading-none font-medium">
-                                                Olivia Martin
+                                                {transaction.customer_name}
                                             </p>
                                             <p className="text-sm text-muted-foreground">
-                                                olivia.martin@email.com
+                                                {transaction.customer_company}
                                             </p>
                                         </div>
                                         <div className="ml-auto font-medium">
-                                            +$1,999.00
+                                            {formatCurrency(
+                                                transaction.amount_total,
+                                            )}
                                         </div>
                                     </div>
                                 ))}
