@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\URL;
 
 class DatabaseSeeder extends Seeder
 {
@@ -13,12 +12,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        if (app()->environment('production')) {
-            $this->call([
-                BranchSeeder::class,
-                UsersSeeder::class,
-            ]);
-        } else {
+        if (! app()->environment('production')) {
             $this->call([
                 BranchSeeder::class,
                 UsersSeeder::class,
@@ -28,8 +22,12 @@ class DatabaseSeeder extends Seeder
                 PurchaseOrderSeeder::class,
                 ExpenseSeeder::class,
             ]);
+        } else {
+            $this->call([
+                BranchSeeder::class,
+                UsersSeeder::class,
+            ]);
         }
-
 
     }
 }

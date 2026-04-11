@@ -32,7 +32,7 @@ class TransactionSeeder extends Seeder
 
         $totalToSeed = rand(300, 500);
 
-        foreach (range(1, 50) as $i) {
+        foreach (range(1, 5) as $i) {
             $service = fake()->randomElement($services);
 
             // 1. Financial Logic (Integers only)

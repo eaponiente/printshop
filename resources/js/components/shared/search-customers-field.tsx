@@ -137,6 +137,7 @@ export default function SearchCustomersField({ field, selectCustomer, errors }: 
                                 )}
 
                                 {/* 2. The Customer List */}
+                                // if customers is empty remove heading
                                 <CommandGroup heading="Recent or Found Customers">
                                     {customers.map((c: Customer) => {
                                         const fullName = `${c.first_name} ${c.last_name}`;
