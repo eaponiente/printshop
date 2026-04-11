@@ -7,6 +7,7 @@ import {
     Plus,
     Trash2,
     Wallet,
+    Eye,
 } from 'lucide-react';
 import { Banknote, TrendingUp } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
@@ -28,6 +29,7 @@ import { Card, CardContent } from '@/components/ui/card'; // Ensure you have the
 import AppLayout from '@/layouts/app-layout';
 import CollectPaymentDialog from '@/pages/sales/components/collect-payment-dialog';
 import TableFilters from '@/pages/sales/components/table-filters';
+import TransactionDetailsDialog from '@/pages/sales/components/transaction-details-dialog';
 import SaleDialog from '@/pages/sales/sales-dialog';
 import type { BreadcrumbItem } from '@/types';
 import type { Branch } from '@/types/branches';
@@ -84,6 +86,11 @@ export default function SaleIndex({
         setIsDialogOpen(true);
     };
 
+    const openDetailsForm = (transaction: any) => {
+        setTransaction(transaction);
+        setIsDetailsDialogOpen(true);
+    };
+
     // 1. Add local state for the search input
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
     const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
@@ -104,6 +111,7 @@ export default function SaleIndex({
     }, [filters, searchTerm]);
 
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
     const [isCollectPaymentDialogOpen, setIsCollectPaymentDialogOpen] =
         useState(false);
 
@@ -268,6 +276,13 @@ export default function SaleIndex({
             cell: ({ row }: CellContext<any, any>) => {
                 return (
                     <>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openDetailsForm(row.original)}
+                        >
+                            <Eye className="h-4 w-4 text-muted-foreground" />
+                        </Button>
                         <Button
                             variant="ghost"
                             size="sm"
@@ -512,6 +527,14 @@ export default function SaleIndex({
                     open={isCollectPaymentDialogOpen}
                     typesOfPayment={types_of_payment}
                     setOpen={setIsCollectPaymentDialogOpen}
+                />
+            )}
+
+            {isDetailsDialogOpen && (
+                <TransactionDetailsDialog
+                    transaction={getTransaction}
+                    open={isDetailsDialogOpen}
+                    setOpen={setIsDetailsDialogOpen}
                 />
             )}
         </AppLayout>
