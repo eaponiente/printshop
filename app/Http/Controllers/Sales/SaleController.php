@@ -70,7 +70,7 @@ class SaleController extends Controller
         if ($sale->isDirty('amount_total')) {
 
             // Custom logic: e.g., only allow change if status is pending
-            if ($sale->getOriginal('status') !== TransactionStatus::PENDING) {
+            if ($sale->getOriginal('status') !== TransactionStatus::PENDING->value) {
                 return back()->withErrors(['message' => 'Cannot change amount on processed sales.']);
             }
         }
