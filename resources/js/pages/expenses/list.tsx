@@ -1,8 +1,7 @@
 import { Head, router } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
-import {  Ban, Banknote, Pencil, Plus, Trash2, XCircle } from 'lucide-react';
+import { Banknote, Plus, XCircle } from 'lucide-react';
 import React, { useState } from 'react';
-import { toast } from 'sonner';
 import { route } from 'ziggy-js';
 import { DataTable } from '@/components/data-table';
 import { Badge } from "@/components/ui/badge"; // Assuming Shadcn Badge
@@ -134,6 +133,10 @@ export default function ExpenseIndex({
             },
         },
         {
+            accessorKey: 'void_reason',
+            header: 'Void Reason'
+        },
+        {
             header: 'Actions',
             cell: ({ row }: CellContext<any, any>) => {
                 const expense = row.original;
@@ -208,7 +211,7 @@ export default function ExpenseIndex({
                                     handleFilterChange(v, 'branch_id')
                                 }
                             >
-                                <SelectTrigger className="h-10 w-[180px] bg-white text-sm shadow-sm">
+                                <SelectTrigger className="h-10 w-45 bg-white text-sm shadow-sm">
                                     <SelectValue placeholder="All Branches" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -238,7 +241,7 @@ export default function ExpenseIndex({
                                     handleFilterChange(v, 'payment_type')
                                 }
                             >
-                                <SelectTrigger className="h-10 w-[150px] bg-white text-sm shadow-sm">
+                                <SelectTrigger className="h-10 w-37.5 bg-white text-sm shadow-sm">
                                     <SelectValue placeholder="Payment_type" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -266,7 +269,7 @@ export default function ExpenseIndex({
                                     handleFilterChange(v, 'mode')
                                 }
                             >
-                                <SelectTrigger className="w-[140px] bg-white">
+                                <SelectTrigger className="w-35 bg-white">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -300,7 +303,7 @@ export default function ExpenseIndex({
                                                 'date',
                                             )
                                         }
-                                        className="w-[180px] bg-white"
+                                        className="w-45 bg-white"
                                     />
                                 )}
                                 {mode === 'weekly' && (
@@ -313,7 +316,7 @@ export default function ExpenseIndex({
                                                 'date',
                                             )
                                         }
-                                        className="w-[200px] bg-white"
+                                        className="w-50 bg-white"
                                     />
                                 )}
                                 {mode === 'monthly' && (
@@ -326,7 +329,7 @@ export default function ExpenseIndex({
                                                 'date',
                                             )
                                         }
-                                        className="w-[180px] bg-white"
+                                        className="w-45 bg-white"
                                     />
                                 )}
                                 {mode === 'yearly' && (
