@@ -34,6 +34,11 @@ class Transaction extends Model
         return $this->hasMany(Payment::class);
     }
 
+    public function sublimation()
+    {
+        return $this->hasOne(Sublimation::class);
+    }
+
     /**
      * Generate a unique invoice number.
      * Format: INV-2026-0001

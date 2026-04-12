@@ -23,51 +23,41 @@ export const StatusCell = ({ item, statuses }: StatusCellProps) => {
 
     const { auth } = usePage().props;
 
-    // Define the boundaries
-    const phase1Keys = [
-        'for_approval',
-        'done_layout',
-        'waiting_for_dp',
-        'downpayment_complete',
-    ];
     const isCompleted = item.status === 'completed';
 
     // 1. Advanced 3-Phase Filtering Logic
     const getVisibleStatuses = () => {
-
         if (auth.user.role === 'superadmin') {
             return statuses;
         }
 
-        // 1. Phase 3 (Strict Gateway): If currently claimed, ONLY show completed
-        if (item.status === 'claimed') {
+        const currentStatus = item.status;
+
+        // 1. Phase 3: Claimed (Final Transition)
+        if (currentStatus === 'claimed') {
             return statuses.filter((s) => s.key === 'completed');
         }
 
-        // 2. Phase 1 (Setup): Pre-payment stages
-        const isSetupPhase = [
-            'for_approval',
-            'done_layout',
-            'waiting_for_dp',
-        ].includes(item.status);
+        // 2. Phase 1: Pre-Payment Setup
+        // Goal: Show setup statuses + the 'downpayment_complete' option
+        const prePaymentKeys = ['for_approval', 'done_layout', 'waiting_for_dp'];
 
-        if (isSetupPhase) {
-            // Show: For Approval, Done Layout, Waiting for DP, Downpayment Complete
-            return statuses.filter((s) => phase1Keys.includes(s.key));
+        if (prePaymentKeys.includes(currentStatus)) {
+            return statuses.filter((s) =>
+                prePaymentKeys.includes(s.key) || s.key === 'downpayment_complete'
+            );
         }
 
-        // 3. Phase 2 (Production): From 'Downpayment Complete' until 'Ready for Pickup'
-        // We hide the initial setup phases and the final 'completed' status
-        // (Force the user to go through 'claimed' before they can 'complete')
+        // 3. Phase 2: Production
+        // Triggered when currentStatus is 'downpayment_complete' or any production status
+        // Goal: Exclude all Pre-Payment AND exclude 'downpayment_complete' itself
         return statuses.filter((s) => {
-            const isInitialSetup = [
-                'for_approval',
-                'done_layout',
-                'waiting_for_dp',
-            ].includes(s.key);
+            const isPrePayment = prePaymentKeys.includes(s.key);
+            const isDPComplete = s.key === 'downpayment_complete';
             const isTerminal = s.key === 'completed';
 
-            return !isInitialSetup && !isTerminal;
+            // Hide pre-payment, the DP complete step, and the final 'completed'
+            return !isPrePayment && !isDPComplete && !isTerminal;
         });
     };
 

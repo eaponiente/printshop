@@ -1,7 +1,15 @@
 import { Head, Link, router } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
 import { differenceInMinutes, parseISO } from 'date-fns';
-import { ArrowUpDown, Pencil, Plus, Trash2, X } from 'lucide-react';
+import {
+    ArrowUpDown,
+    ExternalLink,
+    Pencil,
+    Plus,
+    ReceiptText,
+    Trash2,
+    X,
+} from 'lucide-react';
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { route } from 'ziggy-js';
@@ -119,38 +127,27 @@ export default function SublimationIndex({
             accessorKey: 'customer.full_name',
             header: 'Customer',
             cell: ({ row }) => {
-                const { transaction, customer, created_at } = row.original;
-
-                console.log('Transaction:', row.original);
-
-                // Logic: Is this record less than 10 minutes old?
-                const isRecent =
-                    differenceInMinutes(new Date(), parseISO(created_at)) < 10;
+                const { transaction, customer } = row.original;
 
                 return (
                     <div className="flex items-center gap-2">
-                        {transaction ? (
+                        {/* Name stays as plain text for readability */}
+                        <span className="font-medium text-slate-900">
+                            {customer.full_name}
+                        </span>
+
+                        {/* Icon link appears only if transaction exists */}
+                        {transaction && (
                             <Link
                                 href={route('sales.index', {
                                     search: transaction.invoice_number,
                                     mode: 'yearly',
                                 })}
-                                className={`font-medium ${isRecent ? 'text-green-700' : 'text-indigo-600'} hover:underline`}
+                                className="rounded p-1 text-indigo-500 transition-colors hover:bg-indigo-100 hover:text-indigo-700"
+                                title={`View Invoice: ${transaction.invoice_number}`}
                             >
-                                {customer.full_name}
+                                <ExternalLink size={16} />
                             </Link>
-                        ) : (
-                            <span className="font-medium text-muted-foreground">
-                                {customer.full_name}
-                            </span>
-                        )}
-
-                        {isRecent && (
-                            <span className="relative flex h-2 w-2">
-                                {/* Ping animation to grab attention */}
-                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
-                                <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500"></span>
-                            </span>
                         )}
                     </div>
                 );
@@ -185,7 +182,9 @@ export default function SublimationIndex({
         {
             accessorKey: 'status',
             header: 'Status',
-            cell: ({ row }) => <StatusCell item={row.original} statuses={statuses} />,
+            cell: ({ row }) => (
+                <StatusCell item={row.original} statuses={statuses} />
+            ),
         },
         {
             accessorKey: 'branch.name',

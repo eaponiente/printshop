@@ -83,6 +83,7 @@ class SaleController extends Controller
     public function updatePayment(UpdateTransactionPaymentRequest $request, Transaction $transaction): RedirectResponse
     {
         try {
+
             // Logic moved to a transition method on the Model (Encapsulation)
             $transaction->recordPayment($request->amount_paid, $request->payment_type);
 
@@ -93,6 +94,16 @@ class SaleController extends Controller
                     'revenue'
                 );
             }
+
+//            $sublimation = $transaction->sublimation;
+//
+//            if ($sublimation && $transaction->payments()->count() === 1) {
+//                if ($sublimation->status->isPrePaymentPhase()) {
+//                    $sublimation->update([
+//                        'status' => SublimationStatus::DOWNPAYMENT_COMPLETE,
+//                    ]);
+//                }
+//            }
 
             return back()->with('success', 'Payment updated.');
         } catch (\Exception $e) {

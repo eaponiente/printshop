@@ -151,7 +151,7 @@ class SublimationController extends Controller
                 ]);
             }
 
-            if ($newStatus === SublimationStatus::DOWNPAYMENT_COMPLETE) {
+            if ($newStatus === SublimationStatus::WAITING_FOR_DP) {
                 // Check if a transaction already exists to prevent duplicates
                 if (! $sublimation->transaction()->exists()) {
                     $transactionData = $sublimation->only(['description', 'branch_id', 'customer_id', 'user_id']);
@@ -162,7 +162,6 @@ class SublimationController extends Controller
                         'particular' => 'Sublimation',
                         'staff_id' => auth()->id(),
                         'transaction_date' => now(),
-                        'sublimation_id' => $sublimation->id, // Ensure the link is saved
                     ]));
 
                     $sublimation->transaction_id = $transaction->id;
