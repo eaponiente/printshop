@@ -1,43 +1,41 @@
 import { Head, router } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
-import {
-    Banknote,
-    Pencil,
-    Plus,
-    Trash2,
-    XCircle,
-} from 'lucide-react';
+import {  Ban, Banknote, Pencil, Plus, Trash2, XCircle } from 'lucide-react';
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { route } from 'ziggy-js';
 import { DataTable } from '@/components/data-table';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+import { Badge } from "@/components/ui/badge"; // Assuming Shadcn Badge
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
+import ExpenseActions from '@/pages/expenses/components/expense-actions';
 import ExpenseDialog from '@/pages/expenses/expenses-dialog';
 import type { BreadcrumbItem } from '@/types';
 import type { Expense, ExpensesList } from '@/types/expenses';
-import { formatCurrency } from '@/utils/formatters';
 import { toManilaTime } from '@/utils/dateHelper';
+import { formatCurrency } from '@/utils/formatters';
+
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Expenses', href: '/expenses' },
 ];
 
-export default function ExpenseIndex({ expenses, branches, payment_methods, expenses_amount, filters }: ExpensesList) {
+export default function ExpenseIndex({
+    expenses,
+    branches,
+    payment_methods,
+    expenses_amount,
+    filters,
+}: ExpensesList) {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [mode, setMode] = useState(filters.mode || 'daily');
     const [getExpense, setExpense] = useState<any | null>(null);
@@ -45,12 +43,6 @@ export default function ExpenseIndex({ expenses, branches, payment_methods, expe
         setExpense(expense);
         setIsDialogOpen(true);
     };
-
-    const deleteExpense = (expense: Expense) => {
-        router.delete(`/expenses/${expense.id}`, {
-            onSuccess: () => toast.success('Expense deleted', { position: 'top-center'}),
-        });
-    }
 
     const clearFilters = () => {
         router.get(route('expenses.index'), {}, { replace: true });
@@ -75,7 +67,6 @@ export default function ExpenseIndex({ expenses, branches, payment_methods, expe
             params.date = value;
         }
 
-
         router.get(`/expenses`, params, {
             preserveState: true,
             replace: true,
@@ -84,6 +75,10 @@ export default function ExpenseIndex({ expenses, branches, payment_methods, expe
 
     const columns: ColumnDef<unknown, any>[] = [
         {
+            accessorKey: 'branch.name',
+            header: 'Branch',
+        },
+        {
             accessorKey: 'amount',
             header: 'Amount',
             cell: ({ row }: CellContext<any, any>) => {
@@ -91,12 +86,45 @@ export default function ExpenseIndex({ expenses, branches, payment_methods, expe
             },
         },
         {
-            accessorKey: 'branch.name',
-            header: 'Branch',
-        },
-        {
             accessorKey: 'user.fullname',
             header: 'Staff',
+        },
+        {
+            accessorKey: 'status',
+            header: 'Status',
+            cell: ({ row }) => {
+                const status = row.getValue('status') as string;
+
+                const statusConfig: Record<
+                    string,
+                    { label: string; className: string }
+                > = {
+                    paid: {
+                        label: 'Paid',
+                        className:
+                            'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border-emerald-200',
+                    },
+                    void: {
+                        label: 'Voided',
+                        className:
+                            'bg-destructive/10 text-destructive hover:bg-destructive/20 border-destructive/20',
+                    },
+                };
+
+                const config = statusConfig[status] || {
+                    label: status,
+                    className: '',
+                };
+
+                return (
+                    <Badge
+                        variant="outline"
+                        className={`font-semibold capitalize ${config.className}`}
+                    >
+                        {config.label}
+                    </Badge>
+                );
+            },
         },
         {
             accessorKey: 'expense_date',
@@ -108,47 +136,17 @@ export default function ExpenseIndex({ expenses, branches, payment_methods, expe
         {
             header: 'Actions',
             cell: ({ row }: CellContext<any, any>) => {
+                const expense = row.original;
+
+                if (expense.status === 'void') {
+                    return null;
+                }
+
                 return (
-                    <>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openEditForm(row.original)}
-                        >
-                            <Pencil />
-                        </Button>
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="sm">
-                                    <Trash2 />
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                        Are you absolutely sure?
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        This action cannot be undone. This will
-                                        permanently delete your user from our
-                                        servers.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>
-                                        Cancel
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction
-                                        onClick={() =>
-                                            deleteExpense(row.original)
-                                        }
-                                    >
-                                        Continue
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    </>
+                    <ExpenseActions
+                        expense={expense}
+                        onEdit={(expense) => openEditForm(expense)}
+                    />
                 );
             },
         },

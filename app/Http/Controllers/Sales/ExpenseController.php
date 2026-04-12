@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Sales;
 
+use App\Enums\Expenses\ExpenseStatus;
 use App\Enums\Shared\TypeOfPaymentEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Sales\StoreExpenseRequest;
@@ -108,6 +109,48 @@ class ExpenseController extends Controller
             Log::error('Failed to delete expense: '.$e->getMessage());
 
             return back()->withErrors(['message' => 'An error occurred while deleting the expense.']);
+        }
+    }
+
+    public function void(Request $request, Expense $expense): RedirectResponse
+    {
+        // 1. Pre-emptive check
+        if ($expense->status === 'void') {
+            return back()->withErrors(['message' => 'Expense is already voided.']);
+        }
+
+        // 2. Validation
+        $request->validate([
+            'reason' => 'required|string|min:2',
+        ]);
+
+        try {
+            DB::transaction(function () use ($expense, $request) {
+                // 3. Mark as void and save the reason
+                $expense->update([
+                    'status' => ExpenseStatus::VOID->value,
+                    'void_reason' => $request->reason,
+                ]);
+
+                // 4. Reverse the cash impact if it was paid in cash
+                if ($expense->payment_type === TypeOfPaymentEnum::CASH->value) {
+                    app(CashOnHandService::class)->adjustBalance(
+                        $expense->branch_id,
+                        (float) $expense->amount, // Positive amount to "refund" the drawer
+                        'revenue' // Label it clearly for the audit trail
+                    );
+                }
+            });
+
+            return back()->with('success', 'Expense has been voided and cash balance adjusted.');
+
+        } catch (\Exception $e) {
+            // Log the error for debugging
+            Log::error("Failed to void expense #{$expense->id}: ".$e->getMessage());
+
+            return back()->withErrors([
+                'message' => 'Failed to void the expense. Please try again or contact support.',
+            ]);
         }
     }
 }

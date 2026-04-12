@@ -28,28 +28,29 @@ interface ExpenseDialogProps {
 }
 
 export default function ExpenseDialog({
-                                          open,
-                                          setOpen,
-                                          branches,
-                                          paymentMethods,
-                                          expense,
-                                      }: ExpenseDialogProps) {
+    open,
+    setOpen,
+    branches,
+    paymentMethods,
+    expense,
+}: ExpenseDialogProps) {
     const isEdit = !!expense;
     const { auth } = usePage().props as any;
 
-    const { data, setData, post, transform, processing, errors, reset } = useForm({
-        description: expense?.description ?? '',
-        vendor_name: expense?.vendor_name ?? '',
-        amount: expense?.amount ?? '',
-        payment_type: expense?.payment_type ?? '',
-        user_id: expense?.user_id ?? auth.user?.id,
-        branch_id: expense?.branch_id ?? auth.user?.branch_id ?? '',
-        status: expense?.status ?? 'pending',
-        expense_date: expense?.expense_date
-            ? new Date(expense.expense_date).toISOString().split('T')[0]
-            : new Date().toISOString().split('T')[0],
-        receipt: null as File | null, // Used for the file upload
-    });
+    const { data, setData, post, transform, processing, errors, reset } =
+        useForm({
+            description: expense?.description ?? '',
+            vendor_name: expense?.vendor_name ?? '',
+            amount: expense?.amount ?? '',
+            payment_type: expense?.payment_type ?? '',
+            user_id: expense?.user_id ?? auth.user?.id,
+            branch_id: expense?.branch_id ?? auth.user?.branch_id ?? '',
+            status: expense?.status ?? 'pending',
+            expense_date: expense?.expense_date
+                ? new Date(expense.expense_date).toISOString().split('T')[0]
+                : new Date().toISOString().split('T')[0],
+            receipt: null as File | null, // Used for the file upload
+        });
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -121,30 +122,13 @@ export default function ExpenseDialog({
 
                     <div className="grid grid-cols-2 gap-4">
                         {/* Branch & User */}
-                        <div className="grid gap-2">
-                            <Label htmlFor="branch_id">Branch</Label>
-                            <NativeSelect
-                                value={data.branch_id}
-                                onChange={(e) =>
-                                    setData('branch_id', e.target.value)
-                                }
-                            >
-                                <NativeSelectOption value={''}>
-                                    Select branch
-                                </NativeSelectOption>
-                                {branches.map((b) => (
-                                    <NativeSelectOption key={b.id} value={b.id}>
-                                        {b.name}
-                                    </NativeSelectOption>
-                                ))}
-                            </NativeSelect>
-                        </div>
 
                         <div className="grid gap-2">
                             <Label htmlFor="amount">Amount</Label>
                             <Input
                                 id="amount"
                                 type="number"
+                                disabled={isEdit}
                                 step="0.01"
                                 value={data.amount}
                                 onChange={(e) =>
@@ -153,12 +137,11 @@ export default function ExpenseDialog({
                             />
                             <InputError message={errors.amount} />
                         </div>
-
-                        {/* Payment Method & Date */}
                         <div className="grid gap-2">
                             <Label htmlFor="payment_type">Payment Type</Label>
                             <NativeSelect
                                 id="payment_type"
+                                disabled={isEdit}
                                 value={data.payment_type}
                                 onChange={(e) =>
                                     setData('payment_type', e.target.value)
@@ -177,6 +160,25 @@ export default function ExpenseDialog({
                                 ))}
                             </NativeSelect>
                             <InputError message={errors.payment_type} />
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label htmlFor="branch_id">Branch</Label>
+                            <NativeSelect
+                                value={data.branch_id}
+                                onChange={(e) =>
+                                    setData('branch_id', e.target.value)
+                                }
+                            >
+                                <NativeSelectOption value={''}>
+                                    Select branch
+                                </NativeSelectOption>
+                                {branches.map((b) => (
+                                    <NativeSelectOption key={b.id} value={b.id}>
+                                        {b.name}
+                                    </NativeSelectOption>
+                                ))}
+                            </NativeSelect>
                         </div>
 
                         <div className="grid gap-2">

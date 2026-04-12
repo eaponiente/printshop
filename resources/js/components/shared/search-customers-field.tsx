@@ -137,7 +137,6 @@ export default function SearchCustomersField({ field, selectCustomer, errors }: 
                                 )}
 
                                 {/* 2. The Customer List */}
-                                // if customers is empty remove heading
                                 <CommandGroup heading="Recent or Found Customers">
                                     {customers.map((c: Customer) => {
                                         const fullName = `${c.first_name} ${c.last_name}`;
@@ -183,8 +182,7 @@ export default function SearchCustomersField({ field, selectCustomer, errors }: 
                                 </CommandGroup>
 
                                 {/* 3. The "Add New" Button - Shows if empty OR less than 5 results */}
-                                {!isLoading &&
-                                    searchQuery && (
+                                {!isLoading && (
                                         <div className="border-t p-2">
                                             <Button
                                                 type="button"

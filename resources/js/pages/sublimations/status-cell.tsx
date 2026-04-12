@@ -25,10 +25,10 @@ export const StatusCell = ({ item, statuses }: StatusCellProps) => {
 
     // Define the boundaries
     const phase1Keys = [
-        'for approval',
-        'done layout',
-        'waiting for dp',
-        'downpayment complete',
+        'for_approval',
+        'done_layout',
+        'waiting_for_dp',
+        'downpayment_complete',
     ];
     const isCompleted = item.status === 'completed';
 
@@ -46,9 +46,9 @@ export const StatusCell = ({ item, statuses }: StatusCellProps) => {
 
         // 2. Phase 1 (Setup): Pre-payment stages
         const isSetupPhase = [
-            'for approval',
-            'done layout',
-            'waiting for dp',
+            'for_approval',
+            'done_layout',
+            'waiting_for_dp',
         ].includes(item.status);
 
         if (isSetupPhase) {
@@ -61,9 +61,9 @@ export const StatusCell = ({ item, statuses }: StatusCellProps) => {
         // (Force the user to go through 'claimed' before they can 'complete')
         return statuses.filter((s) => {
             const isInitialSetup = [
-                'for approval',
-                'done layout',
-                'waiting for dp',
+                'for_approval',
+                'done_layout',
+                'waiting_for_dp',
             ].includes(s.key);
             const isTerminal = s.key === 'completed';
 

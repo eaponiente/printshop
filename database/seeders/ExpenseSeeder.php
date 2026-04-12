@@ -25,11 +25,11 @@ class ExpenseSeeder extends Seeder
         $descriptions = ['Monthly hosting fee', 'Office stationery', 'Client lunch', 'Internet bill', 'Fuel for delivery van', 'Software subscription'];
 
         for ($i = 0; $i < 100; $i++) {
-            $amount = rand(1000, 50000) / 100; // Generates amounts between 10.00 and 500.00
+            $amount = rand(300, 5000); // Generates amounts between 10.00 and 500.00
 
             $user = $users->random();
 
-            $date = Carbon::now()->subDays(rand(1, 30))->format('Y-m-d');
+            $date = Carbon::now()->addDays(random_int(-7, 7))->format('Y-m-d');
 
             $expense = Expense::create([
                 'description' => $descriptions[array_rand($descriptions)],

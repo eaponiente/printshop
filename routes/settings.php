@@ -44,6 +44,7 @@ Route::middleware(['auth'])->group(function () {
         ->only(['index', 'store', 'update']);
     Route::resource('purchase-orders', PurchaseOrderController::class);
     Route::resource('endorsements', EndorsementController::class);
+    Route::patch('/expenses/{expense}/void', [ExpenseController::class, 'void'])->name('expenses.void');
     Route::resource('expenses', ExpenseController::class);
 
     Route::prefix('api')->group(function () {

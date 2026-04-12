@@ -4,19 +4,19 @@ namespace App\Enums\Sublimations;
 
 enum SublimationStatus: string
 {
-    case FOR_APPROVAL = 'for approval';
-    case DONE_LAYOUT = 'done layout';
-    case WAITING_FOR_DP = 'waiting for dp';
-    case DOWNPAYMENT_COMPLETE = 'downpayment complete';
-    case FOR_SIZING = 'for sizing';
-    case DONE_SIZING = 'done sizing';
+    case FOR_APPROVAL = 'for_approval';
+    case DONE_LAYOUT = 'done_layout';
+    case WAITING_FOR_DP = 'waiting_for_dp';
+    case DOWNPAYMENT_COMPLETE = 'downpayment_complete';
+    case FOR_SIZING = 'for_sizing';
+    case DONE_SIZING = 'done_sizing';
     case PRINTED = 'printed';
     case CUT = 'cut';
     case PRINTED_RED = 'printed_alt'; // Handling the duplicate "Printed" in red
     case SEWING = 'sewing';
     case SEWED = 'sewed';
     case CHECKED = 'checked';
-    case READY_FOR_PICKUP = 'ready for pickup';
+    case READY_FOR_PICKUP = 'ready_for_pickup';
     case CLAIMED = 'claimed';
     case COMPLETED = 'completed';
 
@@ -91,13 +91,13 @@ enum SublimationStatus: string
             self::FOR_APPROVAL,
             self::DONE_LAYOUT,
             self::WAITING_FOR_DP,
-            self::DOWNPAYMENT_COMPLETE,
         ]);
     }
 
     public function isProductionPhase(): bool
     {
         return in_array($this, [
+            self::DOWNPAYMENT_COMPLETE,
             self::FOR_SIZING,
             self::DONE_SIZING,
             self::PRINTED,

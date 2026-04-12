@@ -60,7 +60,7 @@ export default function TransactionDetailsDialog({
                             </Label>
                             <div>
                                 <Badge
-                                    className={`border shadow-none capitalize ${badgeStyle}`}
+                                    className={`border capitalize shadow-none ${badgeStyle}`}
                                 >
                                     {transaction.status}
                                 </Badge>
@@ -93,19 +93,20 @@ export default function TransactionDetailsDialog({
                                         'Unknown'}
                                 </div>
                                 {transaction.customer?.company && (
-                                    <span className="text-xs text-muted-foreground pl-5.5">
+                                    <span className="pl-5.5 text-xs text-muted-foreground">
                                         {transaction.customer.company}
                                     </span>
                                 )}
                             </div>
                         </div>
-                        <div className="space-y-1 text-right">
+                        {/* Branch Section - Now moved here and left-aligned */}
+                        <div className="space-y-1">
                             <Label className="text-xs tracking-widest text-muted-foreground uppercase">
                                 Branch
                             </Label>
-                            <div className="flex items-center justify-end gap-1.5 text-sm font-medium">
+                            <div className="flex items-center gap-1.5 text-sm font-medium">
                                 <MapPin className="h-4 w-4 text-muted-foreground" />
-                                {transaction.branch?.name || '-'}
+                                <span>{transaction.branch?.name || '-'}</span>
                             </div>
                         </div>
                     </div>
@@ -144,10 +145,11 @@ export default function TransactionDetailsDialog({
                             </div>
                         </div>
                         <div className="space-y-1 text-right">
-                            <Label className="text-xs tracking-widest text-red-500 uppercase">
+                            <Label className="block text-xs tracking-widest text-red-500 uppercase">
                                 Balance
                             </Label>
-                            <div className="text-lg font-black text-primary">
+                            {/* Using tabular-nums ensures that numbers align vertically regardless of their width */}
+                            <div className="text-lg leading-none font-black text-primary tabular-nums">
                                 {formatCurrency(transaction.balance)}
                             </div>
                         </div>
@@ -189,7 +191,7 @@ export default function TransactionDetailsDialog({
                                 ))}
                             </div>
                         ) : (
-                            <div className="rounded-md border border-border/50 bg-secondary/10 p-4 text-center text-sm italic text-muted-foreground">
+                            <div className="rounded-md border border-border/50 bg-secondary/10 p-4 text-center text-sm text-muted-foreground italic">
                                 No payments recorded yet.
                             </div>
                         )}

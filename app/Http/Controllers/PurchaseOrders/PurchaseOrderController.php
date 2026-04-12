@@ -74,6 +74,11 @@ class PurchaseOrderController extends Controller
 
                     $query->whereMonth($column, $date->month)
                         ->whereYear($column, $date->year);
+                } elseif ($mode === 'yearly') {
+                    // HTML5 month input returns "YYYY-MM"
+                    $date = Carbon::parse($dateValue);
+
+                    $query->whereYear($column, $date);
                 }
             });
 

@@ -18,8 +18,6 @@ class UpdateExpenseRequest extends FormRequest
         return [
             'description' => ['required', 'string', 'max:1000'],
             'vendor_name' => ['nullable', 'string', 'max:255'],
-            'amount' => ['required', 'numeric', 'min:0'],
-            'payment_type' => ['nullable', Rule::in(TypeOfPaymentEnum::cases())],
             'status' => ['required', 'in:pending,approved,rejected,reimbursed'],
             'expense_date' => ['required', 'date'],
             'receipt' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:2048'],

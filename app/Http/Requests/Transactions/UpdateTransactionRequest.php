@@ -2,10 +2,7 @@
 
 namespace App\Http\Requests\Transactions;
 
-use App\Enums\Sales\TransactionStatus;
-use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class UpdateTransactionRequest extends FormRequest
 {

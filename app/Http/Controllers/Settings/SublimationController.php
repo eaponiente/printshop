@@ -94,16 +94,6 @@ class SublimationController extends Controller
         try {
             $sublimation = Sublimation::query()->create($request->validated());
 
-            $transactionData = $sublimation->only(['description', 'branch_id', 'customer_id', 'user_id']);
-
-            $transaction = $this->salesService->createTransaction(array_merge($transactionData, [
-                'invoice_number' => Transaction::generateNumber(),
-                'amount_total' => $sublimation->amount_total,
-                'particular' => 'Sublimation',
-                'staff_id' => auth()->id(),
-                'transaction_date' => now(),
-            ]));
-
             return redirect()->back()->with('success', 'Sublimation created successfully.');
         } catch (\Exception $e) {
             Log::error('Failed to create sublimation: '.$e->getMessage());
@@ -115,7 +105,17 @@ class SublimationController extends Controller
     public function update(UpdateSublimationRequest $request, Sublimation $sublimation): RedirectResponse
     {
         try {
-            $sublimation->update($request->validated());
+            $sublimation->fill($request->validated());
+
+            if ($sublimation->isDirty('amount_total')) {
+
+                // Custom logic: e.g., only allow change if status is pending
+                if ($sublimation->status->isProductionPhase()) {
+                    return back()->withErrors(['message' => 'Cannot change amount on processed sublimations.']);
+                }
+            }
+
+            $sublimation->save();
 
             return redirect()->back()->with('success', 'Sublimation updated successfully.');
         } catch (\Exception $e) {
@@ -151,12 +151,29 @@ class SublimationController extends Controller
                 ]);
             }
 
-            $sublimation->status = $request->status;
+            if ($newStatus === SublimationStatus::DOWNPAYMENT_COMPLETE) {
+                // Check if a transaction already exists to prevent duplicates
+                if (! $sublimation->transaction()->exists()) {
+                    $transactionData = $sublimation->only(['description', 'branch_id', 'customer_id', 'user_id']);
+
+                    $transaction = $this->salesService->createTransaction(array_merge($transactionData, [
+                        'invoice_number' => Transaction::generateNumber(),
+                        'amount_total' => $sublimation->amount_total,
+                        'particular' => 'Sublimation',
+                        'staff_id' => auth()->id(),
+                        'transaction_date' => now(),
+                        'sublimation_id' => $sublimation->id, // Ensure the link is saved
+                    ]));
+
+                    $sublimation->transaction_id = $transaction->id;
+                }
+            }
+
+            $sublimation->status = $newStatus;
             $sublimation->save();
 
             return back()->with('success', 'Status updated.');
         } catch (\Exception $e) {
-            // This triggers the onError callback in Inertia
             return back()->withErrors(['status' => 'The status change is not allowed at this time.']);
         }
     }

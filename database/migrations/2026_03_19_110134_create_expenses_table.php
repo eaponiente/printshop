@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Expenses\ExpenseStatus;
 use App\Enums\Shared\TypeOfPaymentEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -22,6 +23,7 @@ return new class extends Migration
 
             // Financials: 19 total digits, 4 after the decimal point
             $table->decimal('amount', 12);
+            $table->enum('status', ExpenseStatus::cases())->default(ExpenseStatus::PAID);
 
             // Categorization
             // Note: Using your specific types from the TS error earlier
@@ -34,6 +36,7 @@ return new class extends Migration
 
             // Status Tracking
             $table->date('expense_date')->index(); // Indexing dates makes reporting much faster
+            $table->text('void_reason')->nullable(); // Indexing dates makes reporting much faster
 
             $table->timestamps();
             $table->softDeletes(); // Optional: allows "deleting" without losing financial records

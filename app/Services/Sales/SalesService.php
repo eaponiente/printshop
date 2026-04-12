@@ -2,6 +2,7 @@
 
 namespace App\Services\Sales;
 
+use App\Enums\Expenses\ExpenseStatus;
 use App\Models\Customer;
 use App\Models\Expense;
 use App\Models\Transaction;
@@ -83,6 +84,7 @@ class SalesService
             ->when($filters['payment_type'] ?? null, function ($q) use ($filters) {
                 $q->where('payment_type', $filters['payment_type']);
             })
+            ->where('status', ExpenseStatus::PAID->value)
             ->sum('amount');
 
         return [

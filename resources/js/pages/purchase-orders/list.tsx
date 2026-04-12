@@ -293,6 +293,7 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                                     <SelectValue placeholder="Select Date Field" />
                                 </SelectTrigger>
                                 <SelectContent>
+                                    <SelectItem value="all">Select Date Field</SelectItem>
                                     <SelectItem value="due_at">
                                         Due Date
                                     </SelectItem>

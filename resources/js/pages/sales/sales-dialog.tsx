@@ -138,6 +138,7 @@ export default function SaleDialog({ open, setOpen, transaction, branches }: Sal
                                     Total Amount
                                 </Label>
                                 <Input
+                                    disabled={isEdit && data.status !== 'pending'}
                                     type="number"
                                     value={data.amount_total}
                                     onChange={(e) =>

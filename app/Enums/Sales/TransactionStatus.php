@@ -2,10 +2,10 @@
 
 namespace App\Enums\Sales;
 
-enum TransactionStatus
+enum TransactionStatus: string
 {
-    const PENDING = 'pending';
-    const PAID = 'paid';
+    case PENDING = 'pending';
+    case PAID = 'paid';
 
-    const PARTIAL = 'partial';
+    case PARTIAL = 'partial';
 }

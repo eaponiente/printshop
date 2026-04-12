@@ -121,21 +121,29 @@ export default function SublimationIndex({
             cell: ({ row }) => {
                 const { transaction, customer, created_at } = row.original;
 
+                console.log('Transaction:', row.original);
+
                 // Logic: Is this record less than 10 minutes old?
                 const isRecent =
                     differenceInMinutes(new Date(), parseISO(created_at)) < 10;
 
                 return (
                     <div className="flex items-center gap-2">
-                        <Link
-                            href={route('sales.index', {
-                                search: transaction?.invoice_number,
-                                mode: 'yearly',
-                            })}
-                            className={`font-medium ${isRecent ? 'text-green-700' : 'text-indigo-600'} hover:underline`}
-                        >
-                            {customer.full_name}
-                        </Link>
+                        {transaction ? (
+                            <Link
+                                href={route('sales.index', {
+                                    search: transaction.invoice_number,
+                                    mode: 'yearly',
+                                })}
+                                className={`font-medium ${isRecent ? 'text-green-700' : 'text-indigo-600'} hover:underline`}
+                            >
+                                {customer.full_name}
+                            </Link>
+                        ) : (
+                            <span className="font-medium text-muted-foreground">
+                                {customer.full_name}
+                            </span>
+                        )}
 
                         {isRecent && (
                             <span className="relative flex h-2 w-2">
