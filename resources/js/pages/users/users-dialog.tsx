@@ -55,7 +55,7 @@ export default function UserDialog({ open, setOpen, user, branches }: UserDialog
                             isEdit
                                 ? 'User update complete!'
                                 : 'User saved successfully',
-                            { position: 'top-center' }
+                            { position: 'top-center' },
                         );
 
                         setOpen(false);
@@ -89,10 +89,10 @@ export default function UserDialog({ open, setOpen, user, branches }: UserDialog
                                 </div>
                             </div>
                             <div className="grid gap-6">
-
                                 <div className="grid gap-3">
                                     <Label htmlFor="branch_id">Branch</Label>
                                     <NativeSelect
+                                        tabIndex={3}
                                         name={'branch_id'}
                                         defaultValue={user?.branch_id}
                                     >
@@ -109,8 +109,6 @@ export default function UserDialog({ open, setOpen, user, branches }: UserDialog
                                     </NativeSelect>
                                     <InputError message={errors.branch_id} />
                                 </div>
-
-
                             </div>
                             <div className="grid grid-cols-2 gap-6">
                                 <div className="grid gap-3">
@@ -120,13 +118,14 @@ export default function UserDialog({ open, setOpen, user, branches }: UserDialog
                                         defaultValue={user?.username}
                                         type="text"
                                         name="username"
-                                        tabIndex={3}
+                                        tabIndex={4}
                                     />
                                     <InputError message={errors.username} />
                                 </div>
                                 <div className="grid gap-3">
                                     <Label htmlFor="role">Role</Label>
                                     <NativeSelect
+                                        tabIndex={5}
                                         name={'role'}
                                         defaultValue={user?.role}
                                     >
@@ -134,17 +133,13 @@ export default function UserDialog({ open, setOpen, user, branches }: UserDialog
                                             Select role
                                         </NativeSelectOption>
                                         {roles.map((role) => (
-                                            <NativeSelectOption
-                                                value={role.id}
-                                            >
+                                            <NativeSelectOption value={role.id}>
                                                 {role.name}
                                             </NativeSelectOption>
                                         ))}
                                     </NativeSelect>
                                     <InputError message={errors.role} />
                                 </div>
-
-
                             </div>
                             <div className="grid grid-cols-2 gap-6">
                                 <div className="grid gap-2">
@@ -152,7 +147,7 @@ export default function UserDialog({ open, setOpen, user, branches }: UserDialog
                                     <PasswordInput
                                         id="password"
                                         name="password"
-                                        tabIndex={4}
+                                        tabIndex={6}
                                         autoComplete="current-password"
                                         placeholder="Password"
                                     />
@@ -166,7 +161,7 @@ export default function UserDialog({ open, setOpen, user, branches }: UserDialog
                                     <PasswordInput
                                         id="password_confirmation"
                                         name="password_confirmation"
-                                        tabIndex={5}
+                                        tabIndex={7}
                                         placeholder="Confirm Password"
                                     />
                                     <InputError
@@ -177,7 +172,7 @@ export default function UserDialog({ open, setOpen, user, branches }: UserDialog
                             <Button
                                 type="submit"
                                 className="mt-4 w-full"
-                                tabIndex={4}
+                                tabIndex={8}
                                 disabled={processing}
                                 data-test="login-button"
                             >
