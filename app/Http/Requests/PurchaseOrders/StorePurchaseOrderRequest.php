@@ -19,7 +19,7 @@ class StorePurchaseOrderRequest extends FormRequest
             'po_number' => ['required', 'string', 'max:255'],
             'branch_id' => ['required', Rule::exists('branches', 'id')],
             'received_at' => ['required', 'date'],
-            'due_at' => ['required', 'date'],
+            'due_at' => ['required', 'date', 'after:today'],
 
             // Detail (Items) Validation
             'details' => ['required', 'array', 'min:1'], // Must have at least one item

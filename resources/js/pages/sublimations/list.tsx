@@ -196,45 +196,56 @@ export default function SublimationIndex({
         },
         {
             header: 'Actions',
-            cell: ({ row }: CellContext<any, any>) => (
-                <>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEditForm(row.original)}
-                    >
-                        <Pencil />
-                    </Button>
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                                <Trash2 />
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                    Are you absolutely sure?
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    This action cannot be undone. This will
-                                    permanently delete this sublimation.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                    onClick={() =>
-                                        deleteSublimation(row.original)
-                                    }
-                                >
-                                    Continue
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                </>
-            ),
+            cell: ({ row }: CellContext<any, any>) => {
+                const prePaymentKeys = [
+                    'for_approval',
+                    'done_layout',
+                    'waiting_for_dp',
+                ];
+
+                return (
+
+                    <>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditForm(row.original)}
+                        >
+                            <Pencil />
+                        </Button>
+                        {prePaymentKeys.includes(row.original.status) && (
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="sm">
+                                        <Trash2 />
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>
+                                            Are you absolutely sure?
+                                        </AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This action cannot be undone. This will
+                                            permanently delete this sublimation.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction
+                                            onClick={() =>
+                                                deleteSublimation(row.original)
+                                            }
+                                        >
+                                            Continue
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        )}
+                    </>
+                );
+            }
         },
     ];
 

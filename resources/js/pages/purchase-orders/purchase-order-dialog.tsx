@@ -152,7 +152,7 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches, st
                                     <NativeSelectOption value="">
                                         Select status
                                     </NativeSelectOption>
-                                    {statuses.map(
+                                    {statuses.filter((status) => status.key !== 'pending').map(
                                         (status: PurchaseOrderStatus) => (
                                             <NativeSelectOption
                                                 key={status.key}

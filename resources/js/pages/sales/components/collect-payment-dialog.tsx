@@ -33,7 +33,7 @@ export default function PaymentDialog({ open, setOpen, transaction, typesOfPayme
 
     // Standard Inertia useForm hook
     const { data, setData, patch, processing, errors, reset } = useForm({
-        amount_paid: transaction.balance ?? 0,
+        amount_paid: 0,
         status: transaction.status ?? 'pending',
         payment_type: '',
     });
@@ -176,7 +176,7 @@ export default function PaymentDialog({ open, setOpen, transaction, typesOfPayme
                                 className="pl-9 focus-visible:ring-indigo-500"
                                 value={data.amount_paid}
                                 onChange={(e) =>
-                                    setData('amount_paid', e.target.value)
+                                    setData('amount_paid', +e.target.value)
                                 }
                             />
                         </div>

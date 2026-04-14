@@ -25,6 +25,10 @@ class ExpenseController extends Controller
 
     public function index(Request $request): Response
     {
+        $request->mergeIfMissing([
+            'mode' => 'monthly',
+        ]);
+
         $query = Expense::query()->with(['user', 'branch'])
             ->filtered($request->all())
             ->when($request->filled('payment_type'), function ($q) use ($request) {

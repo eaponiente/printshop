@@ -130,6 +130,10 @@ class SublimationController extends Controller
         $this->authorize('delete', auth()->user());
 
         try {
+            if (! $sublimation->status->isPrePaymentPhase()) {
+                return redirect()->back()->withErrors(['message' => 'You cannot delete this sublimation because it is not in the pre-payment phase.']);
+            }
+
             $sublimation->delete();
 
             return redirect()->back()->with('success', 'Sublimation deleted successfully.');

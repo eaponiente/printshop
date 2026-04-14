@@ -5,7 +5,7 @@
  */
 export const capitalizeFirstLetter = (str: string): string => {
     if (!str) {
-        return "";
+        return '';
     }
 
     return str.charAt(0).toUpperCase() + str.slice(1);
@@ -16,4 +16,18 @@ export const formatCurrency = (amount: number): string => {
         style: 'currency',
         currency: 'PHP', // Change to your currency, e.g., 'PHP'
     }).format(amount);
+};
+
+export const formatStatus = (status: string): string => {
+    if (!status) {
+        return '';
+    }
+
+    return status
+        .split('_')
+        .map(
+            (word) =>
+                word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
+        )
+        .join(' ');
 };

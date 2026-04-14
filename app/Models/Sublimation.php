@@ -82,7 +82,7 @@ class Sublimation extends Model
         // 2. The Bridge: Moving from Phase 1 to DOWNPAYMENT_COMPLETE
         // This allows the jump from setup to the first production step.
         if ($targetStatus === SublimationStatus::DOWNPAYMENT_COMPLETE) {
-            return $this->status->isPrePaymentPhase();
+            return $this->status === SublimationStatus::WAITING_FOR_DP;
         }
 
         // 3. Phase 2 Logic (Inside Production)

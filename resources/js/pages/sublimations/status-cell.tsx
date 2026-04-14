@@ -11,6 +11,7 @@ import {
     SelectItem,
     SelectTrigger,
 } from '@/components/ui/select';
+import { formatStatus } from '@/utils/formatters';
 
 interface StatusCellProps {
     item: any;
@@ -81,7 +82,7 @@ export const StatusCell = ({ item, statuses }: StatusCellProps) => {
             },
             {
                 preserveScroll: true,
-                onSuccess: () => toast.success(`Moved to ${newStatus}`),
+                onSuccess: () => toast.success(`Moved to ` + formatStatus(newStatus)),
                 onError: (err) =>
                     toast.error(Object.values(err)[0] || 'Update failed'),
                 onFinish: () => setIsUpdating(false),

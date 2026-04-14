@@ -16,7 +16,7 @@ class UpdatePurchaseOrderRequest extends FormRequest
     {
         return [
             'status' => ['required'],
-            'due_at' => ['required'],
+            'due_at' => ['required', 'date', 'after:today', 'after:received_at'],
             'received_at' => ['required'],
             'po_number' => ['sometimes', 'string'],
             'details' => ['sometimes', 'array'],

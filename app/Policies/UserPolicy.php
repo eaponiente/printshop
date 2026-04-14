@@ -36,7 +36,7 @@ class UserPolicy
      */
     public function update(User $user, User $model): bool
     {
-        return $user->role === 'superadmin';
+        return $user->role === 'superadmin' || $user->role === 'admin';
     }
 
     /**

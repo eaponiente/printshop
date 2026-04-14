@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { route } from 'ziggy-js';
 import InputError from '@/components/input-error';
 import SearchCustomersField from '@/components/shared/search-customers-field';
+import { submitFormOptions } from '@/components/shared/submit-form-options';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -20,7 +21,6 @@ import { Textarea } from '@/components/ui/textarea';
 import type { Branch } from '@/types/branches';
 import type { Sublimation, SublimationStatus } from '@/types/sublimations';
 import type { User } from '@/types/user';
-import { submitFormOptions } from '@/components/shared/submit-form-options';
 
 interface SublimationDialogProps {
     open: boolean;
@@ -35,7 +35,6 @@ export default function SublimationDialog({
     open,
     setOpen,
     branches,
-    statuses,
     users,
     sublimation,
 }: SublimationDialogProps) {
@@ -44,6 +43,7 @@ export default function SublimationDialog({
 
     const { data, setData, post, put, processing, errors, reset } = useForm({
         notes: sublimation?.notes ?? '',
+        status: sublimation?.status ?? 'for_approval',
         transaction_type: sublimation?.transaction_type ?? 'retail',
         production_authorized: sublimation?.production_authorized ?? false,
         amount_total: sublimation?.amount_total ?? '',
@@ -63,6 +63,8 @@ export default function SublimationDialog({
             setData('production_authorized', false);
         }
     }, [data.transaction_type, setData]);
+
+    const prePaymentKeys = ['for_approval', 'done_layout', 'waiting_for_dp'];
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -226,9 +228,7 @@ export default function SublimationDialog({
                             )}
                         </div>
 
-                        <div
-                            className={`grid gap-4 grid-cols-2`}
-                        >
+                        <div className={`grid grid-cols-2 gap-4`}>
                             {/* Assigned Staff */}
                             <div className="grid gap-2">
                                 <Label htmlFor="user_id">Assigned Staff</Label>
@@ -311,6 +311,10 @@ export default function SublimationDialog({
                                     Total Amount
                                 </Label>
                                 <Input
+                                    disabled={
+                                        isEdit &&
+                                        !prePaymentKeys.includes(data.status)
+                                    }
                                     id="amount_total"
                                     value={data.amount_total}
                                     onChange={(e) =>

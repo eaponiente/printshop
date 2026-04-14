@@ -18,7 +18,6 @@ class UpdateExpenseRequest extends FormRequest
         return [
             'description' => ['required', 'string', 'max:1000'],
             'vendor_name' => ['nullable', 'string', 'max:255'],
-            'status' => ['required', 'in:pending,approved,rejected,reimbursed'],
             'expense_date' => ['required', 'date'],
             'receipt' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:2048'],
         ];

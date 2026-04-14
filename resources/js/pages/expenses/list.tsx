@@ -36,7 +36,7 @@ export default function ExpenseIndex({
     filters,
 }: ExpensesList) {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [mode, setMode] = useState(filters.mode || 'daily');
+    const [mode, setMode] = useState(filters.mode || 'monthly');
     const [getExpense, setExpense] = useState<any | null>(null);
     const openEditForm = (expense: Expense | null) => {
         setExpense(expense);
