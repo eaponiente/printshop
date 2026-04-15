@@ -42,7 +42,6 @@ export default function SublimationDialog({
     const { auth } = usePage().props;
 
     const { data, setData, post, put, processing, errors, reset } = useForm({
-        notes: sublimation?.notes ?? '',
         status: sublimation?.status ?? 'for_approval',
         transaction_type: sublimation?.transaction_type ?? 'retail',
         production_authorized: sublimation?.production_authorized ?? false,
@@ -102,19 +101,6 @@ export default function SublimationDialog({
                         onSubmit={handleSubmit}
                         className="flex flex-col gap-5"
                     >
-                        {/* notes */}
-                        <div className="grid gap-2">
-                            <Label htmlFor="notes">Notes</Label>
-                            <Input
-                                id="notes"
-                                value={data.notes}
-                                onChange={(e) =>
-                                    setData('notes', e.target.value)
-                                }
-                            />
-                            <InputError message={errors.notes} />
-                        </div>
-
                         {/* Description */}
                         <div className="grid gap-2">
                             <Label htmlFor="description">Description</Label>
@@ -304,7 +290,6 @@ export default function SublimationDialog({
                             )}
                         </div>
 
-                        {/* notes */}
                         <div className="grid grid-cols-1 gap-4">
                             <div className="grid gap-2">
                                 <Label htmlFor="amount_total">

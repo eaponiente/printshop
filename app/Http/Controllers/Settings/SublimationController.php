@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Settings;
 
+use App\Enums\Sales\TransactionStatus;
 use App\Enums\Sublimations\SublimationStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\StoreSublimationRequest;
@@ -16,6 +17,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -49,7 +51,7 @@ class SublimationController extends Controller
         });
 
         $query->when($request->filled('status') && $request->status !== 'all', function ($q) use ($request) {
-            $q->where('status', $request->status);
+            $q->whereIn('status', $request->status);
         });
 
         $query->when(
@@ -65,7 +67,7 @@ class SublimationController extends Controller
         });
 
         // 2. Sorting Logic
-        $sortField = $request->query('sort_field', 'created_at'); // Default sort
+        $sortField = $request->query('sort_field', 'due_at'); // Default sort
         $sortDirection = $request->query('sort_direction', 'desc');
 
         // Whitelist allowed sortable columns
@@ -96,7 +98,7 @@ class SublimationController extends Controller
 
             return redirect()->back()->with('success', 'Sublimation created successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to create sublimation: '.$e->getMessage());
+            Log::error('Failed to create sublimation: ' . $e->getMessage());
 
             return redirect()->back()->withErrors(['message' => 'An error occurred while creating the sublimation.']);
         }
@@ -109,6 +111,17 @@ class SublimationController extends Controller
 
             if ($sublimation->isDirty('amount_total')) {
 
+                if ($sublimation->transaction()->exists()) {
+                    if ($sublimation->transaction->status != TransactionStatus::PENDING->value) {
+                        return back()->withErrors(['message' => 'Cannot change amount on processed sublimations.']);
+                    }
+
+                    $sublimation->transaction->update([
+                        'amount_total' => $sublimation->amount_total,
+                    ]);
+                }
+
+
                 // Custom logic: e.g., only allow change if status is pending
                 if ($sublimation->status->isProductionPhase()) {
                     return back()->withErrors(['message' => 'Cannot change amount on processed sublimations.']);
@@ -119,7 +132,7 @@ class SublimationController extends Controller
 
             return redirect()->back()->with('success', 'Sublimation updated successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to update sublimation: '.$e->getMessage());
+            Log::error('Failed to update sublimation: ' . $e->getMessage());
 
             return redirect()->back()->withErrors(['message' => 'An error occurred while updating the sublimation.']);
         }
@@ -134,11 +147,17 @@ class SublimationController extends Controller
                 return redirect()->back()->withErrors(['message' => 'You cannot delete this sublimation because it is not in the pre-payment phase.']);
             }
 
+            foreach ($sublimation->images as $image) {
+                if (Storage::disk('public')->exists($image->url)) {
+                    Storage::disk('public')->delete($image->url);
+                }
+            }
+
             $sublimation->delete();
 
             return redirect()->back()->with('success', 'Sublimation deleted successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to delete sublimation: '.$e->getMessage());
+            Log::error('Failed to delete sublimation: ' . $e->getMessage());
 
             return redirect()->back()->withErrors(['message' => 'An error occurred while deleting the sublimation.']);
         }

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\Sublimations\SublimationStatus;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Sublimation extends Model
 {
@@ -36,6 +37,11 @@ class Sublimation extends Model
     public function tags()
     {
         return $this->belongsToMany(Tag::class, 'sublimation_tag', 'sublimation_id', 'tag_id');
+    }
+
+    public function images(): MorphMany
+    {
+        return $this->morphMany(Image::class, 'imageable');
     }
 
     public function transaction()

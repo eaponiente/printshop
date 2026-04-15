@@ -1,12 +1,11 @@
 import { Head, Link, router } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
-import { differenceInMinutes, parseISO } from 'date-fns';
 import {
     ArrowUpDown,
     ExternalLink,
+    Images,
     Pencil,
     Plus,
-    ReceiptText,
     Trash2,
     X,
 } from 'lucide-react';
@@ -27,6 +26,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
     Select,
     SelectContent,
@@ -37,13 +37,16 @@ import {
 import AppLayout from '@/layouts/app-layout';
 import { StatusCell } from '@/pages/sublimations/status-cell';
 import SublimationDialog from '@/pages/sublimations/sublimation-dialog';
+import SublimationGallery from '@/pages/sublimations/sublimation-gallery';
 import type { BreadcrumbItem } from '@/types';
 import type { Branch } from '@/types/branches';
+import type { UploadedImage } from '@/types/images';
 import type { PaginatedResponse } from '@/types/pagination';
 import type { Tag } from '@/types/settings';
-import type { Sublimation, SublimationStatus } from '@/types/sublimations';
+import type { Sublimation } from '@/types/sublimations';
 import type { User } from '@/types/user';
 import { sortBy } from '@/utils/helpers';
+import { StatusFilter } from '@/pages/sublimations/components/status-filter';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -68,6 +71,15 @@ export default function SublimationIndex({
 }: SublimationIndexProps) {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [selectedSublimation, setSelectedSublimation] = useState<Sublimation | null>(null);
+    const [zoomedImage, setZoomedImage] = useState<UploadedImage | null>(null);
+
+    const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+    const [gallerySublimation, setGallerySublimation] = useState<Sublimation | null>(null);
+
+    const openGallery = (sublimation: Sublimation) => {
+        setGallerySublimation(sublimation);
+        setIsGalleryOpen(true);
+    };
 
     const openCreateForm = () => {
         setSelectedSublimation(null);
@@ -86,36 +98,25 @@ export default function SublimationIndex({
     };
 
     const handleFilterChange = (
-        value: string,
+        // Update value to accept string or string array
+        value: string | string[] | boolean,
         type: 'date' | 'status' | 'branch_id' | 'include_completed' | 'user_id',
     ) => {
+        // Clone filters
         const params = { ...filters };
 
-        if (type === 'branch_id') {
-            params.branch_id = value;
-        } else if (type === 'status') {
-            params.status = value;
-        } else if (type === 'include_completed') {
-            params.include_completed = value;
-        } else if (type === 'user_id') {
-            params.user_id = value;
-        }
+        console.log('filters', filters);
 
+        // You can simplify this logic significantly
+        params[type] = value;
+
+        // IMPORTANT: If you are using Inertia.js or a similar router,
+        // it will automatically convert ['active', 'pending'] into
+        // ?status[]=active&status[]=pending in the URL.
         router.get(`/sublimations`, params, {
             preserveState: true,
             replace: true,
         });
-    };
-
-    const completeTransaction = (sublimation: Sublimation) => {
-        router.patch(
-            route('sublimations.complete', sublimation.id),
-            {},
-            {
-                onSuccess: () => toast.success('Transaction completed!'),
-                preserveScroll: true,
-            },
-        );
     };
 
     const clearFilters = () => {
@@ -154,8 +155,8 @@ export default function SublimationIndex({
             },
         },
         {
-            accessorKey: 'notes',
-            header: 'Notes',
+            accessorKey: 'description',
+            header: 'Description',
         },
         {
             accessorKey: 'due_at',
@@ -209,9 +210,17 @@ export default function SublimationIndex({
                         <Button
                             variant="ghost"
                             size="sm"
+                            onClick={() => openGallery(row.original)}
+                            title="Gallery"
+                        >
+                            <Images className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => openEditForm(row.original)}
                         >
-                            <Pencil />
+                            <Pencil className="h-4 w-4" />
                         </Button>
                         {prePaymentKeys.includes(row.original.status) && (
                             <AlertDialog>
@@ -347,36 +356,7 @@ export default function SublimationIndex({
                                 )}
 
                             {/* Status Filter */}
-                            <div className="flex flex-col gap-1.5">
-                                <label className="ml-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-                                    Status
-                                </label>
-                                <Select
-                                    value={filters.status || 'all'}
-                                    onValueChange={(v) =>
-                                        handleFilterChange(v, 'status')
-                                    }
-                                >
-                                    <SelectTrigger className="h-10 w-[160px] bg-white text-sm">
-                                        <SelectValue placeholder="All status" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">
-                                            All Status
-                                        </SelectItem>
-                                        {statuses.map(
-                                            (status: SublimationStatus) => (
-                                                <SelectItem
-                                                    key={status.key}
-                                                    value={status.key}
-                                                >
-                                                    {status.value}
-                                                </SelectItem>
-                                            ),
-                                        )}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            <StatusFilter filters={filters} statuses={statuses} handleFilterChange={(value) => handleFilterChange(value, 'status')} />
 
                             {/* New Checkbox Filter */}
                             <div className="flex h-10 items-center space-x-2 px-2">
@@ -430,6 +410,100 @@ export default function SublimationIndex({
                     sublimation={selectedSublimation}
                 />
             )}
+
+            {isGalleryOpen && gallerySublimation && (
+                <Dialog open={isGalleryOpen} onOpenChange={setIsGalleryOpen}>
+                    <DialogContent className="flex h-[95vh] !max-h-[95vh] !w-[95vw] !max-w-[95vw] flex-col overflow-hidden border-zinc-800 bg-white/95 p-6">
+                        <DialogHeader className="flex-none">
+                            <DialogTitle className="text-3xl font-bold text-black">
+                                Sublimation Gallery
+                            </DialogTitle>
+                            <DialogDescription className="text-black">
+                                Manage images for{' '}
+                                {gallerySublimation.customer?.full_name ||
+                                    'Customer'}
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        {/* Gallery Container */}
+                        <div className="custom-scrollbar mt-6 flex-1 overflow-y-auto pr-2">
+                            <SublimationGallery
+                                sublimationId={gallerySublimation.id}
+                                onOpenZoomedImage={(image) =>
+                                    setZoomedImage(image)
+                                }
+                            />
+                        </div>
+                    </DialogContent>
+                </Dialog>
+            )}
+
+            {/* Zoom Modal */}
+            <Dialog
+                open={!!zoomedImage}
+                onOpenChange={(open) => !open && setZoomedImage(null)}
+            >
+                {/* FIXED "BIGGER" SIZE:
+      - Used !w-[98vw] and !h-[95vh] to force it to fill the screen.
+      - bg-white for uniform color behind the image.
+      - flex items-center justify-center to center the "Actual Size" image in the large space.
+    */}
+                <DialogContent className="custom-scrollbar fixed top-1/2 left-1/2 h-[95vh] !max-h-[95vh] !w-[98vw] -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-xl border border-zinc-200 bg-white p-0 shadow-2xl sm:!max-w-[98vw] [&>button]:fixed [&>button]:top-6 [&>button]:right-6 [&>button]:z-[130] [&>button]:flex [&>button]:h-8 [&>button]:w-8 [&>button]:items-center [&>button]:justify-center [&>button]:rounded-full [&>button]:bg-zinc-900 [&>button]:text-white [&>button]:opacity-100 [&>button]:transition-all [&>button]:hover:bg-black">
+                    <DialogTitle className="sr-only">Zoomed Image</DialogTitle>
+                    <DialogDescription className="sr-only">
+                        Actual size view of the selected image.
+                    </DialogDescription>
+
+                    {zoomedImage && (
+                        /* The wrapper div:
+                           - min-h-full min-w-full ensures the white background fills the modal.
+                           - flex items-center justify-center keeps the image centered if it's smaller than the screen.
+                        */
+                        <div className="relative flex min-h-full min-w-full items-center justify-center bg-white p-12">
+                            <img
+                                src={zoomedImage.url}
+                                alt={zoomedImage.name}
+                                /* Actual Size:
+                                   - Removed 'max-h-full' so it stays at its true pixel size.
+                                   - Added shadow-xl to separate the image from the white background if they are both white.
+                                */
+                                className="block h-auto w-auto min-w-[300px] border border-zinc-100 shadow-xl"
+                            />
+
+                            {/* DOWNLOAD BUTTON:
+                   - Positioned 'fixed' relative to the viewport (bottom-right of the modal).
+                   - Colors synced to the Close Button (Zinc-900).
+                */}
+                            <div className="fixed right-10 bottom-10 z-[120]">
+                                <a
+                                    href={zoomedImage.url}
+                                    download={zoomedImage.name}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-2 rounded-full bg-zinc-900 px-6 py-3 text-sm font-bold text-white shadow-2xl transition-all hover:scale-105 hover:bg-black active:scale-95"
+                                >
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="18"
+                                        height="18"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2.5"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                    >
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                        <polyline points="7 10 12 15 17 10" />
+                                        <line x1="12" x2="12" y1="15" y2="3" />
+                                    </svg>
+                                    Download Actual Size
+                                </a>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }

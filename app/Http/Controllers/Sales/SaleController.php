@@ -55,7 +55,7 @@ class SaleController extends Controller
 
             return back()->with('success', 'Sale created successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to create sale: '.$e->getMessage());
+            Log::error('Failed to create sale: ' . $e->getMessage());
 
             return back()->withErrors(['message' => 'An error occurred while creating the sale.']);
         }
@@ -72,6 +72,13 @@ class SaleController extends Controller
             // Custom logic: e.g., only allow change if status is pending
             if ($sale->getOriginal('status') !== TransactionStatus::PENDING->value) {
                 return back()->withErrors(['message' => 'Cannot change amount on processed sales.']);
+            }
+
+            // If you we amount total here we also update the sublimation amount total
+            if ($sale->sublimation()->exists()) {
+                $sale->sublimation->update([
+                    'amount_total' => $sale->amount_total,
+                ]);
             }
         }
 
@@ -95,19 +102,19 @@ class SaleController extends Controller
                 );
             }
 
-//            $sublimation = $transaction->sublimation;
-//
-//            if ($sublimation && $transaction->payments()->count() === 1) {
-//                if ($sublimation->status->isPrePaymentPhase()) {
-//                    $sublimation->update([
-//                        'status' => SublimationStatus::DOWNPAYMENT_COMPLETE,
-//                    ]);
-//                }
-//            }
+            //            $sublimation = $transaction->sublimation;
+            //
+            //            if ($sublimation && $transaction->payments()->count() === 1) {
+            //                if ($sublimation->status->isPrePaymentPhase()) {
+            //                    $sublimation->update([
+            //                        'status' => SublimationStatus::DOWNPAYMENT_COMPLETE,
+            //                    ]);
+            //                }
+            //            }
 
             return back()->with('success', 'Payment updated.');
         } catch (\Exception $e) {
-            Log::error('Failed to update payment: '.$e->getMessage());
+            Log::error('Failed to update payment: ' . $e->getMessage());
 
             return back()->withErrors(['amount_paid' => $e->getMessage()]);
         }

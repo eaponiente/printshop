@@ -16,7 +16,6 @@ export type SublimationStatus = {
 
 export type Sublimation = {
     id: number;
-    notes: string;
     description: string;
     branch_id: number;
     customer_id: number;
