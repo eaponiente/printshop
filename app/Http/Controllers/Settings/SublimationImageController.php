@@ -17,7 +17,7 @@ class SublimationImageController extends Controller
         $images = $sublimation->images->map(function ($image) {
             return [
                 'id' => $image->id,
-                'url' => Storage::disk('public')->url($image->url),
+                'url' => Storage::disk('s3')->url($image->url),
                 'raw_path' => $image->url,
                 'name' => basename($image->url),
             ];
@@ -36,10 +36,8 @@ class SublimationImageController extends Controller
             $file = $request->file('image');
 
             // 1. Attempt the upload to S3
-            // We use 'public' visibility so the URL is viewable by customers
             $path = $file->store('sublimation_images', [
                 'disk' => 's3',
-                'visibility' => 'public'
             ]);
 
             if (!$path) {
@@ -82,7 +80,7 @@ class SublimationImageController extends Controller
         }
 
         // Remove from disk
-        Storage::disk('public')->delete($image->url);
+        Storage::disk('s3')->delete($image->url);
 
         // Delete database record
         $image->delete();
