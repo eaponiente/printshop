@@ -17,7 +17,7 @@ class SublimationImageController extends Controller
         $images = $sublimation->images->map(function ($image) {
             return [
                 'id' => $image->id,
-                'url' => Storage::disk('s3')->temporaryUrl($image->url, now()->addHours(100)),
+                'url' => Storage::disk('s3')->temporaryUrl($image->url, now()->addHours(3)),
                 'raw_path' => $image->url,
                 'name' => basename($image->url),
             ];
