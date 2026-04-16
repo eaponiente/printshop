@@ -70,6 +70,8 @@ class SublimationImageController extends Controller
                     'bucket' => config('filesystems.disks.s3.bucket'),
                     'endpoint' => config('filesystems.disks.s3.endpoint'),
                     'region' => config('filesystems.disks.s3.region'),
+                    'url' => config('filesystems.disks.s3.url'),
+                    'endpoint' => config('filesystems.disks.s3.AWS_ENDPOINT'),
                 ]
             ]);
 
