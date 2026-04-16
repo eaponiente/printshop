@@ -17,7 +17,7 @@ class SublimationImageController extends Controller
         $images = $sublimation->images->map(function ($image) {
             return [
                 'id' => $image->id,
-                'url' => Storage::disk('s3')->url($image->url),
+                'url' => Storage::disk('s3')->temporaryUrl($image->url, now()->addHours(100)),
                 'raw_path' => $image->url,
                 'name' => basename($image->url),
             ];
@@ -35,16 +35,18 @@ class SublimationImageController extends Controller
         try {
             $file = $request->file('image');
 
-            // 1. Attempt the upload to S3
+            // Log the attempt so you see it in Railway
+            Log::info("Starting upload for: " . $file->getClientOriginalName());
+
             $path = $file->store('sublimation_images', [
                 'disk' => 's3',
+                'visibility' => 'public'
             ]);
 
             if (!$path) {
-                throw new Exception("File could not be saved to S3.");
+                throw new \Exception("File could not be saved to S3 - path returned null.");
             }
 
-            // 2. Database transaction/operation
             $image = $sublimation->images()->create([
                 'url' => $path,
             ]);
@@ -55,19 +57,26 @@ class SublimationImageController extends Controller
                 'url' => Storage::disk('s3')->url($path),
                 'name' => basename($path),
             ], 201);
-        } catch (Exception $e) {
-            // 3. Log the error for you to see in Railway Logs
-            Log::error("S3 Upload Error: " . $e->getMessage(), [
-                'user_id' => auth()->id(),
-                'file' => $request->file('image')->getClientOriginalName()
+        } catch (\Exception $e) {
+            // --- THIS IS THE CRITICAL LOGGING PART ---
+            Log::error("S3 UPLOAD CRITICAL FAILURE", [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                // This captures the exact error from the AWS SDK (e.g., SignatureMismatch or AccessDenied)
+                'trace' => substr($e->getTraceAsString(), 0, 500),
+                'input_filename' => $request->file('image')->getClientOriginalName(),
+                'config_check' => [
+                    'bucket' => config('filesystems.disks.s3.bucket'),
+                    'endpoint' => config('filesystems.disks.s3.endpoint'),
+                    'region' => config('filesystems.disks.s3.region'),
+                ]
             ]);
 
-            // 4. Return a clean message to the frontend
             return response()->json([
                 'success' => false,
-                'message' => 'Upload failed. Please try again later.',
-                // Only include 'debug' if you are in local development
-                'debug' => config('app.debug') ? $e->getMessage() : null
+                'message' => 'Upload failed.',
+                'debug' => config('app.debug') ? $e->getMessage() : 'Check server logs'
             ], 500);
         }
     }

@@ -24,4 +24,10 @@ export default defineConfig({
     esbuild: {
         jsx: 'automatic',
     },
+    server: {
+        host: '0.0.0.0', // This forces Vite to listen on all network interfaces
+        hmr: {
+            host: 'localhost',
+        },
+    },
 });
