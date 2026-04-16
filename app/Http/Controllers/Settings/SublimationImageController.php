@@ -38,10 +38,21 @@ class SublimationImageController extends Controller
             // Log the attempt so you see it in Railway
             Log::info("Starting upload for: " . $file->getClientOriginalName());
 
-            $path = $file->store('sublimation_images', [
-                'disk' => 's3',
-                'visibility' => 'public'
-            ]);
+            try {
+                $path = $file->store('sublimation_images', [
+                    'disk' => 's3',
+                    'visibility' => 'public'
+                ]);
+            } catch (\Throwable $sdkException) {
+                Log::error("S3 SDK EXCEPTION during store()", [
+                    'aws_error' => $sdkException->getMessage(),
+                    'exception_class' => get_class($sdkException),
+                    'file' => $sdkException->getFile(),
+                    'line' => $sdkException->getLine(),
+                    'trace' => substr($sdkException->getTraceAsString(), 0, 1000),
+                ]);
+                throw $sdkException;
+            }
 
             if (!$path) {
                 throw new \Exception("File could not be saved to S3 - path returned null.");
@@ -71,7 +82,6 @@ class SublimationImageController extends Controller
                     'endpoint' => config('filesystems.disks.s3.endpoint'),
                     'region' => config('filesystems.disks.s3.region'),
                     'url' => config('filesystems.disks.s3.url'),
-                    'endpoint' => config('filesystems.disks.s3.AWS_ENDPOINT'),
                 ]
             ]);
 
