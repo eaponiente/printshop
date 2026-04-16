@@ -65,7 +65,7 @@ class SublimationImageController extends Controller
             return response()->json([
                 'success' => true,
                 'id' => $image->id,
-                'url' => Storage::disk('s3')->url($path),
+                'url' => Storage::disk('s3')->temporaryUrl($path, now()->addHours(3)),
                 'name' => basename($path),
             ], 201);
         } catch (\Exception $e) {
