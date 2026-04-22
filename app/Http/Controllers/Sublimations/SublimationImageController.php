@@ -12,10 +12,6 @@ use Illuminate\Support\Facades\Storage;
 
 class SublimationImageController extends Controller
 {
-    /**
-     * The TTL (in minutes) for cached presigned URLs.
-     * Must be less than the URL expiry window (3 hours = 180 min).
-     */
     private const URL_CACHE_TTL_MINUTES = 175;
 
     public function index(Sublimation $sublimation)
