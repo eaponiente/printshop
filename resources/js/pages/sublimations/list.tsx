@@ -9,6 +9,7 @@ import {
     Trash2,
     X,
 } from 'lucide-react';
+import { isToday, parseISO } from 'date-fns';
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { route } from 'ziggy-js';
@@ -105,8 +106,6 @@ export default function SublimationIndex({
         // Clone filters
         const params = { ...filters };
 
-        console.log('filters', filters);
-
         // You can simplify this logic significantly
         params[type] = value;
 
@@ -166,7 +165,6 @@ export default function SublimationIndex({
                 return (
                     <Button
                         variant="ghost"
-                        // Pass the field, the current filters object, and the route
                         onClick={() =>
                             sortBy('due_at', filters, 'sublimations.index')
                         }
@@ -177,6 +175,20 @@ export default function SublimationIndex({
                             className={`ml-2 h-4 w-4 ${isSorted ? 'text-primary' : 'text-muted-foreground/50'}`}
                         />
                     </Button>
+                );
+            },
+            cell: ({ row }) => {
+                const dueAt = row.getValue('due_at');
+
+                if (!dueAt) return null;
+
+                const date = typeof dueAt === 'string' ? parseISO(dueAt) : new Date(dueAt);
+                const isDueToday = isToday(date);
+
+                return (
+                    <span className={isDueToday ? 'text-red-500 font-medium' : ''}>
+                        {new Date(date).toLocaleDateString()}
+                    </span>
                 );
             },
         },
@@ -356,7 +368,7 @@ export default function SublimationIndex({
                                 )}
 
                             {/* Status Filter */}
-                            <StatusFilter filters={filters} statuses={statuses} handleFilterChange={(value) => handleFilterChange(value, 'status')} />
+                            <StatusFilter filters={filters} statuses={statuses} handleFilterChange={(value: string) => handleFilterChange(value, 'status')} />
 
                             {/* New Checkbox Filter */}
                             <div className="flex h-10 items-center space-x-2 px-2">

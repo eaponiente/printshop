@@ -21,6 +21,7 @@ import EndorsementDialog from '@/pages/endorsements/endorsements-dialog';
 import type { BreadcrumbItem } from '@/types';
 import type { Endorsement, EndorsementsList } from '@/types/endorsements';
 import { formatCurrency } from '@/utils/formatters';
+import { toManilaTime } from '@/utils/dateHelper';
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Endorsements', href: '/endorsements' },
@@ -37,7 +38,7 @@ export default function EndorsementIndex({ endorsements, branches }: Endorsement
 
     const deleteEndorsement = (endorsement: Endorsement) => {
         router.delete(`/endorsements/${endorsement.id}`, {
-            onSuccess: () => toast.success('Endorsement deleted', { position: 'top-center'}),
+            onSuccess: () => toast.success('Endorsement deleted', { position: 'top-center' }),
         });
     }
 
@@ -59,7 +60,10 @@ export default function EndorsementIndex({ endorsements, branches }: Endorsement
         },
         {
             accessorKey: 'created_at',
-            header: 'Created At'
+            header: 'Created At',
+            cell: ({ row }: CellContext<any, any>) => {
+                return toManilaTime(row.original.created_at);
+            }
         },
         {
             header: 'Actions',

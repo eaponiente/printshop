@@ -17,9 +17,9 @@ class DatabaseSeeder extends Seeder
                 BranchSeeder::class,
                 UsersSeeder::class,
                 CustomerSeeder::class,
-                //TransactionSeeder::class,
-                //PurchaseOrderSeeder::class,
-                //ExpenseSeeder::class,
+                TransactionSeeder::class,
+                PurchaseOrderSeeder::class,
+                ExpenseSeeder::class,
             ]);
         } else {
             $this->call([
@@ -27,6 +27,5 @@ class DatabaseSeeder extends Seeder
                 UsersSeeder::class,
             ]);
         }
-
     }
 }

@@ -48,7 +48,7 @@ export function AddGuestModal({
         }
 
         wasOpen.current = open;
-    }, [form, open, searchQuery]); // searchQuery is here if it changes while open, but wasOpen prevents the loop
+    }, [form.setData, open, searchQuery]); // searchQuery is here if it changes while open, but wasOpen prevents the loop
 
     // Manual submission handler
     const handleAddCustomerSubmit = (e: React.MouseEvent | React.FormEvent) => {

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Settings;
+namespace App\Http\Controllers\Sublimations;
 
 use App\Enums\Sales\TransactionStatus;
 use App\Enums\Sublimations\SublimationStatus;
@@ -16,6 +16,7 @@ use App\Services\Sales\SalesService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -30,10 +31,6 @@ class SublimationController extends Controller
     public function index(Request $request): Response
     {
         $query = Sublimation::with('tags', 'branch', 'user', 'customer', 'transaction');
-
-        $query->when($request->filled('branch_id') && $request->branch_id !== 'all', function ($q) use ($request) {
-            $q->where('branch_id', $request->branch_id);
-        });
 
         $filters = $request->all();
 
@@ -78,7 +75,6 @@ class SublimationController extends Controller
         }
 
         // get all users filtered by branch
-        $branchId = $request->query('branch_id');
         $users = User::whereIn('role', ['admin', 'staff'])->get();
 
         return Inertia::render('sublimations/list', [
@@ -110,21 +106,16 @@ class SublimationController extends Controller
             $sublimation->fill($request->validated());
 
             if ($sublimation->isDirty('amount_total')) {
+                $hasTransaction = $sublimation->transaction()->exists();
+                $transactionNotPending = $hasTransaction && $sublimation->transaction->status != TransactionStatus::PENDING->value;
+                $inProduction = $sublimation->status->isProductionPhase();
 
-                if ($sublimation->transaction()->exists()) {
-                    if ($sublimation->transaction->status != TransactionStatus::PENDING->value) {
-                        return back()->withErrors(['message' => 'Cannot change amount on processed sublimations.']);
-                    }
-
-                    $sublimation->transaction->update([
-                        'amount_total' => $sublimation->amount_total,
-                    ]);
+                if ($transactionNotPending || $inProduction) {
+                    return back()->withErrors(['message' => 'Cannot change amount—sublimation has been processed.']);
                 }
 
-
-                // Custom logic: e.g., only allow change if status is pending
-                if ($sublimation->status->isProductionPhase()) {
-                    return back()->withErrors(['message' => 'Cannot change amount on processed sublimations.']);
+                if ($hasTransaction) {
+                    $sublimation->transaction->update(['amount_total' => $sublimation->amount_total]);
                 }
             }
 
@@ -148,12 +139,14 @@ class SublimationController extends Controller
             }
 
             foreach ($sublimation->images as $image) {
-                if (Storage::disk('public')->exists($image->url)) {
-                    Storage::disk('public')->delete($image->url);
+                if (Storage::disk('s3')->exists($image->url)) {
+                    Storage::disk('s3')->delete($image->url);
                 }
             }
 
-            $sublimation->delete();
+            if ($sublimation->transaction()->exists()) {
+                $sublimation->transaction->delete();
+            }
 
             return redirect()->back()->with('success', 'Sublimation deleted successfully.');
         } catch (\Exception $e) {
@@ -165,7 +158,10 @@ class SublimationController extends Controller
 
     public function updateStatus(Request $request, Sublimation $sublimation): RedirectResponse
     {
-        $newStatus = SublimationStatus::from($request->status);
+        $newStatus = SublimationStatus::tryFrom($request->status);
+        if (!$newStatus) {
+            return back()->withErrors(['status' => 'Invalid status provided.']);
+        }
 
         try {
             if (! $sublimation->canMoveTo($newStatus)) {
@@ -174,28 +170,34 @@ class SublimationController extends Controller
                 ]);
             }
 
-            if ($newStatus === SublimationStatus::WAITING_FOR_DP) {
-                // Check if a transaction already exists to prevent duplicates
-                if (! $sublimation->transaction()->exists()) {
-                    $transactionData = $sublimation->only(['description', 'branch_id', 'customer_id', 'user_id']);
+            DB::transaction(function () use ($sublimation, $newStatus, $request) {
+                if ($newStatus === SublimationStatus::WAITING_FOR_DP) {
+                    // Check if a transaction already exists to prevent duplicates
+                    if (! $sublimation->transaction()->exists()) {
+                        $transactionData = $sublimation->only(['description', 'branch_id', 'customer_id', 'user_id']);
 
-                    $transaction = $this->salesService->createTransaction(array_merge($transactionData, [
-                        'invoice_number' => Transaction::generateNumber(),
-                        'amount_total' => $sublimation->amount_total,
-                        'particular' => 'Sublimation',
-                        'staff_id' => auth()->id(),
-                        'transaction_date' => now(),
-                    ]));
+                        $transaction = $this->salesService->createTransaction(array_merge($transactionData, [
+                            'invoice_number' => Transaction::generateNumber(),
+                            'amount_total' => $sublimation->amount_total,
+                            'particular' => 'Sublimation',
+                            'staff_id' => auth()->id(),
+                            'transaction_date' => now(),
+                        ]));
 
-                    $sublimation->transaction_id = $transaction->id;
+                        $sublimation->transaction_id = $transaction->id;
+                    }
                 }
-            }
 
-            $sublimation->status = $newStatus;
-            $sublimation->save();
+                $sublimation->status = $newStatus;
+                $sublimation->save();
+            });
+
+
 
             return back()->with('success', 'Status updated.');
         } catch (\Exception $e) {
+            Log::error("Failed to update sublimation status #{$sublimation->id}: " . $e->getMessage());
+
             return back()->withErrors(['status' => 'The status change is not allowed at this time.']);
         }
     }

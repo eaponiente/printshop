@@ -33,7 +33,7 @@ export default function CustomerIndex({ customers }: CustomersList) {
 
     const deleteCustomer = (customer: Customer) => {
         router.delete(`/customers/${customer.id}`, {
-            onSuccess: () => toast.success('Customer deleted', { position: 'top-center'}),
+            onSuccess: () => toast.success('Customer deleted', { position: 'top-center' }),
             onError: (errors) => {
                 if (errors.delete) {
                     toast.error('Action Denied', {

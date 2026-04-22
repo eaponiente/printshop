@@ -29,7 +29,6 @@ return new class extends Migration
                 ->comment('The remaining amount due');
 
             // Metadata
-            $table->string('payment_type')->nullable()->comment('Method used (e.g., Cash, GCash, Card)');
             $table->enum('status', TransactionStatus::cases())->default(TransactionStatus::PENDING->value)->comment('Current state: pending, partial, paid');
 
             // Relationships

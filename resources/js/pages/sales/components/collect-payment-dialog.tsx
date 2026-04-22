@@ -1,5 +1,3 @@
-"use client"
-
 import { useForm } from '@inertiajs/react';
 import { Banknote, CreditCard, Receipt } from "lucide-react";
 import { toast } from "sonner";
@@ -129,6 +127,7 @@ export default function PaymentDialog({ open, setOpen, transaction, typesOfPayme
                                 Type of Payment
                             </Label>
                             <NativeSelect
+                                tabIndex={2}
                                 value={data.payment_type}
                                 onChange={(e) =>
                                     setData('payment_type', e.target.value)
@@ -172,6 +171,7 @@ export default function PaymentDialog({ open, setOpen, transaction, typesOfPayme
                             <Input
                                 id="amount_paid"
                                 type="number"
+                                tabIndex={1}
                                 step="0.01"
                                 className="pl-9 focus-visible:ring-indigo-500"
                                 value={data.amount_paid}

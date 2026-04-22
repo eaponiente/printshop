@@ -38,6 +38,7 @@ export default function SublimationDialog({
     users,
     sublimation,
 }: SublimationDialogProps) {
+    console.log('users', users);
     const isEdit = !!sublimation;
     const { auth } = usePage().props;
 
@@ -254,40 +255,11 @@ export default function SublimationDialog({
                                 <InputError message={errors.user_id} />
                             </div>
 
-                            {isEdit && (
-                                <>
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="due_at">Due Date</Label>
-                                        <Input
-                                            id="due_at"
-                                            type="date"
-                                            value={data.due_at}
-                                            onChange={(e) =>
-                                                setData(
-                                                    'due_at',
-                                                    e.target.value,
-                                                )
-                                            }
-                                        />
-                                        <InputError message={errors.due_at} />
-                                    </div>
-                                </>
-                            )}
-
-                            {!isEdit && (
-                                <div className="grid gap-2">
-                                    <Label htmlFor="due_at">Due Date</Label>
-                                    <Input
-                                        id="due_at"
-                                        type="date"
-                                        value={data.due_at}
-                                        onChange={(e) =>
-                                            setData('due_at', e.target.value)
-                                        }
-                                    />
-                                    <InputError message={errors.due_at} />
-                                </div>
-                            )}
+                            <div className="grid gap-2">
+                                <Label htmlFor="due_at">Due Date</Label>
+                                <Input id="due_at" type="date" value={data.due_at} onChange={(e) => setData('due_at', e.target.value)} />
+                                <InputError message={errors.due_at} />
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-1 gap-4">

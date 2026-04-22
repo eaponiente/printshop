@@ -6,9 +6,9 @@ use App\Http\Controllers\Sales\ExpenseController;
 use App\Http\Controllers\Sales\SaleController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
-use App\Http\Controllers\Settings\SublimationController;
-use App\Http\Controllers\Settings\SublimationImageController;
-use App\Http\Controllers\Settings\SublimationTagController;
+use App\Http\Controllers\Sublimations\SublimationController;
+use App\Http\Controllers\Sublimations\SublimationImageController;
+use App\Http\Controllers\Sublimations\SublimationTagController;
 use App\Http\Controllers\Settings\TagController;
 use App\Http\Controllers\Users\BranchController;
 use App\Http\Controllers\Users\CustomerController;
@@ -37,11 +37,11 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/sublimation/{sublimation}/update-status', [SublimationController::class, 'updateStatus'])->name('sublimations.update-status');
     Route::post('/sublimations/{sublimation}/tags', [SublimationTagController::class, 'addTag'])->name('sublimations.tags.add');
     Route::delete('/sublimations/{sublimation}/tags/{tag}', [SublimationTagController::class, 'removeTag'])->name('sublimations.tags.remove');
-    
+
     Route::get('/sublimations/{sublimation}/images', [SublimationImageController::class, 'index'])->name('sublimations.images.index');
     Route::post('/sublimations/{sublimation}/images', [SublimationImageController::class, 'store'])->name('sublimations.images.store');
     Route::delete('/sublimations/{sublimation}/images/{image}', [SublimationImageController::class, 'destroy'])->name('sublimations.images.destroy');
-    
+
     Route::resource('sublimations', SublimationController::class);
     Route::resource('customers', CustomerController::class);
 

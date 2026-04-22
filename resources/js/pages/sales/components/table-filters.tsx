@@ -16,7 +16,6 @@ interface SalesTableFiltersProps {
     searchTerm: string;
     setSearchTerm: (value: string) => void;
     mode: string;
-    types_of_payment: TypeOfPayment[];
     filters: {
         date?: string;
         status?: string;
@@ -32,15 +31,14 @@ interface SalesTableFiltersProps {
 }
 
 const SalesTableFilters = ({
-                               searchTerm,
-                               setSearchTerm,
-                               mode,
-                               types_of_payment,
-                               filters,
-                               handleFilterChange,
-                               clearFilters,
+    searchTerm,
+    setSearchTerm,
+    mode,
+    filters,
+    handleFilterChange,
+    clearFilters,
     branches
-                           }: SalesTableFiltersProps) => {
+}: SalesTableFiltersProps) => {
 
     // Map mode to HTML input types
     return (

@@ -3,6 +3,7 @@ import type { ChangeEvent, DragEvent } from 'react';
 import React, { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import type { UploadedImage } from '@/types/images';
+import { route } from 'ziggy-js';
 
 export default function SublimationGallery({
     sublimationId,
@@ -21,27 +22,26 @@ export default function SublimationGallery({
     const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
     useEffect(() => {
-        if (!sublimationId) {
-            return;
-        }
+        const controller = new AbortController();
 
         const fetchImages = async () => {
             setIsLoading(true);
-
             try {
-                const response = await axios.get(
-                    `/sublimations/${sublimationId}/images`,
-                );
+                const response = await axios.get(route('sublimations.images.index', sublimationId), {
+                    signal: controller.signal
+                });
                 setImages(response.data);
             } catch (err) {
-                console.error('Failed to load images', err);
-                toast.error('Failed to load images.');
+                if (!axios.isCancel(err)) {
+                    toast.error('Failed to load images.');
+                }
             } finally {
                 setIsLoading(false);
             }
         };
 
         fetchImages();
+        return () => controller.abort();  // Cleanup on unmount
     }, [sublimationId]);
 
     const handleFiles = async (files: FileList | null) => {
@@ -96,9 +96,9 @@ export default function SublimationGallery({
 
                 setImages((prev) => [...prev, response.data]);
                 toast.success(`Uploaded ${file.name} successfully`);
-            } catch (err) {
+            } catch (err: any) {
                 console.error(err);
-                toast.error(`Failed to upload ${file.name}`);
+                toast.error(err.response?.data.message);
             }
         }
 

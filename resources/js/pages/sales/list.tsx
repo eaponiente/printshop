@@ -15,6 +15,7 @@ import { route } from 'ziggy-js';
 import { DataTable } from '@/components/data-table';
 import {
     AlertDialog,
+    AlertDialogAction,
     AlertDialogCancel,
     AlertDialogContent,
     AlertDialogDescription,
@@ -40,6 +41,7 @@ import type { Customer } from '@/types/user';
 import { toManilaTime } from '@/utils/dateHelper';
 import { formatCurrency } from '@/utils/formatters';
 import { sortBy } from '@/utils/helpers';
+import { toast } from 'sonner';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -79,14 +81,14 @@ export default function SaleIndex({
     cash_on_hand_amount = 0,
     total_expenses = 0,
 }: SaleIndexProps) {
-    const [getTransaction, setTransaction] = useState<any | null>(null);
+    const [getTransaction, setTransaction] = useState<Transaction | null>(null);
 
-    const openEditForm = (transaction: any) => {
+    const openEditForm = (transaction: Transaction | null) => {
         setTransaction(transaction);
         setIsDialogOpen(true);
     };
 
-    const openDetailsForm = (transaction: any) => {
+    const openDetailsForm = (transaction: Transaction) => {
         setTransaction(transaction);
         setIsDetailsDialogOpen(true);
     };
@@ -290,34 +292,6 @@ export default function SaleIndex({
                         >
                             <Pencil />
                         </Button>
-                        {row.original.status.toLowerCase() === 'pending' && (
-                            <>
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="sm">
-                                            <Trash2 />
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>
-                                                Are you absolutely sure?
-                                            </AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                This action cannot be undone.
-                                                This will permanently delete
-                                                your user from our servers.
-                                            </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>
-                                                Cancel
-                                            </AlertDialogCancel>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            </>
-                        )}
                     </>
                 );
             },

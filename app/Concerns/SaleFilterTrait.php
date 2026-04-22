@@ -11,7 +11,7 @@ trait SaleFilterTrait
     // App\Models\Transaction.php (And similar for Expense)
     public function scopeFiltered($query, array $filters)
     {
-        return $query->tap(fn ($q) => $this->applyDateFilter($q, $filters))
+        return $query->tap(fn($q) => $this->applyDateFilter($q, $filters))
             ->where(function ($query) use ($filters) {
                 $user = auth()->user();
                 $filterId = $filters['branch_id'] ?? null;
@@ -38,7 +38,11 @@ trait SaleFilterTrait
 
         match ($filters['mode'] ?? 'daily') {
             'daily' => $query->whereDate($column, $date),
-            'weekly' => $query->whereRaw("YEARWEEK($column, 1) = ?", [str_replace('-W', '', $date)]),
+            'weekly' => (function () use ($query, $column, $date) {
+                $start = Carbon::parse($date)->startOfWeek();
+                $end = Carbon::parse($date)->endOfWeek();
+                $query->whereBetween($column, [$start, $end]);
+            })(),
             'monthly' => $query->whereMonth($column, Carbon::parse($date)->month)
                 ->whereYear($column, Carbon::parse($date)->year),
             'yearly' => $query->whereYear($column, $date), // Added yearly

@@ -71,7 +71,6 @@ class TransactionSeeder extends Seeder
             'description' => $service['desc'],
             'amount_total' => $amountTotal,
             'amount_paid' => 0,
-            'payment_type' => $paymentType,
             'status' => 'pending',
             'staff_id' => $staff->id,
             'branch_id' => $staff->branch_id,
@@ -95,7 +94,7 @@ class TransactionSeeder extends Seeder
         $transactionType = $faker->randomElement(['retail', 'purchase_order']);
         $status = $faker->randomElement(SublimationStatus::cases());
 
-        $transactionDate = [now()->subDays(rand(0, 7)), now()->addDays(rand(0, 10))];
+        $transactionDate = [now()->subDays(rand(0, 5)), now()->addDays(rand(0, 5))];
 
 
         $sublimation = Sublimation::query()->create([
@@ -114,9 +113,11 @@ class TransactionSeeder extends Seeder
 
         $sublimationStatus = $sublimation->status;
 
-        if ($sublimationStatus->isProductionPhase() ||
+        if (
+            $sublimationStatus->isProductionPhase() ||
             $sublimationStatus === SublimationStatus::COMPLETED->value ||
-            $sublimationStatus === SublimationStatus::DOWNPAYMENT_COMPLETE->value) {
+            $sublimationStatus === SublimationStatus::DOWNPAYMENT_COMPLETE->value
+        ) {
             $transaction = app(SalesService::class)->createTransaction([
                 'description' => $sublimation->description,
                 'branch_id' => $sublimation->branch_id,

@@ -5,12 +5,13 @@ namespace App\Models;
 use App\Concerns\SaleFilterTrait;
 use App\Concerns\Sortable;
 use App\Enums\Sales\TransactionStatus;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
 class Transaction extends Model
 {
-    use SaleFilterTrait, Sortable;
+    use SaleFilterTrait, Sortable, HasFactory;
 
     public $guarded = ['id'];
 
@@ -45,32 +46,25 @@ class Transaction extends Model
      */
     public static function generateNumber(): string
     {
-        $year = now()->year;
-        $prefix = "INV-{$year}-";
+        return DB::transaction(function () {
+            $year = now()->year;
+            $prefix = "INV-{$year}-";
 
-        // 1. Use a more robust way to find the max sequence in one query
-        $lastInvoiceNumber = self::whereYear('created_at', $year)
-            ->where('invoice_number', 'like', "{$prefix}%")
-            ->latest('id')
-            ->value('invoice_number');
+            // Use lockForUpdate to serialize concurrency
+            $lastInvoiceNumber = self::whereYear('created_at', $year)
+                ->where('invoice_number', 'like', "{$prefix}%")
+                ->lockForUpdate()
+                ->latest('id')
+                ->value('invoice_number');
 
-        // 2. Extract sequence using a null-safe approach
-        $lastSequence = $lastInvoiceNumber
-            ? (int) substr($lastInvoiceNumber, -4)
-            : 0;
+            $lastSequence = $lastInvoiceNumber
+                ? (int) substr($lastInvoiceNumber, -5) // usually we padding 5 digits
+                : 0;
 
-        $sequence = $lastSequence + 1;
+            $sequence = $lastSequence + 1;
 
-        // 3. Loop instead of recursion to prevent Stack Overflow on high collision
-        while (true) {
-            $candidate = $prefix.str_pad($sequence, 5, '0', STR_PAD_LEFT);
-
-            if (! self::where('invoice_number', $candidate)->exists()) {
-                return $candidate;
-            }
-
-            $sequence++;
-        }
+            return $prefix . str_pad($sequence, 5, '0', STR_PAD_LEFT);
+        });
     }
 
     /**
@@ -84,19 +78,22 @@ class Transaction extends Model
     public function recordPayment(float $paymentAmount, string $paymentType): void
     {
         DB::transaction(function () use ($paymentAmount, $paymentType) {
+            // Fetch fresh with lock 
+            $fresh = self::lockForUpdate()->find($this->id);
+
             // 1. Calculate new totals
-            $newTotalPaid = $this->amount_paid + $paymentAmount;
+            $newTotalPaid = $fresh->amount_paid + $paymentAmount;
 
             // 2. Business Rule: Prevent Overpayment
-            if ($newTotalPaid > $this->amount_total) {
-                throw new \Exception("Payment exceeds the remaining balance of {$this->balance}");
+            if ($newTotalPaid > $fresh->amount_total) {
+                throw new \Exception("Payment exceeds the remaining balance of {$fresh->balance}");
             }
 
             // 3. Determine Status and Fulfillment logic
             $status = TransactionStatus::PARTIAL;
-            $fulfilledAt = $this->fulfilled_at;
+            $fulfilledAt = $fresh->fulfilled_at;
 
-            if ($newTotalPaid >= $this->amount_total) {
+            if ($newTotalPaid >= $fresh->amount_total) {
                 $status = TransactionStatus::PAID;
                 $fulfilledAt = now();
             } elseif ($newTotalPaid <= 0) {
@@ -104,18 +101,17 @@ class Transaction extends Model
             }
 
             // 4. Create the split payment record
-            $this->payments()->create([
+            $fresh->payments()->create([
                 'amount' => $paymentAmount,
                 'payment_type' => $paymentType,
                 'staff_id' => auth()->id(),
             ]);
 
             // 5. Update the parent transaction record
-            $this->update([
+            $fresh->update([
                 'amount_paid' => $newTotalPaid,
                 'status' => $status,
                 'fulfilled_at' => $fulfilledAt,
-                'change_reason' => $reason ?? $this->change_reason,
             ]);
         });
     }

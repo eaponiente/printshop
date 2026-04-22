@@ -2,8 +2,7 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-use App\Concerns\RestrictsByBranch;
+use App\Enums\Users\UserRole;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -63,9 +62,20 @@ class User extends Authenticatable
     protected function fullname(): Attribute
     {
         return Attribute::make(
-            get: fn () => "{$this->first_name} {$this->last_name}"
+            get: fn() => "{$this->first_name} {$this->last_name}"
         );
     }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === UserRole::SUPERADMIN->value;
+    }
+
+    public function isAdmin(): bool
+    {
+        return in_array($this->role, [UserRole::SUPERADMIN->value, UserRole::ADMIN->value]);
+    }
+
 
     public function branch(): BelongsTo
     {

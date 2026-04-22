@@ -3,12 +3,13 @@
 namespace App\Models;
 
 use App\Enums\Sublimations\SublimationStatus;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Sublimation extends Model
 {
-    public $table = 'sublimations';
+    use HasFactory;
 
     public $guarded = ['id'];
 

@@ -13,7 +13,6 @@ return new class extends Migration
     {
         Schema::table('sublimations', function (Blueprint $table) {
             $table->dropColumn('notes');
-            $table->integer('user_id')->nullable()->change();
             $table->date('due_at')->nullable()->change();
         });
     }

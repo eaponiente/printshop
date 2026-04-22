@@ -29,7 +29,6 @@ class GetTransactionsRequest extends FormRequest
             'search' => 'nullable|string',
             'branch_id' => 'nullable',
             'customer' => 'nullable|string',
-            'payment_type' => 'nullable|string',
             'sort_field' => 'nullable|string|in:transaction_date',
             'sort_direction' => 'nullable|string|in:asc,desc',
         ];

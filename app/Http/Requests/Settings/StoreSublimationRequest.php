@@ -22,8 +22,7 @@ class StoreSublimationRequest extends FormRequest
             'user_id' => ['nullable', 'exists:users,id'],
             'due_at' => ['nullable', 'date', 'after:today'],
             // Financials (numeric handles decimal input; gte:0 prevents negative numbers)
-            'amount_total' => 'required|numeric|min:0|max:99999999.99',
-            'notes' => 'nullable|string',
+            'amount_total' => 'required|numeric|min:1|max:99999999.99',
         ];
     }
 }

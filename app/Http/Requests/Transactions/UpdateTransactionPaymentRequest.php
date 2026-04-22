@@ -12,8 +12,10 @@ class UpdateTransactionPaymentRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        // Usually true, or check if user owns the transaction
-        return true;
+        $transaction = $this->route('transaction');
+        $user = $this->user();
+
+        return $user->isSuperAdmin() || (int) $user->branch_id === (int) $transaction->branch_id;
     }
 
     /**
@@ -35,7 +37,7 @@ class UpdateTransactionPaymentRequest extends FormRequest
                 'required',
                 'numeric',
                 'min:1',
-                'lte:'.$transaction->amount_total,
+                'lte:' . $transaction->balance,
             ],
 
             /**
@@ -53,7 +55,7 @@ class UpdateTransactionPaymentRequest extends FormRequest
              * 3. payment_type (Highly Recommended):
              * - If you are receiving money, you should log HOW it was received.
              */
-            'payment_type' => 'required|string|in:'.implode(',', array_column(TypeOfPaymentEnum::cases(), 'value')),
+            'payment_type' => 'required|string|in:' . implode(',', array_column(TypeOfPaymentEnum::cases(), 'value')),
         ];
     }
 
@@ -63,7 +65,7 @@ class UpdateTransactionPaymentRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'amount_paid.lte' => 'The paid amount cannot exceed the total invoice amount of '.$this->route('transaction')->amount_total,
+            'amount_paid.lte' => 'The paid amount cannot exceed the total invoice amount of ' . $this->route('transaction')->amount_total,
             'amount_paid.min' => 'Please enter a valid payment amount.',
         ];
     }

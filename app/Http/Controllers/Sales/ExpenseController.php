@@ -71,7 +71,7 @@ class ExpenseController extends Controller
 
             return back()->with('success', 'Expense created successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to create expense: '.$e->getMessage());
+            Log::error('Failed to create expense: ' . $e->getMessage());
 
             return back()->withErrors(['message' => 'An error occurred while creating the expense.']);
         }
@@ -94,7 +94,7 @@ class ExpenseController extends Controller
 
             return back()->with('success', 'Expense updated successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to update expense: '.$e->getMessage());
+            Log::error('Failed to update expense: ' . $e->getMessage());
 
             return back()->withErrors(['message' => 'An error occurred while updating the expense.']);
         }
@@ -110,7 +110,7 @@ class ExpenseController extends Controller
 
             return back()->with('success', 'Expense deleted successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to delete expense: '.$e->getMessage());
+            Log::error('Failed to delete expense: ' . $e->getMessage());
 
             return back()->withErrors(['message' => 'An error occurred while deleting the expense.']);
         }
@@ -119,7 +119,7 @@ class ExpenseController extends Controller
     public function void(Request $request, Expense $expense): RedirectResponse
     {
         // 1. Pre-emptive check
-        if ($expense->status === 'void') {
+        if ($expense->status === ExpenseStatus::VOID->value) {
             return back()->withErrors(['message' => 'Expense is already voided.']);
         }
 
@@ -147,10 +147,9 @@ class ExpenseController extends Controller
             });
 
             return back()->with('success', 'Expense has been voided and cash balance adjusted.');
-
         } catch (\Exception $e) {
             // Log the error for debugging
-            Log::error("Failed to void expense #{$expense->id}: ".$e->getMessage());
+            Log::error("Failed to void expense #{$expense->id}: " . $e->getMessage());
 
             return back()->withErrors([
                 'message' => 'Failed to void the expense. Please try again or contact support.',

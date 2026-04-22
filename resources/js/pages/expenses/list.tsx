@@ -89,6 +89,43 @@ export default function ExpenseIndex({
             header: 'Staff',
         },
         {
+            accessorKey: 'payment_type',
+            header: 'Payment Type',
+            cell: ({ row }: CellContext<any, any>) => {
+                const paymentType = row.original.payment_type;
+                const paymentTypeConfig: Record<
+                    string,
+                    { label: string; className: string }
+                > = {
+                    cash: {
+                        label: 'Cash',
+                        className:
+                            'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border-emerald-200',
+                    },
+                    gcash: {
+                        label: 'GCash',
+                        className:
+                            'bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 border-orange-200',
+                    },
+                    maya: {
+                        label: 'Maya',
+                        className:
+                            'bg-pink-500/10 text-pink-600 hover:bg-pink-500/20 border-pink-200',
+                    },
+                    bank_transfer: {
+                        label: 'Bank Transfer',
+                        className:
+                            'bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 border-blue-200',
+                    },
+                };
+                const config = paymentTypeConfig[paymentType] || {
+                    label: paymentType.charAt(0).toUpperCase() + paymentType.slice(1),
+                    className: '',
+                };
+                return <Badge variant="outline" className={config.className}>{config.label}</Badge>;
+            }
+        },
+        {
             accessorKey: 'status',
             header: 'Status',
             cell: ({ row }) => {

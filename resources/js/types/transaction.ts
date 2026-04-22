@@ -19,7 +19,6 @@ export type Transaction = {
     id: number;
     invoice_number: string;
     customer_id: number | string;
-    guest_name: string;
     particular: string;
     description: string | null;
 
