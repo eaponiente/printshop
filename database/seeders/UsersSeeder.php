@@ -32,7 +32,6 @@ class UsersSeeder extends Seeder
         // 3. Create 4 Staff and 4 Admins (1 for each branch)
         foreach (['babak', 'penaplata', 'malita', 'tibungco'] as $key => $name) {
 
-            // Create Staff for this branch
             User::updateOrCreate(
                 ['username' => "{$name}_staff"],
                 [
