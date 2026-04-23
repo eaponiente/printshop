@@ -51,10 +51,6 @@ export default function SublimationDialog({
         description: sublimation?.description ?? '',
         branch_id: sublimation?.branch_id ?? (auth.user as any).branch_id ?? '',
         customer_id: sublimation?.customer_id ?? '',
-        user_id: sublimation?.user_id ?? (auth.user as any).id ?? '',
-        due_at: sublimation?.due_at
-            ? new Date(sublimation.due_at).toISOString().split('T')[0]
-            : '',
     });
 
     // Automatically uncheck/reset if the transaction type changes to PO
@@ -213,53 +209,6 @@ export default function SublimationDialog({
                                     />
                                 </div>
                             )}
-                        </div>
-
-                        <div className={`grid grid-cols-2 gap-4`}>
-                            {/* Assigned Staff */}
-                            <div className="grid gap-2">
-                                <Label htmlFor="user_id">Assigned Staff</Label>
-                                <NativeSelect
-                                    value={data.user_id}
-                                    onChange={(e) =>
-                                        setData(
-                                            'user_id',
-                                            e.target.value as any,
-                                        )
-                                    }
-                                    // Disable the select if no branch is chosen yet
-                                    disabled={!data.branch_id}
-                                >
-                                    <NativeSelectOption value="">
-                                        {data.branch_id
-                                            ? 'Select staff'
-                                            : 'Select a branch first'}
-                                    </NativeSelectOption>
-
-                                    {/* Filter users whose branch_id matches the selected branch_id */}
-                                    {users
-                                        .filter(
-                                            (u) =>
-                                                String(u.branch_id) ===
-                                                String(data.branch_id),
-                                        )
-                                        .map((u) => (
-                                            <NativeSelectOption
-                                                key={u.id}
-                                                value={u.id}
-                                            >
-                                                {u.first_name} {u.last_name}
-                                            </NativeSelectOption>
-                                        ))}
-                                </NativeSelect>
-                                <InputError message={errors.user_id} />
-                            </div>
-
-                            <div className="grid gap-2">
-                                <Label htmlFor="due_at">Due Date</Label>
-                                <Input id="due_at" type="date" value={data.due_at} onChange={(e) => setData('due_at', e.target.value)} />
-                                <InputError message={errors.due_at} />
-                            </div>
                         </div>
 
                         <div className="grid grid-cols-1 gap-4">

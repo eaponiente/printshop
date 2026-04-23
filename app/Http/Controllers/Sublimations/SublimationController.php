@@ -75,7 +75,13 @@ class SublimationController extends Controller
         }
 
         // get all users filtered by branch
-        $users = User::whereIn('role', ['admin', 'staff'])->get();
+        if (auth()->user()->role === 'superadmin') {
+            $users = User::whereIn('role', ['admin', 'staff'])->get();
+        } else {
+            $users = User::where('branch_id', auth()->user()->branch_id)
+                ->whereIn('role', ['admin', 'staff'])
+                ->get();
+        }
 
         return Inertia::render('sublimations/list', [
             'sublimations' => $query->paginate(30)->withQueryString(),
@@ -199,6 +205,40 @@ class SublimationController extends Controller
             Log::error("Failed to update sublimation status #{$sublimation->id}: " . $e->getMessage());
 
             return back()->withErrors(['status' => 'The status change is not allowed at this time.']);
+        }
+    }
+
+    public function updateStaff(Request $request, Sublimation $sublimation): RedirectResponse
+    {
+        $validated = $request->validate([
+            'user_id' => 'nullable|exists:users,id',
+        ]);
+
+        try {
+            $sublimation->update($validated);
+
+            return back()->with('success', 'Staff updated successfully.');
+        } catch (\Exception $e) {
+            Log::error('Failed to update sublimation staff: ' . $e->getMessage());
+
+            return back()->withErrors(['message' => 'An error occurred while updating the sublimation staff.']);
+        }
+    }
+
+    public function updateDueDate(Request $request, Sublimation $sublimation): RedirectResponse
+    {
+        $validated = $request->validate([
+            'due_at' => 'nullable|date|after:yesterday',
+        ]);
+
+        try {
+            $sublimation->update($validated);
+
+            return back()->with('success', 'Due date updated successfully.');
+        } catch (\Exception $e) {
+            Log::error('Failed to update sublimation due date: ' . $e->getMessage());
+
+            return back()->withErrors(['message' => 'An error occurred while updating the sublimation due date.']);
         }
     }
 }

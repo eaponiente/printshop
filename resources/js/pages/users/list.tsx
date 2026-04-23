@@ -36,7 +36,7 @@ export default function UserIndex({ users, branches }: UsersList) {
 
     const deleteUser = (user: User) => {
         router.delete(`/users/${user.id}`, {
-            onSuccess: () => toast.success('User deleted', { position: 'top-center'}),
+            onSuccess: () => toast.success('User deleted', { position: 'top-center' }),
         });
     }
 
@@ -52,6 +52,10 @@ export default function UserIndex({ users, branches }: UsersList) {
         {
             accessorKey: 'first_name',
             header: 'First Name',
+        },
+        {
+            accessorKey: 'username',
+            header: 'Username',
         },
         {
             accessorKey: 'role',

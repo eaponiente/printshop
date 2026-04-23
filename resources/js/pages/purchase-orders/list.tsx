@@ -22,7 +22,7 @@ import type { BreadcrumbItem } from '@/types';
 import type { PurchaseOrder, PurchaseOrdersList } from '@/types/purchase-order';
 import { formatCurrency } from '@/utils/formatters';
 import { sortBy } from '@/utils/helpers';
-import { toManilaTime } from '@/utils/dateHelper';
+import { readableDate, toManilaTime } from '@/utils/dateHelper';
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Purchase Orders', href: '/purchase-orders' },
@@ -149,7 +149,9 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                 );
             },
             cell: ({ row }: any) => {
-                return toManilaTime(row.original.received_at);
+                const date = readableDate(row.original.received_at);
+
+                return <span className={date.className}>{date.text}</span>;
             },
         },
         {
@@ -174,7 +176,9 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                 );
             },
             cell: ({ row }: any) => {
-                return toManilaTime(row.original.due_at);
+                const date = readableDate(row.original.due_at);
+
+                return <span className={date.className}>{date.text}</span>;
             },
         },
         {

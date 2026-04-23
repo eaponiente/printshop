@@ -2,14 +2,16 @@ import { Head, Link, router } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
 import {
     ArrowUpDown,
+    Check,
+    ChevronsUpDown,
     ExternalLink,
     Images,
     Pencil,
     Plus,
     Trash2,
+    UserPlus,
     X,
 } from 'lucide-react';
-import { isToday, parseISO } from 'date-fns';
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { route } from 'ziggy-js';
@@ -48,6 +50,26 @@ import type { Sublimation } from '@/types/sublimations';
 import type { User } from '@/types/user';
 import { sortBy } from '@/utils/helpers';
 import { StatusFilter } from '@/pages/sublimations/components/status-filter';
+import { readableDate } from '@/utils/dateHelper';
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+    CommandSeparator,
+} from "@/components/ui/command";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from '@/lib/utils';
+import { format, parseISO } from "date-fns";
+import { Calendar as CalendarIcon, Clock } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { EditableDateCell } from './components/editable-date-cell';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -159,38 +181,13 @@ export default function SublimationIndex({
         },
         {
             accessorKey: 'due_at',
-            header: () => {
-                const isSorted = filters.sort_field === 'due_at';
-
-                return (
-                    <Button
-                        variant="ghost"
-                        onClick={() =>
-                            sortBy('due_at', filters, 'sublimations.index')
-                        }
-                        className="p-0 hover:bg-transparent"
-                    >
-                        Due At
-                        <ArrowUpDown
-                            className={`ml-2 h-4 w-4 ${isSorted ? 'text-primary' : 'text-muted-foreground/50'}`}
-                        />
-                    </Button>
-                );
-            },
-            cell: ({ row }) => {
-                const dueAt = row.getValue('due_at');
-
-                if (!dueAt) return null;
-
-                const date = typeof dueAt === 'string' ? parseISO(dueAt) : new Date(dueAt);
-                const isDueToday = isToday(date);
-
-                return (
-                    <span className={isDueToday ? 'text-red-500 font-medium' : ''}>
-                        {new Date(date).toLocaleDateString()}
-                    </span>
-                );
-            },
+            header: 'Due Date',
+            cell: ({ row }) => (
+                <EditableDateCell
+                    recordId={row.original.id}
+                    dueAt={row.original.due_at}
+                />
+            ),
         },
         {
             accessorKey: 'status',
@@ -205,7 +202,98 @@ export default function SublimationIndex({
         },
         {
             accessorKey: 'user.fullname',
-            header: 'Assigned',
+            header: 'Assigned To',
+            cell: ({ row }) => {
+                const assignedUser = row.original.user;
+                const recordId = row.original.id;
+
+                // Using your specific route: sublimations.update
+                // Adjust the route name if your 'patch' method has a different suffix
+                const updateStaff = (userId: string | null) => {
+                    router.patch(route('sublimations.update-staff', recordId), {
+                        user_id: userId,
+                    }, {
+                        preserveScroll: true,
+                        preserveState: true
+                    });
+                };
+
+                return (
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <button
+                                className={cn(
+                                    "group flex items-center gap-2 px-2 py-1.5 rounded-full border transition-all duration-200 w-fit max-w-[180px]",
+                                    assignedUser
+                                        ? "bg-background border-input hover:border-primary/50 hover:shadow-sm"
+                                        : "bg-muted/30 border-dashed border-muted-foreground/30 hover:bg-muted/50"
+                                )}
+                            >
+                                {/* Avatar / Icon Circle */}
+                                <div className={cn(
+                                    "flex items-center justify-center h-5 w-5 rounded-full text-[9px] font-bold shrink-0 uppercase",
+                                    assignedUser
+                                        ? "bg-primary text-primary-foreground"
+                                        : "bg-muted-foreground/20 text-muted-foreground"
+                                )}>
+                                    {assignedUser ? assignedUser.fullname.substring(0, 2) : <UserPlus className="h-3 w-3" />}
+                                </div>
+
+                                {/* Name Label */}
+                                <span className={cn(
+                                    "text-xs truncate pr-1",
+                                    assignedUser ? "font-medium text-foreground" : "text-muted-foreground"
+                                )}>
+                                    {assignedUser ? assignedUser.fullname : "Assign Staff"}
+                                </span>
+
+                                {/* Subtle Edit Indicator */}
+                                <ChevronsUpDown className="h-3 w-3 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </button>
+                        </PopoverTrigger>
+
+                        <PopoverContent className="w-[240px] p-0 shadow-lg" align="start">
+                            {/* Header Action: Unassign */}
+                            <div className="p-1.5 border-b bg-muted/20">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="w-full justify-start text-xs h-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                    onClick={() => updateStaff(null)}
+                                >
+                                    <Check className={cn("mr-2 h-3.5 w-3.5", !assignedUser ? "opacity-100" : "opacity-0")} />
+                                    Remove Assignment
+                                </Button>
+                            </div>
+
+                            <Command>
+                                <CommandInput placeholder="Search users..." className="h-9" />
+                                <CommandList className="max-h-[250px]">
+                                    <CommandEmpty>No users found.</CommandEmpty>
+                                    <CommandGroup heading="Available Staff">
+                                        {users.map((user) => (
+                                            <CommandItem
+                                                key={user.id}
+                                                value={user.fullname}
+                                                onSelect={() => updateStaff(user.id.toString())}
+                                                className="flex items-center gap-2 px-2 py-2 cursor-pointer"
+                                            >
+                                                <div className="flex items-center justify-center h-6 w-6 rounded-full bg-secondary text-secondary-foreground text-[10px] font-semibold uppercase">
+                                                    {user.fullname.substring(0, 2)}
+                                                </div>
+                                                <span className="flex-1 truncate">{user.fullname}</span>
+                                                {assignedUser?.id === user.id && (
+                                                    <Check className="h-4 w-4 text-primary" />
+                                                )}
+                                            </CommandItem>
+                                        ))}
+                                    </CommandGroup>
+                                </CommandList>
+                            </Command>
+                        </PopoverContent>
+                    </Popover>
+                );
+            },
         },
         {
             header: 'Actions',
