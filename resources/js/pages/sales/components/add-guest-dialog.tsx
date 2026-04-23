@@ -37,7 +37,6 @@ export function AddGuestModal({
     const wasOpen = useRef(false);
 
     useEffect(() => {
-        // Only trigger the data sync when the modal IS opening (false -> true)
         if (open && !wasOpen.current) {
             const [f, l] = searchQuery.split(' ', 2);
             form.setData({
@@ -46,19 +45,19 @@ export function AddGuestModal({
                 company: '',
             });
         }
-
         wasOpen.current = open;
-    }, [form.setData, open, searchQuery]); // searchQuery is here if it changes while open, but wasOpen prevents the loop
+    }, [form.setData, open, searchQuery]);
 
-    // Manual submission handler
-    const handleAddCustomerSubmit = (e: React.MouseEvent | React.FormEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
+    const handleAddCustomerSubmit = (e?: React.FormEvent | React.MouseEvent) => {
+        // Essential: prevent both default behavior and event bubbling to parent form
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
 
         form.post(route('customers.store'), {
             onSuccess: (page) => {
                 const newCustomer = (page.props as any).flash?.new_customer;
-
                 if (newCustomer) {
                     onCustomerCreated(newCustomer);
                     form.reset();
@@ -68,31 +67,38 @@ export function AddGuestModal({
         });
     };
 
+    // Helper to allow "Enter" key submission without a "submit" button
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            handleAddCustomerSubmit();
+        }
+    };
+
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogPortal>
+                {/* onPointerDownOutside and onInteractOutside prevent clicks from affecting parent */}
                 <DialogContent
                     className="sm:max-w-[425px]"
-                    // Prevent the Dialog itself from passing events up
                     onPointerDownOutside={(e) => e.stopPropagation()}
+                    onInteractOutside={(e) => e.stopPropagation()}
                 >
                     <DialogHeader>
                         <DialogTitle>Add New Customer</DialogTitle>
                     </DialogHeader>
 
-                    {/* Using form with stopPropagation prevents parent form submission 
-                        while retaining Enter key support.
+                    {/* Remove <form> tag and use a <div> to avoid any 
+                        automatic HTML form submission logic.
                     */}
-                    <form onSubmit={handleAddCustomerSubmit} className="grid gap-4">
+                    <div className="grid gap-4" onKeyDown={handleKeyDown}>
                         <div className="grid gap-2">
                             <Label htmlFor="first_name">First Name</Label>
                             <Input
                                 id="first_name"
-                                tabIndex={1}
                                 value={form.data.first_name}
-                                onChange={(e) =>
-                                    form.setData('first_name', e.target.value)
-                                }
+                                onChange={(e) => form.setData('first_name', e.target.value)}
                             />
                             <InputError message={form.errors.first_name} />
                         </div>
@@ -101,11 +107,8 @@ export function AddGuestModal({
                             <Label htmlFor="last_name">Last Name</Label>
                             <Input
                                 id="last_name"
-                                tabIndex={2}
                                 value={form.data.last_name}
-                                onChange={(e) =>
-                                    form.setData('last_name', e.target.value)
-                                }
+                                onChange={(e) => form.setData('last_name', e.target.value)}
                             />
                             <InputError message={form.errors.last_name} />
                         </div>
@@ -114,23 +117,20 @@ export function AddGuestModal({
                             <Label htmlFor="company">Company</Label>
                             <Input
                                 id="company"
-                                tabIndex={3}
                                 value={form.data.company}
-                                onChange={(e) =>
-                                    form.setData('company', e.target.value)
-                                }
+                                onChange={(e) => form.setData('company', e.target.value)}
                             />
                             <InputError message={form.errors.company} />
                         </div>
 
-                        {/* Use type="submit" and onSubmit on the form to allow Enter key. */}
                         <Button
-                            type="submit"
+                            type="button" // Changed from "submit"
                             disabled={form.processing}
+                            onClick={handleAddCustomerSubmit}
                         >
                             {form.processing ? <Spinner /> : 'Create Customer'}
                         </Button>
-                    </form>
+                    </div>
                 </DialogContent>
             </DialogPortal>
         </Dialog>

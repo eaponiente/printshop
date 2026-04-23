@@ -13,17 +13,6 @@ import { Banknote, TrendingUp } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { route } from 'ziggy-js';
 import { DataTable } from '@/components/data-table';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card'; // Ensure you have these shadcn components

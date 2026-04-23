@@ -1,19 +1,9 @@
 import { debounce } from 'lodash';
-import {
-    Check,
-    ChevronsUpDown,
-    User,
-    Search,
-    Building2,
-    Loader2,
-    PlusIcon,
-} from 'lucide-react';
 import React, { useState, useEffect, useMemo } from 'react';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import {
     Command,
-    CommandEmpty,
     CommandGroup,
     CommandInput,
     CommandItem,
@@ -55,25 +45,18 @@ const CustomerSearchSelect = ({
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedName, setSelectedName] = useState('');
 
-    // 1. Internal Fetch Logic
     const fetchCustomers = async (query = '') => {
         setIsLoading(true);
-
         try {
-            // Using your existing endpoint structure
             const response = await fetch(`/api/customers?customer=${query}`);
             const data = await response.json();
             setCustomers(data);
 
-            // If we have a value but no display name yet, find it in the initial load
             if (value && !selectedName) {
                 const current = data.find((c: Customer) => c.id === value);
-
                 if (current) {
-setSelectedName(
-                        `${current.first_name} ${current.last_name}`,
-                    );
-}
+                    setSelectedName(`${current.first_name} ${current.last_name}`);
+                }
             }
         } catch (e) {
             console.error('Search failed', e);
@@ -82,29 +65,24 @@ setSelectedName(
         }
     };
 
-    // 2. Optimized Debounce
     const debouncedSearch = useMemo(
         () => debounce((val: string) => fetchCustomers(val), 400),
         [],
     );
 
-    // 3. Initial Load on Open
     useEffect(() => {
-        if (open) {
-            fetchCustomers();
-        }
+        if (open) fetchCustomers();
     }, [open]);
 
     const handleSelect = (customer: Customer) => {
-        const fullName = `${customer.first_name} ${customer.last_name}`;
-        setSelectedName(fullName);
+        setSelectedName(`${customer.first_name} ${customer.last_name}`);
         onSelect(customer);
         setOpen(false);
     };
 
     return (
-        <div className="grid gap-3">
-            <Label className="text-sm font-semibold text-foreground/70">
+        <div className="grid gap-1.5">
+            <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                 {label}
             </Label>
 
@@ -114,99 +92,66 @@ setSelectedName(
                         variant="outline"
                         role="combobox"
                         className={cn(
-                            'h-11 w-full justify-between px-4 shadow-sm transition-colors hover:bg-accent/50',
+                            'h-9 w-full justify-start px-3 font-normal shadow-none',
                             error && 'border-destructive text-destructive',
+                            !selectedName && 'text-muted-foreground'
                         )}
                     >
-                        <div className="flex items-center gap-2 truncate">
-                            <User className="h-4 w-4 text-muted-foreground" />
-                            <span
-                                className={cn(
-                                    !selectedName && 'text-muted-foreground',
-                                )}
-                            >
-                                {selectedName || 'Select or search customer...'}
-                            </span>
-                        </div>
-                        {isLoading ? (
-                            <Loader2 className="h-4 w-4 animate-spin opacity-50" />
-                        ) : (
-                            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
-                        )}
+                        {selectedName || 'Search customers...'}
+                        {isLoading && <span className="ml-auto text-[10px] uppercase animate-pulse">Loading...</span>}
                     </Button>
                 </PopoverTrigger>
 
-                <PopoverContent
-                    className="w-[400px] p-0 shadow-lg"
-                    align="start"
-                >
+                <PopoverContent className="w-[350px] p-0" align="start">
                     <Command shouldFilter={false}>
-                        <div className="flex items-center border-b px-3">
-                            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-                            <CommandInput
-                                placeholder="Type name or company..."
-                                onValueChange={(v) => {
-                                    setSearchQuery(v);
-                                    debouncedSearch(v);
-                                }}
-                                className="h-11 border-none focus:ring-0"
-                            />
-                        </div>
+                        <CommandInput
+                            placeholder="Type to search..."
+                            onValueChange={(v) => {
+                                setSearchQuery(v);
+                                debouncedSearch(v);
+                            }}
+                            className="h-9 border-none focus:ring-0"
+                        />
 
-                        <CommandList className="max-h-[400px] overflow-y-auto">
-                            {isLoading && customers.length === 0 && (
-                                <div className="animate-pulse p-6 text-center text-sm text-muted-foreground">
-                                    Searching...
+                        <CommandList className="max-h-[300px]">
+                            {/* Create New - Positioned Above List */}
+                            {onCreateNew && searchQuery && (
+                                <div className="p-1 border-b">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="w-full justify-start text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                        onClick={() => onCreateNew(searchQuery)}
+                                    >
+                                        + Create "{searchQuery}"
+                                    </Button>
                                 </div>
                             )}
 
-                            <CommandEmpty className="px-4 py-6">
-                                <div className="flex flex-col items-center gap-3 text-center">
-                                    <p className="text-sm font-medium">
-                                        No results for "{searchQuery}"
-                                    </p>
-                                    {onCreateNew && searchQuery && (
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            className="w-full border-dashed"
-                                            onClick={() =>
-                                                onCreateNew(searchQuery)
-                                            }
-                                        >
-                                            <PlusIcon className="mr-2 h-4 w-4" />
-                                            Add "{searchQuery}"
-                                        </Button>
-                                    )}
+                            {customers.length === 0 && !isLoading && (
+                                <div className="py-4 text-center text-xs text-muted-foreground">
+                                    No results found.
                                 </div>
-                            </CommandEmpty>
+                            )}
 
                             <CommandGroup>
                                 {customers.map((c) => (
                                     <CommandItem
                                         key={c.id}
                                         onSelect={() => handleSelect(c)}
-                                        className="flex cursor-pointer items-start gap-3 p-3"
+                                        className="flex flex-col items-start px-3 py-2 cursor-pointer"
                                     >
-                                        <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                                            <User className="h-4 w-4" />
-                                        </div>
-                                        <div className="flex flex-1 flex-col truncate">
-                                            <span className="font-semibold">
-                                                {c.first_name} {c.last_name}
+                                        <span className={cn(
+                                            "text-sm",
+                                            value === c.id && "font-bold text-primary"
+                                        )}>
+                                            {c.first_name} {c.last_name}
+                                        </span>
+                                        {c.company && (
+                                            <span className="text-[11px] text-muted-foreground line-clamp-1">
+                                                {c.company}
                                             </span>
-                                            {c.company && (
-                                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground italic">
-                                                    <Building2 className="h-3 w-3" />
-                                                    <span className="truncate">
-                                                        {c.company}
-                                                    </span>
-                                                </div>
-                                            )}
-                                        </div>
-                                        {value === c.id && (
-                                            <Check className="h-4 w-4 text-primary" />
                                         )}
                                     </CommandItem>
                                 ))}

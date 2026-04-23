@@ -40,7 +40,7 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
 
     const handleFilterChange = (
         value: string,
-        type: 'branch_id' | 'date' | 'mode' | 'date_field',
+        type: 'branch_id' | 'date' | 'mode' | 'date_field' | 'po_number',
     ) => {
         const params = { ...filters };
 
@@ -55,6 +55,8 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
             params.date = value;
         } else if (type === 'date_field') {
             params.date_field = value;
+        } else if (type === 'po_number') {
+            params.po_number = value;
         }
 
         router.get(route('purchase-orders.index'), params, {
@@ -255,6 +257,20 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
 
                 <div className="rounded-md border border-sidebar-border bg-sidebar p-2">
                     <div className="mb-6 flex flex-wrap items-end gap-4">
+                        {/* PO Number Filter */}
+                        <div className="flex flex-col gap-1.5">
+                            <label className="ml-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+                                PO Number
+                            </label>
+                            <Input
+                                placeholder="Search PO Number..."
+                                className="h-10 w-[200px] bg-white text-sm shadow-sm"
+                                value={filters.po_number || ''}
+                                onChange={(e) =>
+                                    handleFilterChange(e.target.value, 'po_number')
+                                }
+                            />
+                        </div>
                         <div className="flex flex-col gap-1.5">
                             <label className="ml-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
                                 Branch

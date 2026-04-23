@@ -102,10 +102,15 @@ class ExpenseController extends Controller
 
     public function destroy(Expense $expense, FileUploadService $fileUploadService): RedirectResponse
     {
-        $this->authorize('delete', auth()->user());
-
         try {
-            $fileUploadService->delete($expense->receipt);
+            // 4. Reverse the cash impact if it was paid in cash
+            if ($expense->payment_type === TypeOfPaymentEnum::CASH->value) {
+                app(CashOnHandService::class)->adjustBalance(
+                    $expense->branch_id,
+                    (float) $expense->amount, // Positive amount to "refund" the drawer
+                    'revenue' // Label it clearly for the audit trail
+                );
+            }
             $expense->delete();
 
             return back()->with('success', 'Expense deleted successfully.');

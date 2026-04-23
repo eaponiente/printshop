@@ -43,6 +43,9 @@ class PurchaseOrderController extends Controller
                     $query->where('branch_id', $filterId);
                 }
             })
+            ->when($request->input('po_number'), function ($q, $po) {
+                $q->where('po_number', 'like', "%{$po}%");
+            })
             ->when($filters['mode'] ?? null, function ($query, $mode) use ($filters) {
                 // 1. Determine which column to filter
                 $column = $filters['date_field'] ?? 'date';
@@ -120,7 +123,7 @@ class PurchaseOrderController extends Controller
 
             return back()->with('success', 'Purchase order created successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to create purchase order: '.$e->getMessage());
+            Log::error('Failed to create purchase order: ' . $e->getMessage());
 
             return back()->withErrors(['message' => 'An error occurred while creating the purchase order.']);
         }
@@ -147,7 +150,7 @@ class PurchaseOrderController extends Controller
 
             return redirect()->back()->with('success', 'Purchase order updated successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to update purchase order: '.$e->getMessage());
+            Log::error('Failed to update purchase order: ' . $e->getMessage());
 
             return back()->withErrors(['message' => 'An error occurred while updating the purchase order.']);
         }
@@ -155,14 +158,12 @@ class PurchaseOrderController extends Controller
 
     public function destroy(PurchaseOrder $purchaseOrder): RedirectResponse
     {
-        $this->authorize('delete', auth()->user());
-
         try {
             $purchaseOrder->delete();
 
             return back()->with('success', 'Purchase order deleted successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to delete purchase order: '.$e->getMessage());
+            Log::error('Failed to delete purchase order: ' . $e->getMessage());
 
             return back()->withErrors(['message' => 'An error occurred while deleting the purchase order.']);
         }

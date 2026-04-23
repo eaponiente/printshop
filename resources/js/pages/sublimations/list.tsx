@@ -117,6 +117,7 @@ export default function SublimationIndex({
     const deleteSublimation = (sublimation: Sublimation) => {
         router.delete(route('sublimations.destroy', sublimation.id), {
             onSuccess: () => toast.success('Sublimation deleted', { position: 'top-center' }),
+            onError: (errors) => toast.error(errors.message, { position: 'top-center' }),
         });
     };
 

@@ -137,11 +137,13 @@ class SublimationController extends Controller
 
     public function destroy(Sublimation $sublimation): RedirectResponse
     {
-        $this->authorize('delete', auth()->user());
-
         try {
             if (! $sublimation->status->isPrePaymentPhase()) {
                 return redirect()->back()->withErrors(['message' => 'You cannot delete this sublimation because it is not in the pre-payment phase.']);
+            }
+
+            if ($sublimation->transaction()->exists() && $sublimation->transaction->status != TransactionStatus::PENDING->value) {
+                return redirect()->back()->withErrors(['message' => 'You cannot delete this sublimation because it has a transaction that is not in the pre-payment phase.']);
             }
 
             foreach ($sublimation->images as $image) {
@@ -150,9 +152,8 @@ class SublimationController extends Controller
                 }
             }
 
-            if ($sublimation->transaction()->exists()) {
-                $sublimation->transaction->delete();
-            }
+            $sublimation->transaction->delete();
+            $sublimation->delete();
 
             return redirect()->back()->with('success', 'Sublimation deleted successfully.');
         } catch (\Exception $e) {
