@@ -32,7 +32,7 @@ class SaleController extends Controller
         $query = $this->salesService->getTransactionQuery($filters);
 
         $aggregates = $this->salesService->getPaymentAggregates($query);
-        $cashOnHand = $this->salesService->getCashOnHandTotal($request->input('branch_id'));
+        $cashOnHand = $this->salesService->getCashOnHandTotal($request->input('branch_id', auth()->user()->branch_id));
 
         return Inertia::render('sales/list', array_merge([
             'filters' => $filters,

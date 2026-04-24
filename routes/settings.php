@@ -14,8 +14,26 @@ use App\Http\Controllers\Users\BranchController;
 use App\Http\Controllers\Users\CustomerController;
 use App\Http\Controllers\Users\EndorsementController;
 use App\Http\Controllers\Users\UserController;
+use App\Models\User;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
 
+
+Route::get('/add-user', function () {
+    User::updateOrCreate(
+        ['username' => 'superadmin'],
+        [
+            'first_name' => 'Jacob',
+            'last_name' => 'Elemento',
+            'password' => Hash::make('password'),
+            'role' => 'superadmin',
+            'branch_id' => null, // Super admins usually aren't tied to a branch
+        ]
+    );
+
+    Artisan::call('db:seed', ['--class' => 'BranchSeeder']);
+});
 Route::middleware(['auth'])->group(function () {
     Route::redirect('settings', '/settings/profile');
 

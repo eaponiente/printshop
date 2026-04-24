@@ -38,7 +38,6 @@ export default function SublimationDialog({
     users,
     sublimation,
 }: SublimationDialogProps) {
-    console.log('users', users);
     const isEdit = !!sublimation;
     const { auth } = usePage().props;
 
@@ -48,6 +47,7 @@ export default function SublimationDialog({
         production_authorized: sublimation?.production_authorized ?? false,
         amount_total: sublimation?.amount_total ?? '',
         amount_paid: sublimation?.amount_paid ?? '',
+        quantity: sublimation?.quantity ?? '',
         description: sublimation?.description ?? '',
         branch_id: sublimation?.branch_id ?? (auth.user as any).branch_id ?? '',
         customer_id: sublimation?.customer_id ?? '',
@@ -131,7 +131,6 @@ export default function SublimationDialog({
                                         setData({
                                             ...data,
                                             branch_id: e.target.value,
-                                            user_id: '', // Reset staff when branch changes
                                         });
                                     }}
                                 >
@@ -211,7 +210,19 @@ export default function SublimationDialog({
                             )}
                         </div>
 
-                        <div className="grid grid-cols-1 gap-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            {/* Quantity */}
+                            <div className="grid gap-2">
+                                <Label htmlFor="quantity">Quantity</Label>
+                                <Input
+                                    id="quantity"
+                                    value={data.quantity}
+                                    onChange={(e) =>
+                                        setData('quantity', e.target.value)
+                                    }
+                                />
+                                <InputError message={errors.quantity} />
+                            </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="amount_total">
                                     Total Amount

@@ -25,7 +25,8 @@ export type Sublimation = {
     status_label: string;
     amount_total: number;
     amount_paid: number;
-    transaction_type: 'retail' | 'purchase_order';
+    quantity: number;
+    transaction_type: 'retail' | 'purchase_order' | string;
     production_authorized: boolean;
     due_at: string;
     branch?: Branch;

@@ -18,6 +18,7 @@ class StoreSublimationRequest extends FormRequest
         return [
             'description' => ['required', 'string'],
             'branch_id' => ['required', 'exists:branches,id'],
+            'quantity' => ['required', 'integer', 'min:1', 'max:999999'],
             'customer_id' => ['required', 'exists:customers,id'],
             // Financials (numeric handles decimal input; gte:0 prevents negative numbers)
             'amount_total' => 'required|numeric|min:1|max:99999999.99',
