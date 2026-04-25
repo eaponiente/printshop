@@ -55,10 +55,10 @@ class PurchaseOrderController extends Controller
                 $q->where('po_number', 'like', "%{$po}%");
             })
             ->when(
-                ! $request->boolean('include_finished'),
+                ! $request->boolean('include_released'),
                 function ($q) {
                     // If we are NOT including completed, we filter them out
-                    $q->where('status', '!=', PurchaseOrderStatus::FINISHED->value);
+                    $q->where('status', '!=', PurchaseOrderStatus::RELEASED->value);
                 }
             )
 

@@ -44,7 +44,7 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
 
     const handleFilterChange = (
         value: string,
-        type: 'branch_id' | 'date' | 'mode' | 'date_field' | 'po_number' | 'include_finished',
+        type: 'branch_id' | 'date' | 'mode' | 'date_field' | 'po_number' | 'include_released',
     ) => {
         const params = { ...filters };
 
@@ -61,8 +61,8 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
             params.date_field = value;
         } else if (type === 'po_number') {
             params.po_number = value;
-        } else if (type === 'include_finished') {
-            params.include_finished = value;
+        } else if (type === 'include_released') {
+            params.include_released = value;
         }
 
         router.get(route('purchase-orders.index'), params, {
@@ -275,7 +275,7 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                         >
                             <Pencil />
                         </Button>
-                        {row.original.status.toLowerCase() !== 'finished' && (
+                        {row.original.status.toLowerCase() === 'pending' && (
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     <Button variant="ghost" size="sm">
@@ -409,23 +409,23 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                         {/* New Checkbox Filter */}
                         <div className="flex h-10 items-center space-x-2 px-2">
                             <Checkbox
-                                id="include_finished"
+                                id="include_released"
                                 checked={
-                                    filters.include_finished === 'true' ||
-                                    filters.include_finished === true
+                                    filters.include_released === 'true' ||
+                                    filters.include_released === true
                                 }
                                 onCheckedChange={(checked) =>
                                     handleFilterChange(
                                         checked ? 'true' : 'false',
-                                        'include_finished',
+                                        'include_released',
                                     )
                                 }
                             />
                             <label
-                                htmlFor="include_finished"
+                                htmlFor="include_released"
                                 className="cursor-pointer text-sm leading-none font-medium text-muted-foreground transition-colors select-none hover:text-foreground"
                             >
-                                Include Finished
+                                Include Released
                             </label>
                         </div>
 
