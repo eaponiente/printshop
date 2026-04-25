@@ -18,14 +18,12 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Textarea } from "@/components/ui/textarea"
 import type { Branch } from '@/types/branches';
 import type { Transaction } from '@/types/transaction';
-import type { Customer } from '@/types/user';
 
 interface SaleDialogProps {
     open: boolean;
     setOpen: (open: boolean) => void;
     branches: Branch[];
     transaction?: Transaction | null;
-    customers: Customer[];
 }
 
 export default function SaleDialog({ open, setOpen, transaction, branches }: SaleDialogProps) {

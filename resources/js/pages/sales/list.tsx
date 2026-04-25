@@ -10,17 +10,24 @@ import {
     Eye,
 } from 'lucide-react';
 import { Banknote, TrendingUp } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, Suspense, lazy } from 'react';
 import { route } from 'ziggy-js';
 import { DataTable } from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card'; // Ensure you have these shadcn components
 import AppLayout from '@/layouts/app-layout';
-import CollectPaymentDialog from '@/pages/sales/components/collect-payment-dialog';
 import TableFilters from '@/pages/sales/components/table-filters';
-import TransactionDetailsDialog from '@/pages/sales/components/transaction-details-dialog';
-import SaleDialog from '@/pages/sales/sales-dialog';
+
+const SaleDialog = lazy(() => import('@/pages/sales/sales-dialog'));
+const CollectPaymentDialog = lazy(() => import('@/pages/sales/components/collect-payment-dialog'));
+const TransactionDetailsDialog = lazy(() => import('@/pages/sales/components/transaction-details-dialog'));
+
+const statusConfig = {
+    paid: 'bg-green-100 text-green-700 border-green-200',
+    pending: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+    partial: 'bg-blue-100 text-blue-700 border-blue-200',
+};
 import type { BreadcrumbItem } from '@/types';
 import type { Branch } from '@/types/branches';
 import type { PaginatedResponse } from '@/types/pagination';
@@ -42,7 +49,6 @@ interface SaleIndexProps {
     transactions: PaginatedResponse<Transaction>; // Use the generic here
     filters: any;
     branches: any[];
-    customers: Customer[];
     types_of_payment: TypeOfPayment[];
     total_sales: number;
     net_income: number;
@@ -59,7 +65,6 @@ export default function SaleIndex({
     transactions,
     filters,
     branches,
-    customers,
     types_of_payment,
     total_sales = 0,
     net_income = 0,
@@ -78,52 +83,39 @@ export default function SaleIndex({
         };
     }>().props;
 
-    const openEditForm = (transaction: Transaction | null) => {
-        setTransaction(transaction);
-        setIsDialogOpen(true);
-    };
-
-    const openDetailsForm = (transaction: Transaction) => {
-        setTransaction(transaction);
-        setIsDetailsDialogOpen(true);
-    };
-
-    // 1. Add local state for the search input
-    const [searchTerm, setSearchTerm] = useState(filters.search || '');
-    const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
-
-    // 2. Debounce Search Logic: Updates the URL after user stops typing
-    useEffect(() => {
-        const delayDebounceFn = setTimeout(() => {
-            if (searchTerm !== (filters.search || '')) {
-                router.get(
-                    route('sales.index'),
-                    { ...filters, search: searchTerm, page: 1 },
-                    { preserveState: true, replace: true },
-                );
-            }
-        }, 300);
-
-        return () => clearTimeout(delayDebounceFn);
-    }, [filters, searchTerm]);
-
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
     const [isCollectPaymentDialogOpen, setIsCollectPaymentDialogOpen] =
         useState(false);
 
+    const openEditForm = useCallback((transaction: Transaction | null) => {
+        setTransaction(transaction);
+        setIsDialogOpen(true);
+    }, []);
+
+    const openDetailsForm = useCallback((transaction: Transaction) => {
+        setTransaction(transaction);
+        setIsDetailsDialogOpen(true);
+    }, []);
+
+    const selectedBranch = useMemo(
+        () => branches.find((b) => b.id === Number(filters.branch_id)) || null,
+        [branches, filters.branch_id],
+    );
+
     const [mode, setMode] = useState(filters.mode || 'daily');
 
-    const handleFilterChange = (
+    const handleFilterChange = useCallback((
         value: string,
-        type: 'mode' | 'date' | 'status' | 'branch_id' | 'payment_type',
+        type: 'mode' | 'date' | 'status' | 'branch_id' | 'payment_type' | 'search',
     ) => {
-        const params = { ...filters, search: searchTerm };
+        const params = { ...filters };
 
-        if (type === 'mode') {
+        if (type === 'search') {
+            params.search = value;
+        } else if (type === 'mode') {
             setMode(value);
             params.mode = value;
-            // Reset date when switching modes to avoid invalid matches
             params.date = '';
         } else if (type === 'status') {
             params.status = value;
@@ -131,29 +123,28 @@ export default function SaleIndex({
             params.payment_type = value;
         } else if (type === 'branch_id') {
             params.branch_id = value;
-
-            setSelectedBranch(
-                branches.find((b) => b.id === Number(params.branch_id)),
-            );
         } else {
             params.date = value;
         }
 
-        router.get(`/sales`, params, { preserveState: true, replace: true });
-    };
+        if (type === 'search') {
+            router.get(route('sales.index'), { ...params, page: 1 }, { preserveState: true, replace: true });
+        } else {
+            router.get(`/sales`, params, { preserveState: true, replace: true });
+        }
+    }, [filters]);
 
-    const clearFilters = () => {
+    const clearFilters = useCallback(() => {
         setMode('daily');
-
         router.get(route('sales.index'), {}, { replace: true });
-    };
+    }, []);
 
-    const handleReceivePayment = (transaction: Transaction) => {
+    const handleReceivePayment = useCallback((transaction: Transaction) => {
         setIsCollectPaymentDialogOpen(true);
         setTransaction(transaction);
-    };
+    }, []);
 
-    const columns: ColumnDef<unknown, any>[] = [
+    const columns: ColumnDef<unknown, any>[] = useMemo(() => [
         {
             accessorKey: 'invoice_number',
             header: ({ column }) => {
@@ -195,11 +186,7 @@ export default function SaleIndex({
             header: 'Status',
             cell: ({ row }: any) => {
                 const status = row.original.status.toLowerCase();
-                const statusConfig = {
-                    paid: 'bg-green-100 text-green-700 border-green-200',
-                    pending: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-                    partial: 'bg-blue-100 text-blue-700 border-blue-200',
-                };
+
                 const badgeStyle =
                     statusConfig[status as keyof typeof statusConfig] ||
                     'bg-gray-100 text-gray-700';
@@ -291,7 +278,7 @@ export default function SaleIndex({
                 );
             },
         },
-    ];
+    ], [filters, handleReceivePayment, openDetailsForm, openEditForm]);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -332,8 +319,6 @@ export default function SaleIndex({
 
                 <div className="rounded-md border border-sidebar-border bg-sidebar">
                     <TableFilters
-                        searchTerm={searchTerm}
-                        setSearchTerm={setSearchTerm}
                         mode={mode}
                         filters={filters}
                         handleFilterChange={handleFilterChange}
@@ -345,32 +330,33 @@ export default function SaleIndex({
                 </div>
             </div>
 
-            {isDialogOpen && (
-                <SaleDialog
-                    open={isDialogOpen}
-                    setOpen={setIsDialogOpen}
-                    branches={branches}
-                    transaction={getTransaction}
-                    customers={customers}
-                />
-            )}
+            <Suspense fallback={null}>
+                {isDialogOpen && (
+                    <SaleDialog
+                        open={isDialogOpen}
+                        setOpen={setIsDialogOpen}
+                        branches={branches}
+                        transaction={getTransaction}
+                    />
+                )}
 
-            {isCollectPaymentDialogOpen && (
-                <CollectPaymentDialog
-                    transaction={getTransaction}
-                    open={isCollectPaymentDialogOpen}
-                    typesOfPayment={types_of_payment}
-                    setOpen={setIsCollectPaymentDialogOpen}
-                />
-            )}
+                {isCollectPaymentDialogOpen && (
+                    <CollectPaymentDialog
+                        transaction={getTransaction}
+                        open={isCollectPaymentDialogOpen}
+                        typesOfPayment={types_of_payment}
+                        setOpen={setIsCollectPaymentDialogOpen}
+                    />
+                )}
 
-            {isDetailsDialogOpen && (
-                <TransactionDetailsDialog
-                    transaction={getTransaction}
-                    open={isDetailsDialogOpen}
-                    setOpen={setIsDetailsDialogOpen}
-                />
-            )}
+                {isDetailsDialogOpen && (
+                    <TransactionDetailsDialog
+                        transaction={getTransaction}
+                        open={isDetailsDialogOpen}
+                        setOpen={setIsDetailsDialogOpen}
+                    />
+                )}
+            </Suspense>
         </AppLayout>
     );
 }
