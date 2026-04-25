@@ -54,6 +54,8 @@ class PurchaseOrderSeeder extends Seeder
                 'due_at' => $dueAt,
                 'user_id' => $user->id,
                 'branch_id' => $user->branch_id,
+                'customer_id' => \App\Models\Customer::inRandomOrder()->first()->id,
+                'transaction_id' => null, // Will update below if needed
                 'created_at' => $orderedAt,
                 'updated_at' => $orderedAt,
             ]);
@@ -83,6 +85,24 @@ class PurchaseOrderSeeder extends Seeder
 
             // 5. Finalize the Parent Total
             $po->update(['grand_total' => $runningTotal]);
+
+            // Create Transaction conditionally (e.g. if active, finished, released)
+            if (in_array($status, ['active', 'finished', 'released'])) {
+                $transaction = app(\App\Services\Sales\SalesService::class)->createTransaction([
+                    'description' => 'Purchase Order: ' . $po->po_number,
+                    'branch_id' => $po->branch_id,
+                    'customer_id' => $po->customer_id,
+                    'invoice_number' => \App\Models\Transaction::generateNumber(),
+                    'amount_total' => $runningTotal,
+                    'particular' => 'Purchase Order',
+                    'staff_id' => $po->user_id,
+                    'transaction_date' => $po->created_at,
+                    'created_at' => $po->created_at,
+                    'updated_at' => $po->created_at,
+                ]);
+
+                $po->update(['transaction_id' => $transaction->id]);
+            }
         }
 
         $this->command->info('PurchaseOrderSeeder completed successfully.');

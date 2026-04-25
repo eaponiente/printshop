@@ -30,23 +30,29 @@ class ExpenseSeeder extends Seeder
             $user = $users->random();
 
             $date = Carbon::now()->addDays(random_int(-7, 7))->format('Y-m-d');
+            
+            $isVoid = rand(1, 100) <= 10; // 10% chance to be voided
+            $status = $isVoid ? \App\Enums\Expenses\ExpenseStatus::VOID : \App\Enums\Expenses\ExpenseStatus::PAID;
 
             $expense = Expense::create([
                 'description' => $descriptions[array_rand($descriptions)],
-                'vendor_name' => $vendors[array_rand($vendors)],
+                'vendor_name' => rand(0, 1) ? $vendors[array_rand($vendors)] : null,
                 'amount' => $amount,
-                'payment_type' => $paymentMethods->random(),
+                'status' => $status,
+                'payment_type' => rand(0, 1) ? $paymentMethods->random() : null,
 
                 // Assuming ID 1 exists for user and branch - adjust if necessary
                 'user_id' => $user->id,
                 'branch_id' => $user->branch_id,
+                
+                'void_reason' => $isVoid ? 'Entered by mistake' : null,
 
                 'expense_date' => $date,
                 'created_at' => $date,
                 'updated_at' => $date,
             ]);
 
-            if ($expense->payment_type === TypeOfPaymentEnum::CASH->value) {
+            if ($expense->status === \App\Enums\Expenses\ExpenseStatus::PAID && $expense->payment_type === TypeOfPaymentEnum::CASH->value) {
                 app(CashOnHandService::class)->adjustBalance(
                     $expense->branch_id,
                     $expense->amount,
