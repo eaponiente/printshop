@@ -148,33 +148,7 @@ export default function SublimationIndex({
     const columns: ColumnDef<any>[] = [
         {
             accessorKey: 'customer.full_name',
-            header: 'Customer',
-            cell: ({ row }) => {
-                const { transaction, customer } = row.original;
-
-                return (
-                    <div className="flex items-center gap-2">
-                        {/* Name stays as plain text for readability */}
-                        <span className="font-medium text-slate-900">
-                            {customer.full_name}
-                        </span>
-
-                        {/* Icon link appears only if transaction exists */}
-                        {transaction && (
-                            <Link
-                                href={route('sales.index', {
-                                    search: transaction.invoice_number,
-                                    mode: 'yearly',
-                                })}
-                                className="rounded p-1 text-indigo-500 transition-colors hover:bg-indigo-100 hover:text-indigo-700"
-                                title={`View Invoice: ${transaction.invoice_number}`}
-                            >
-                                <ExternalLink size={16} />
-                            </Link>
-                        )}
-                    </div>
-                );
-            },
+            header: 'Customer'
         },
         {
             accessorKey: 'description',
@@ -196,6 +170,10 @@ export default function SublimationIndex({
             cell: ({ row }) => (
                 <StatusCell item={row.original} statuses={statuses} />
             ),
+        },
+        {
+            accessorKey: 'quantity',
+            header: 'Quantity',
         },
         {
             accessorKey: 'branch.name',
@@ -294,6 +272,30 @@ export default function SublimationIndex({
                         </PopoverContent>
                     </Popover>
                 );
+            },
+        },
+        {
+            id: 'transaction',
+            header: 'Transaction',
+            cell: ({ row }) => {
+                const sublimation = row.original as Sublimation;
+                if (sublimation.transaction) {
+                    return (
+                        <a
+                            href={route('sales.index', {
+                                search: sublimation.transaction.invoice_number,
+                                mode: 'yearly',
+                            })}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 transition-all hover:bg-indigo-100 hover:border-indigo-300 hover:shadow-sm"
+                            title={`View Invoice: ${sublimation.transaction.invoice_number}`}
+                        >
+                            <span>View Transaction</span>
+                            <ExternalLink size={14} className="opacity-70" />
+                        </a>
+                    );
+                }
             },
         },
         {

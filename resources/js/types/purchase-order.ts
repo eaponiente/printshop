@@ -1,5 +1,6 @@
 import type { PaginatedResponse } from '@/types/pagination';
 import type { Branch } from '@/types/branches';
+import { Transaction } from './transaction';
 
 export type POStatus = 'pending' | 'active' | 'finished' | 'released';
 
@@ -22,6 +23,8 @@ export interface PurchaseOrder {
     description: string | null;
     status: POStatus;
     branch_id: number;
+    customer_id: number;
+    transaction: Transaction | null;
     user_id: number;
     grand_total: number;
     received_at: string;

@@ -24,7 +24,7 @@ interface SaleDialogProps {
     open: boolean;
     setOpen: (open: boolean) => void;
     branches: Branch[];
-    transaction?: Transaction;
+    transaction?: Transaction | null;
     customers: Customer[];
 }
 

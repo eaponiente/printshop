@@ -31,7 +31,7 @@ export default function PaymentDialog({ open, setOpen, transaction, typesOfPayme
 
     // Standard Inertia useForm hook
     const { data, setData, patch, processing, errors, reset } = useForm({
-        amount_paid: 0,
+        amount_paid: '',
         status: transaction.status ?? 'pending',
         payment_type: '',
     });
@@ -127,7 +127,7 @@ export default function PaymentDialog({ open, setOpen, transaction, typesOfPayme
                                 Type of Payment
                             </Label>
                             <NativeSelect
-                                tabIndex={2}
+                                tabIndex={1}
                                 value={data.payment_type}
                                 onChange={(e) =>
                                     setData('payment_type', e.target.value)
@@ -170,13 +170,18 @@ export default function PaymentDialog({ open, setOpen, transaction, typesOfPayme
                             <Banknote className="absolute top-2.5 left-3 h-4 w-4 text-muted-foreground" />
                             <Input
                                 id="amount_paid"
-                                type="number"
-                                tabIndex={1}
+                                type="text"
+                                tabIndex={2}
                                 step="0.01"
+                                placeholder="0.00" // Add your placeholder text here
                                 className="pl-9 focus-visible:ring-indigo-500"
-                                value={data.amount_paid}
+                                /* Short-circuit the value: if data.amount_paid is 0 or null, 
+                                   pass an empty string so the placeholder shows up.
+                                */
+                                value={data.amount_paid || ''}
                                 onChange={(e) =>
-                                    setData('amount_paid', +e.target.value)
+                                    // Use an empty string if the input is cleared, otherwise convert to number
+                                    setData('amount_paid', '')
                                 }
                             />
                         </div>

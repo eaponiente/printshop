@@ -18,20 +18,18 @@ import { Spinner } from '@/components/ui/spinner';
 import type { Branch } from '@/types/branches';
 import type {
     PurchaseOrder,
-    PurchaseOrderDetail,
-    PurchaseOrderStatus,
+    PurchaseOrderDetail
 } from '@/types/purchase-order';
-import { capitalizeFirstLetter } from '@/utils/formatters';
+import SearchCustomersField from '@/components/shared/search-customers-field';
 
 interface PODialogProps {
     order?: PurchaseOrder | null;
     open: boolean;
     setOpen: (open: boolean) => void;
     branches: Branch[];
-    statuses: PurchaseOrderStatus[];
 }
 
-export default function PurchaseOrderDialog({ open, setOpen, order, branches, statuses }: PODialogProps) {
+export default function PurchaseOrderDialog({ open, setOpen, order, branches }: PODialogProps) {
     const isEdit = !!order;
 
     const { auth } = usePage().props;
@@ -40,7 +38,7 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches, st
     const { data, setData, post, put, processing, errors, reset } = useForm({
         po_number: order?.po_number ?? '',
         branch_id: order?.branch_id ?? auth.user.branch_id,
-        status: order?.status ?? '',
+        customer_id: order?.customer_id ?? '',
         user_id: order?.user_id ?? '',
         due_at: order?.due_at ? format(new Date(order.due_at), 'yyyy-MM-dd') : '',
         received_at: format(
@@ -100,6 +98,16 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches, st
 
                 <form onSubmit={handleSubmit} className="flex flex-col gap-6">
                     {/* --- Header Fields --- */}
+                    <div className="grid grid-cols-1 gap-4">
+                        <SearchCustomersField
+                            field={order}
+                            selectCustomer={(id: any) =>
+                                setData('customer_id', id)
+                            }
+                            errors={errors}
+                        />
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
                             <Label htmlFor="branch_id">Branch</Label>
@@ -137,38 +145,6 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches, st
                             <InputError message={errors.po_number} />
                         </div>
                     </div>
-
-                    {isEdit && (
-                        <div className="grid grid-cols-1 gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="status">Status</Label>
-                                <NativeSelect
-                                    name="status"
-                                    onChange={(e) =>
-                                        setData('status', e.target.value)
-                                    }
-                                    value={data.status}
-                                >
-                                    <NativeSelectOption value="">
-                                        Select status
-                                    </NativeSelectOption>
-                                    {statuses.filter((status) => status.key !== 'pending').map(
-                                        (status: PurchaseOrderStatus) => (
-                                            <NativeSelectOption
-                                                key={status.key}
-                                                value={status.key}
-                                            >
-                                                {capitalizeFirstLetter(
-                                                    status.value,
-                                                )}
-                                            </NativeSelectOption>
-                                        ),
-                                    )}
-                                </NativeSelect>
-                                <InputError message={errors.status} />
-                            </div>
-                        </div>
-                    )}
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
@@ -267,7 +243,7 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches, st
                                         />
                                     </div>
                                     <div className="col-span-3 grid gap-1.5">
-                                        <Label className="text-xs">Price</Label>
+                                        <Label className="text-xs">Unit Price</Label>
                                         <Input
                                             type="number"
                                             className={
@@ -311,11 +287,11 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches, st
                         {Object.keys(errors).some((key) =>
                             key.startsWith('details'),
                         ) && (
-                            <p className="text-sm font-medium text-destructive">
-                                There are errors in your line items. Please
-                                check the quantities and prices.
-                            </p>
-                        )}
+                                <p className="text-sm font-medium text-destructive">
+                                    There are errors in your line items. Please
+                                    check the quantities and prices.
+                                </p>
+                            )}
                     </div>
 
                     <Button

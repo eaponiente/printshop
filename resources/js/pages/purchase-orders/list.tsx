@@ -1,6 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
-import { ArrowUpDown, Pencil, Plus, Trash2, XCircle } from 'lucide-react';
+import { ArrowUpDown, Check, ChevronDown, ExternalLink, Pencil, Plus, Trash2, XCircle } from 'lucide-react';
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { route } from 'ziggy-js';
@@ -23,6 +23,9 @@ import type { PurchaseOrder, PurchaseOrdersList } from '@/types/purchase-order';
 import { formatCurrency } from '@/utils/formatters';
 import { sortBy } from '@/utils/helpers';
 import { readableDate, toManilaTime } from '@/utils/dateHelper';
+import CreatePoTransactionDialog from './components/create-po-transaction-dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@radix-ui/react-dropdown-menu';
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Purchase Orders', href: '/purchase-orders' },
@@ -30,6 +33,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function PurchaseOrderIndex({ purchase_orders, branches, statuses, filters }: PurchaseOrdersList) {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isMakeTransactionDialogOpen, setIsMakeTransactionDialogOpen] = useState(false);
     const [mode, setMode] = useState(filters.mode || 'monthly');
 
     const [getPurchaseOrder, setPurchaseOrder] = useState<PurchaseOrder | null>(null);
@@ -40,7 +44,7 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
 
     const handleFilterChange = (
         value: string,
-        type: 'branch_id' | 'date' | 'mode' | 'date_field' | 'po_number',
+        type: 'branch_id' | 'date' | 'mode' | 'date_field' | 'po_number' | 'include_finished',
     ) => {
         const params = { ...filters };
 
@@ -57,6 +61,8 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
             params.date_field = value;
         } else if (type === 'po_number') {
             params.po_number = value;
+        } else if (type === 'include_finished') {
+            params.include_finished = value;
         }
 
         router.get(route('purchase-orders.index'), params, {
@@ -74,6 +80,17 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
     const clearFilters = () => {
         router.get(route('purchase-orders.index'), {}, { replace: true });
     };
+
+    const showMakeTransactionDialog = (po: PurchaseOrder) => {
+        setPurchaseOrder(po);
+        setIsMakeTransactionDialogOpen(true);
+    }
+
+    const onMakeTransaction = (purchaseOrder: PurchaseOrder) => {
+        router.post(route('purchase-orders.make-transaction', purchaseOrder.id), {}, {
+            onSuccess: () => toast.success('Transaction created successfully', { position: 'top-center' }),
+        });
+    }
 
     const columns: ColumnDef<unknown, any>[] = [
         {
@@ -95,29 +112,58 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
             accessorKey: 'status',
             header: 'Status',
             cell: ({ row }: CellContext<any, any>) => {
-                const status = row.original.status.toLowerCase();
+                const currentStatus = (row.original.status || 'pending').toLowerCase();
 
-                // Mapping your Laravel Seeder statuses to Tailwind colors
                 const statusConfig = {
-                    pending:
-                        'bg-amber-100 text-amber-700 hover:bg-amber-200 border-amber-200',
-                    active: 'bg-blue-100 text-blue-700 hover:bg-blue-200 border-blue-200',
-                    finished:
-                        'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-emerald-200',
-                    released:
-                        'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-200',
+                    pending: { label: 'Pending', dot: 'bg-amber-500', styles: 'bg-amber-50 text-amber-700 border-amber-200' },
+                    active: { label: 'Active', dot: 'bg-blue-500', styles: 'bg-blue-50 text-blue-700 border-blue-200' },
+                    finished: { label: 'Finished', dot: 'bg-emerald-500', styles: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+                    released: { label: 'Released', dot: 'bg-slate-500', styles: 'bg-slate-50 text-slate-700 border-slate-200' },
                 };
 
-                const badgeStyle =
-                    statusConfig[status as keyof typeof statusConfig] ||
-                    'bg-gray-100 text-gray-700';
+                const config = statusConfig[currentStatus as keyof typeof statusConfig] || statusConfig.pending;
 
                 return (
-                    <Badge
-                        className={`border font-medium capitalize shadow-none ${badgeStyle}`}
-                    >
-                        {status}
-                    </Badge>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <button className={`
+                        group inline-flex items-center justify-between w-32 px-3 py-1.5 
+                        rounded-md border text-xs font-semibold 
+                        transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500
+                        ${config.styles}
+                    `}>
+                                <div className="flex items-center gap-2">
+                                    <span className={`h-1.5 w-1.5 rounded-full ${config.dot}`} />
+                                    <span className="capitalize">{config.label}</span>
+                                </div>
+                                <ChevronDown size={14} className="opacity-50 group-hover:opacity-100" />
+                            </button>
+                        </DropdownMenuTrigger>
+
+                        {/* Added z-50 to ensure it's on top 
+                  Added bg-white (or bg-popover) and border to fix transparency
+                */}
+                        <DropdownMenuContent
+                            align="start"
+                            sideOffset={4}
+                            className="z-50 min-w-[8rem] overflow-hidden rounded-md border bg-white p-1 shadow-md animate-in fade-in-0 zoom-in-95"
+                        >
+                            <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                Update Status
+                            </div>
+                            {Object.entries(statusConfig).map(([key, value]) => (
+                                <DropdownMenuItem
+                                    key={key}
+                                    onClick={() => router.patch(route('purchase-orders.status.update', row.original.id), { status: key }, { preserveScroll: true })}
+                                    className="flex items-center gap-2 rounded px-2 py-2 text-sm cursor-pointer outline-none hover:bg-slate-100 focus:bg-slate-100 transition-colors"
+                                >
+                                    <span className={`h-2 w-2 rounded-full ${value.dot}`} />
+                                    <span className="flex-1 font-medium text-slate-700">{value.label}</span>
+                                    {currentStatus === key && <Check size={14} className="text-indigo-600" />}
+                                </DropdownMenuItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 );
             },
         },
@@ -181,6 +227,40 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                 const date = readableDate(row.original.due_at);
 
                 return <span className={date.className}>{date.text}</span>;
+            },
+        },
+        {
+            id: 'transaction',
+            header: 'Transaction',
+            cell: ({ row }) => {
+                const po = row.original as PurchaseOrder;
+                if (po.transaction) {
+                    return (
+                        <a
+                            href={route('sales.index', {
+                                search: po.transaction.invoice_number,
+                                mode: 'yearly',
+                            })}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 transition-all hover:bg-indigo-100 hover:border-indigo-300 hover:shadow-sm"
+                            title={`View Invoice: ${po.transaction.invoice_number}`}
+                        >
+                            <span>View Transaction</span>
+                            <ExternalLink size={14} className="opacity-70" />
+                        </a>
+                    );
+                }
+                return (
+                    // add color blue to button
+                    <Button
+                        variant="outline"
+                        className="bg-blue-500 hover:bg-blue-600 hover:text-white"
+                        onClick={() => showMakeTransactionDialog(po)}
+                    >
+                        Create Sale
+                    </Button>
+                );
             },
         },
         {
@@ -326,6 +406,29 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                             </Select>
                         </div>
 
+                        {/* New Checkbox Filter */}
+                        <div className="flex h-10 items-center space-x-2 px-2">
+                            <Checkbox
+                                id="include_finished"
+                                checked={
+                                    filters.include_finished === 'true' ||
+                                    filters.include_finished === true
+                                }
+                                onCheckedChange={(checked) =>
+                                    handleFilterChange(
+                                        checked ? 'true' : 'false',
+                                        'include_finished',
+                                    )
+                                }
+                            />
+                            <label
+                                htmlFor="include_finished"
+                                className="cursor-pointer text-sm leading-none font-medium text-muted-foreground transition-colors select-none hover:text-foreground"
+                            >
+                                Include Finished
+                            </label>
+                        </div>
+
                         {/* Mode Selection */}
                         <div className="space-y-1.5">
                             <label className="ml-1 text-xs font-semibold text-muted-foreground uppercase">
@@ -450,6 +553,14 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                     setOpen={setIsDialogOpen}
                     order={getPurchaseOrder}
                     branches={branches}
+                />
+            )}
+
+            {isMakeTransactionDialogOpen && getPurchaseOrder && (
+                <CreatePoTransactionDialog
+                    open={isMakeTransactionDialogOpen}
+                    purchaseOrder={getPurchaseOrder}
+                    setOpen={setIsMakeTransactionDialogOpen}
                 />
             )}
         </AppLayout>

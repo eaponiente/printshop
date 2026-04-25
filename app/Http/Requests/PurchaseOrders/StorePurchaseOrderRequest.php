@@ -15,14 +15,12 @@ class StorePurchaseOrderRequest extends FormRequest
     public function rules(): array
     {
         return [
-            // Master Record Validation
             'po_number' => ['required', 'string', 'max:255'],
+            'customer_id' => ['required', Rule::exists('customers', 'id')],
             'branch_id' => ['required', Rule::exists('branches', 'id')],
             'received_at' => ['required', 'date'],
             'due_at' => ['required', 'date', 'after:today'],
-
-            // Detail (Items) Validation
-            'details' => ['required', 'array', 'min:1'], // Must have at least one item
+            'details' => ['required', 'array', 'min:1'],
             'details.*.item_name' => ['required', 'string', 'max:255'],
             'details.*.quantity' => ['required', 'integer', 'min:1'],
             'details.*.unit_price' => ['required', 'numeric', 'min:1'],
