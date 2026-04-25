@@ -170,10 +170,9 @@ export default function PaymentDialog({ open, setOpen, transaction, typesOfPayme
                             <Banknote className="absolute top-2.5 left-3 h-4 w-4 text-muted-foreground" />
                             <Input
                                 id="amount_paid"
-                                type="text"
+                                type="number"
                                 tabIndex={2}
-                                step="0.01"
-                                placeholder="0.00" // Add your placeholder text here
+                                placeholder="0.00"
                                 className="pl-9 focus-visible:ring-indigo-500"
                                 /* Short-circuit the value: if data.amount_paid is 0 or null, 
                                    pass an empty string so the placeholder shows up.
@@ -181,7 +180,7 @@ export default function PaymentDialog({ open, setOpen, transaction, typesOfPayme
                                 value={data.amount_paid || ''}
                                 onChange={(e) =>
                                     // Use an empty string if the input is cleared, otherwise convert to number
-                                    setData('amount_paid', '')
+                                    setData('amount_paid', e.target.value)
                                 }
                             />
                         </div>
