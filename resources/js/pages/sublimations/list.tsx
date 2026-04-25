@@ -70,6 +70,7 @@ import { format, parseISO } from "date-fns";
 import { Calendar as CalendarIcon, Clock } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { EditableDateCell } from './components/editable-date-cell';
+import { Badge } from '@/components/ui/badge';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -121,6 +122,23 @@ export default function SublimationIndex({
         });
     };
 
+    // set default branch as babak, tibungco, penaplata ids as filter by branches data not static values
+    const defaultBranch = branches.filter((branch) => {
+        const branchNames = ['babak', 'tibungco', 'peñaplata'];
+        return branchNames.includes(branch.name.toLowerCase());
+    }).map((branch) => String(branch.id));
+
+    const [branchOpen, setBranchOpen] = useState(false)
+    const selectedValues = Array.isArray(filters.branch_id) ? filters.branch_id : defaultBranch
+
+    const toggleBranch = (id: string) => {
+        const newSelection = selectedValues.includes(id)
+            ? selectedValues.filter((item: string) => item !== id)
+            : [...selectedValues, id]
+
+        handleFilterChange(newSelection, 'branch_id')
+    }
+
     const handleFilterChange = (
         // Update value to accept string or string array
         value: string | string[] | boolean,
@@ -156,7 +174,25 @@ export default function SublimationIndex({
         },
         {
             accessorKey: 'due_at',
-            header: 'Due Date',
+            header: () => {
+                const isSorted = filters.sort_field === 'due_at';
+
+                return (
+                    <Button
+                        variant="ghost"
+                        // Pass the field, the current filters object, and the route
+                        onClick={() =>
+                            sortBy('due_at', filters, 'sublimations.index')
+                        }
+                        className="p-0 hover:bg-transparent"
+                    >
+                        Due Date
+                        <ArrowUpDown
+                            className={`ml-2 h-4 w-4 ${isSorted ? 'text-primary' : 'text-muted-foreground/50'}`}
+                        />
+                    </Button>
+                );
+            },
             cell: ({ row }) => (
                 <EditableDateCell
                     recordId={row.original.id}
@@ -386,77 +422,91 @@ export default function SublimationIndex({
                             {/* Branch Filter */}
                             <div className="flex flex-col gap-1.5">
                                 <label className="ml-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-                                    Branch
+                                    Branches
                                 </label>
-                                <Select
-                                    value={filters.branch_id || 'all'}
-                                    onValueChange={(v) =>
-                                        handleFilterChange(v, 'branch_id')
-                                    }
-                                >
-                                    <SelectTrigger className="h-10 w-[160px] bg-white text-sm">
-                                        <SelectValue placeholder="All Branch" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">
-                                            All Branch
-                                        </SelectItem>
-                                        {branches.map((branch) => (
-                                            <SelectItem
-                                                key={branch.id}
-                                                value={String(branch.id)}
-                                            >
-                                                {branch.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <Popover open={branchOpen} onOpenChange={setBranchOpen}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={branchOpen}
+                                            className="h-auto min-h-10 w-[200px] justify-between bg-white px-3 py-2 text-sm"
+                                        >
+                                            <div className="flex flex-wrap gap-1">
+                                                {selectedValues.length === 0 && "All Branches"}
+                                                {selectedValues.map((id) => (
+                                                    <Badge variant="secondary" key={id} className="font-normal">
+                                                        {branches.find((b) => String(b.id) === String(id))?.name}
+                                                    </Badge>
+                                                ))}
+                                            </div>
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[200px] p-0">
+                                        <Command>
+                                            <CommandInput placeholder="Search branch..." />
+                                            <CommandList>
+                                                <CommandEmpty>No branch found.</CommandEmpty>
+                                                <CommandGroup>
+                                                    {branches.map((branch) => {
+                                                        const isSelected = selectedValues.includes(String(branch.id))
+                                                        return (
+                                                            <CommandItem
+                                                                key={branch.id}
+                                                                onSelect={() => toggleBranch(String(branch.id))}
+                                                                className="flex items-center gap-2"
+                                                            >
+                                                                {/* The Checkbox Component */}
+                                                                <Checkbox
+                                                                    checked={isSelected}
+                                                                    id={`branch-${branch.id}`}
+                                                                />
+                                                                <span className="flex-1">{branch.name}</span>
+                                                            </CommandItem>
+                                                        )
+                                                    })}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
                             </div>
 
                             {/* User Filter - Only shows when a specific branch is selected */}
-                            {filters.branch_id &&
-                                filters.branch_id !== 'all' && (
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="ml-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-                                            User / Staff
-                                        </label>
-                                        <Select
-                                            value={filters.user_id || 'all'}
-                                            onValueChange={(v) =>
-                                                handleFilterChange(v, 'user_id')
-                                            }
-                                        >
-                                            <SelectTrigger className="h-10 w-[160px] bg-white text-sm">
-                                                <SelectValue placeholder="All Users" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">
-                                                    All Users
-                                                </SelectItem>
-                                                {users
-                                                    .filter(
-                                                        (user) =>
-                                                            String(
-                                                                user.branch_id,
-                                                            ) ===
-                                                            String(
-                                                                filters.branch_id,
-                                                            ),
-                                                    )
-                                                    .map((user: User) => (
-                                                        <SelectItem
-                                                            key={user.id}
-                                                            value={String(
-                                                                user.id,
-                                                            )}
-                                                        >
-                                                            {user.fullname}
-                                                        </SelectItem>
-                                                    ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                )}
+                            {selectedValues.length > 0 && (
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="ml-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+                                        User / Staff
+                                    </label>
+                                    <Select
+                                        value={filters.user_id || 'all'}
+                                        onValueChange={(v) =>
+                                            handleFilterChange(v, 'user_id')
+                                        }
+                                    >
+                                        <SelectTrigger className="h-10 w-[160px] bg-white text-sm">
+                                            <SelectValue placeholder="All Users" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">
+                                                All Users
+                                            </SelectItem>
+                                            {users
+                                                .map((user: User) => (
+                                                    <SelectItem
+                                                        key={user.id}
+                                                        value={String(
+                                                            user.id,
+                                                        )}
+                                                    >
+                                                        {user.fullname}
+                                                    </SelectItem>
+                                                ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
 
                             {/* Status Filter */}
                             <StatusFilter filters={filters} statuses={statuses} handleFilterChange={(value: string) => handleFilterChange(value, 'status')} />

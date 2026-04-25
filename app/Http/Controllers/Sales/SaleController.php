@@ -37,7 +37,6 @@ class SaleController extends Controller
         return Inertia::render('sales/list', array_merge([
             'filters' => $filters,
             'branches' => Branch::accessibleBy(auth()->user())->get(['id', 'name']),
-            'customers' => $this->salesService->searchCustomers($filters['search'] ?? null),
             'transactions' => $query->paginate(30)->withQueryString(),
             'types_of_payment' => TypeOfPaymentEnum::map(),
             'cash_on_hand_amount' => $cashOnHand,
@@ -102,15 +101,7 @@ class SaleController extends Controller
                 );
             }
 
-            //            $sublimation = $transaction->sublimation;
-            //
-            //            if ($sublimation && $transaction->payments()->count() === 1) {
-            //                if ($sublimation->status->isPrePaymentPhase()) {
-            //                    $sublimation->update([
-            //                        'status' => SublimationStatus::DOWNPAYMENT_COMPLETE,
-            //                    ]);
-            //                }
-            //            }
+
 
             return back()->with('success', 'Payment updated.');
         } catch (\Exception $e) {

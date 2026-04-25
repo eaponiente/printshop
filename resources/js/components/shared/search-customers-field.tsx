@@ -19,10 +19,6 @@ export default function SearchCustomersField({ field, selectCustomer, errors }: 
         field ? `${field.customer?.first_name} ${field.customer?.last_name}` : ''
     );
 
-    useEffect(() => {
-        fetchCustomers();
-    }, []);
-
     const handleCustomerSelect = (id: number, name: string) => {
         selectCustomer(id);
         setDisplayName(name);
@@ -30,7 +26,13 @@ export default function SearchCustomersField({ field, selectCustomer, errors }: 
     };
 
     const debouncedSearch = useMemo(
-        () => debounce((val: string) => fetchCustomers(val), 400),
+        () => debounce((val: string) => {
+            if (val.length > 0) {
+                fetchCustomers(val)
+            } else {
+                setCustomers([]);
+            }
+        }, 400),
         []
     );
 

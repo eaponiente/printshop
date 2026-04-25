@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Sublimations;
 
 use App\Enums\Sales\TransactionStatus;
 use App\Enums\Sublimations\SublimationStatus;
+use App\Enums\Users\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\StoreSublimationRequest;
 use App\Http\Requests\Settings\UpdateSublimationRequest;
@@ -38,12 +39,10 @@ class SublimationController extends Controller
             $user = auth()->user();
             $filterId = $filters['branch_id'] ?? null;
 
-            if ($user->role !== 'superadmin') {
-                // Non-admins are FORCED to their branch, regardless of the filter
+            if (! in_array($user->role, [UserRole::SUPERADMIN->value, UserRole::ADMIN->value])) {
                 $query->where('branch_id', $user->branch_id);
             } elseif ($filterId && $filterId !== 'all') {
-                // Superadmins only get a WHERE clause if they picked a specific branch
-                $query->where('branch_id', $filterId);
+                $query->whereIn('branch_id', $filterId);
             }
         });
 
@@ -83,11 +82,15 @@ class SublimationController extends Controller
                 ->get();
         }
 
+        $branches = auth()->user()->role === 'staff'
+            ? Branch::where('id', auth()->user()->branch_id)->get(['id', 'name'])
+            : Branch::get(['id', 'name']);
+
         return Inertia::render('sublimations/list', [
             'sublimations' => $query->paginate(30)->withQueryString(),
             'availableTags' => Tag::all(['id', 'name', 'color']),
             'filters' => $request->all(),
-            'branches' => Branch::accessibleBy(auth()->user())->get(['id', 'name']),
+            'branches' => $branches,
             'users' => $users,
             'statuses' => SublimationStatus::map(),
         ]);

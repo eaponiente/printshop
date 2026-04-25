@@ -1,5 +1,5 @@
 import { Search, X } from 'lucide-react';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -10,13 +10,11 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import type { Branch } from '@/types/branches';
-import type { TypeOfPayment } from '@/types/settings';
 
 interface SalesTableFiltersProps {
-    searchTerm: string;
-    setSearchTerm: (value: string) => void;
     mode: string;
     filters: {
+        search?: string;
         date?: string;
         status?: string;
         branch_id?: string;
@@ -24,21 +22,39 @@ interface SalesTableFiltersProps {
     };
     handleFilterChange: (
         value: string,
-        type: 'mode' | 'date' | 'status' | 'branch_id' | 'payment_type',
+        type: 'mode' | 'date' | 'status' | 'branch_id' | 'payment_type' | 'search',
     ) => void;
     clearFilters: () => void;
     branches: Branch[];
 }
 
-const SalesTableFilters = ({
-    searchTerm,
-    setSearchTerm,
+const SalesTableFilters = React.memo(({
     mode,
     filters,
     handleFilterChange,
     clearFilters,
     branches
 }: SalesTableFiltersProps) => {
+    // 1. Local state for search to prevent re-rendering the whole page
+    const [localSearch, setLocalSearch] = useState(filters.search || '');
+
+    // 2. Debounce effect inside the filter component
+    useEffect(() => {
+        const delayDebounceFn = setTimeout(() => {
+            if (localSearch !== (filters.search || '')) {
+                handleFilterChange(localSearch, 'search');
+            }
+        }, 300);
+
+        return () => clearTimeout(delayDebounceFn);
+    }, [localSearch, filters.search, handleFilterChange]);
+
+    // Sync local search if filters are cleared externally
+    useEffect(() => {
+        if (!filters.search && localSearch) {
+            setLocalSearch('');
+        }
+    }, [filters.search]);
 
     // Map mode to HTML input types
     return (
@@ -52,8 +68,8 @@ const SalesTableFilters = ({
                     <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                         placeholder="Search invoice or guest..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        value={localSearch}
+                        onChange={(e) => setLocalSearch(e.target.value)}
                         className="bg-white pl-9"
                     />
                 </div>
@@ -132,7 +148,7 @@ const SalesTableFilters = ({
                                 const year = new Date().getFullYear() - i;
 
                                 return (
-                                    <option key={year} value={year}>
+                                    <option key={year} value={String(year)}>
                                         {year}
                                     </option>
                                 );
@@ -163,7 +179,7 @@ const SalesTableFilters = ({
                 </Select>
             </div>
 
-            {/* Status Filter */}
+            {/* Branch Filter */}
             <div className="space-y-1.5">
                 <label className="ml-1 text-xs font-semibold text-muted-foreground uppercase">
                     Branch
@@ -178,7 +194,7 @@ const SalesTableFilters = ({
                     <SelectContent>
                         <SelectItem value="all">All Branch</SelectItem>
                         {branches.map((branch) => (
-                            <SelectItem value={String(branch.id)}>
+                            <SelectItem key={branch.id} value={String(branch.id)}>
                                 {branch.name}
                             </SelectItem>
                         ))}
@@ -197,6 +213,8 @@ const SalesTableFilters = ({
             </Button>
         </div>
     );
-};
+});
+
+SalesTableFilters.displayName = 'SalesTableFilters';
 
 export default SalesTableFilters;
