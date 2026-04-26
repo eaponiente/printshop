@@ -320,7 +320,9 @@ export default function SublimationIndex({
                         <a
                             href={route('sales.index', {
                                 search: sublimation.transaction.invoice_number,
-                                mode: 'yearly',
+                                mode: 'daily',
+                                // change to Y-m-d format
+                                date: format(sublimation.transaction.transaction_date, 'yyyy-MM-dd'),
                             })}
                             target="_blank"
                             rel="noopener noreferrer"

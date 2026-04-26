@@ -57,21 +57,26 @@ class PurchaseOrderController extends Controller
             ->when(
                 ! $request->boolean('include_released'),
                 function ($q) {
-                    // If we are NOT including completed, we filter them out
-                    $q->where('status', '!=', PurchaseOrderStatus::RELEASED->value);
+                    // When NOT checked, we hide POs that are BOTH Released AND Paid
+                    $q->where(function ($query) {
+                        $query->where('status', '!=', PurchaseOrderStatus::RELEASED->value)
+                            ->orWhereHas('transaction', function ($sub) {
+                                $sub->where('status', '!=', 'paid');
+                            });
+                    });
                 }
             )
 
-            ->when($filters['mode'] ?? null, function ($query, $mode) use ($filters) {
-                // 1. Determine which column to filter
-                $column = $filters['date_field'] ?? 'date';
 
-                // Security: Ensure column is allowed
-                if (! in_array($column, ['date', 'due_at', 'received_at'])) {
-                    $column = 'date';
+            ->when($filters['mode'] ?? null, function ($query, $mode) use ($filters) {
+                // 1. Determine which column to filter - changed default from 'date' to 'due_at'
+                $column = $filters['date_field'] ?? 'due_at';
+
+                // Ensure column is allowed (removed 'date' from whitelist)
+                if (! in_array($column, ['due_at', 'received_at'])) {
+                    $column = 'due_at';
                 }
 
-                // 2. Get the date value from frontend (e.g., "2024-W14" or "2024-04")
                 $dateValue = $filters['date'] ?? null;
 
                 if (! $dateValue) {
@@ -79,25 +84,24 @@ class PurchaseOrderController extends Controller
                 }
 
                 if ($mode === 'weekly') {
-                    // HTML5 week input returns "YYYY-Www"
-                    // Carbon can parse this using the ISO week format
+                    // Carbon handles "YYYY-Www" format automatically
                     $date = Carbon::parse($dateValue);
 
                     $query->whereBetween($column, [
-                        $date->startOfWeek()->format('Y-m-d'),
-                        $date->endOfWeek()->format('Y-m-d'),
+                        $date->startOfWeek()->toDateTimeString(),
+                        $date->endOfWeek()->toDateTimeString(),
                     ]);
                 } elseif ($mode === 'monthly') {
-                    // HTML5 month input returns "YYYY-MM"
                     $date = Carbon::parse($dateValue);
 
                     $query->whereMonth($column, $date->month)
                         ->whereYear($column, $date->year);
                 } elseif ($mode === 'yearly') {
-                    // HTML5 month input returns "YYYY-MM"
-                    $date = Carbon::parse($dateValue);
+                    // If frontend sends "2024", Carbon::parse might fail or act odd. 
+                    // We use the raw value or parse only the year.
+                    $year = is_numeric($dateValue) ? $dateValue : Carbon::parse($dateValue)->year;
 
-                    $query->whereYear($column, $date);
+                    $query->whereYear($column, $year);
                 }
             });
 
