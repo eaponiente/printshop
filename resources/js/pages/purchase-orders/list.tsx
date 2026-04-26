@@ -12,7 +12,6 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -26,6 +25,7 @@ import { readableDate, toManilaTime } from '@/utils/dateHelper';
 import CreatePoTransactionDialog from './components/create-po-transaction-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@radix-ui/react-dropdown-menu';
+import { format } from 'date-fns';
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Purchase Orders', href: '/purchase-orders' },
@@ -47,6 +47,8 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
         type: 'branch_id' | 'date' | 'mode' | 'date_field' | 'po_number' | 'include_released',
     ) => {
         const params = { ...filters };
+
+        console.log('params', params);
 
         if (type === 'branch_id') {
             params.branch_id = value;
@@ -167,6 +169,7 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                 );
             },
         },
+
         {
             accessorKey: 'user.fullname',
             header: 'Staff',
@@ -230,36 +233,71 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
             },
         },
         {
-            id: 'transaction',
-            header: 'Transaction',
-            cell: ({ row }) => {
-                const po = row.original as PurchaseOrder;
-                if (po.transaction) {
-                    return (
-                        <a
-                            href={route('sales.index', {
-                                search: po.transaction.invoice_number,
-                                mode: 'yearly',
-                            })}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 transition-all hover:bg-indigo-100 hover:border-indigo-300 hover:shadow-sm"
-                            title={`View Invoice: ${po.transaction.invoice_number}`}
-                        >
-                            <span>View Transaction</span>
-                            <ExternalLink size={14} className="opacity-70" />
-                        </a>
-                    );
-                }
+            id: 'transaction_lean_widget',
+            header: 'Transaction & Status',
+            cell: ({ row }: CellContext<any, any>) => {
+                const po = row.original;
+                const transaction = po.transaction;
+                const status = transaction?.status;
+
+                const colors = {
+                    paid: "bg-emerald-500 text-emerald-600 border-emerald-100",
+                    pending: "bg-amber-500 text-amber-600 border-amber-100",
+                    partial: "bg-blue-500 text-blue-600 border-blue-100",
+                    none: "bg-slate-300 text-slate-400 border-slate-100",
+                };
+
+                const theme = colors[status as keyof typeof colors] || colors.none;
+
                 return (
-                    // add color blue to button
-                    <Button
-                        variant="outline"
-                        className="bg-blue-500 hover:bg-blue-600 hover:text-white"
-                        onClick={() => showMakeTransactionDialog(po)}
-                    >
-                        Create Sale
-                    </Button>
+                    <div className="flex items-center gap-3 min-w-[200px]">
+                        {/* 1. Slim Status Indicator */}
+                        <div className="flex flex-col items-center gap-1 shrink-0">
+                            <div className={`h-8 w-1 rounded-full ${theme.split(' ')[0]}`} />
+                        </div>
+
+                        <div className="flex flex-1 items-center justify-between">
+                            {/* 2. Info Block */}
+                            <div className="flex flex-col">
+                                <span className={`text-[10px] font-bold uppercase tracking-widest ${theme.split(' ')[1]}`}>
+                                    {status || 'No Sale'}
+                                </span>
+                                {transaction ? (
+                                    <span className="text-sm font-semibold text-slate-700 tracking-tight">
+                                        {transaction.invoice_number}
+                                    </span>
+                                ) : (
+                                    <span className="text-xs text-slate-400 italic">Pending Entry</span>
+                                )}
+                            </div>
+
+                            {/* 3. Lean Action */}
+                            <div className="flex items-center pl-4">
+                                {transaction ? (
+                                    <a
+                                        href={route('sales.index', {
+                                            search: transaction.invoice_number,
+                                            date: format(transaction.transaction_date, 'yyyy-MM-dd'),
+                                            mode: 'daily',
+                                        })}
+                                        target="_blank"
+                                        className="group flex h-8 items-center gap-2 rounded-md px-2 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-all"
+                                    >
+                                        <span>VIEW</span>
+                                        <ExternalLink size={12} className="opacity-0 group-hover:opacity-100 transition-all -translate-x-1 group-hover:translate-x-0" />
+                                    </a>
+                                ) : (
+                                    <button
+                                        onClick={() => showMakeTransactionDialog(po)}
+                                        className="flex h-8 items-center gap-1.5 rounded-md border border-blue-200 bg-white px-3 text-xs font-bold text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+                                    >
+                                        <Plus size={14} strokeWidth={2.5} />
+                                        CREATE
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
                 );
             },
         },
@@ -336,7 +374,7 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                 </div>
 
                 <div className="rounded-md border border-sidebar-border bg-sidebar p-2">
-                    <div className="mb-6 flex flex-wrap items-end gap-4">
+                    <div className="mb-6 flex flex-wrap items-end gap-3">
                         {/* PO Number Filter */}
                         <div className="flex flex-col gap-1.5">
                             <label className="ml-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
@@ -346,33 +384,26 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                                 placeholder="Search PO Number..."
                                 className="h-10 w-[200px] bg-white text-sm shadow-sm"
                                 value={filters.po_number || ''}
-                                onChange={(e) =>
-                                    handleFilterChange(e.target.value, 'po_number')
-                                }
+                                onChange={(e) => handleFilterChange(e.target.value, 'po_number')}
                             />
                         </div>
+
+                        {/* Branch Filter */}
                         <div className="flex flex-col gap-1.5">
                             <label className="ml-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
                                 Branch
                             </label>
                             <Select
                                 value={filters.branch_id || 'all'}
-                                onValueChange={(v) =>
-                                    handleFilterChange(v, 'branch_id')
-                                }
+                                onValueChange={(v) => handleFilterChange(v, 'branch_id')}
                             >
                                 <SelectTrigger className="h-10 w-[180px] bg-white text-sm shadow-sm">
                                     <SelectValue placeholder="All Branches" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">
-                                        All Branches
-                                    </SelectItem>
+                                    <SelectItem value="all">All Branches</SelectItem>
                                     {branches.map((branch) => (
-                                        <SelectItem
-                                            key={branch.id}
-                                            value={String(branch.id)}
-                                        >
+                                        <SelectItem key={branch.id} value={String(branch.id)}>
                                             {branch.name}
                                         </SelectItem>
                                     ))}
@@ -386,79 +417,43 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                                 Filter By Date Type
                             </label>
                             <Select
-                                value={filters.date_field || 'due_at'} // Default to 'date'
-                                onValueChange={(v) =>
-                                    handleFilterChange(v, 'date_field')
-                                }
+                                value={filters.date_field || 'due_at'}
+                                onValueChange={(v) => handleFilterChange(v, 'date_field')}
                             >
                                 <SelectTrigger className="h-10 w-[180px] bg-white text-sm shadow-sm">
                                     <SelectValue placeholder="Select Date Field" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Select Date Field</SelectItem>
-                                    <SelectItem value="due_at">
-                                        Due Date
-                                    </SelectItem>
-                                    <SelectItem value="received_at">
-                                        Received Date
-                                    </SelectItem>
+                                    <SelectItem value="due_at">Due Date</SelectItem>
+                                    <SelectItem value="received_at">Received Date</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
 
-                        {/* New Checkbox Filter */}
-                        <div className="flex h-10 items-center space-x-2 px-2">
-                            <Checkbox
-                                id="include_released"
-                                checked={
-                                    filters.include_released === 'true' ||
-                                    filters.include_released === true
-                                }
-                                onCheckedChange={(checked) =>
-                                    handleFilterChange(
-                                        checked ? 'true' : 'false',
-                                        'include_released',
-                                    )
-                                }
-                            />
-                            <label
-                                htmlFor="include_released"
-                                className="cursor-pointer text-sm leading-none font-medium text-muted-foreground transition-colors select-none hover:text-foreground"
-                            >
-                                Include Released
-                            </label>
-                        </div>
-
                         {/* Mode Selection */}
-                        <div className="space-y-1.5">
-                            <label className="ml-1 text-xs font-semibold text-muted-foreground uppercase">
+                        <div className="flex flex-col gap-1.5">
+                            <label className="ml-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
                                 Frequency
                             </label>
                             <Select
                                 value={mode}
-                                onValueChange={(v) =>
-                                    handleFilterChange(v, 'mode')
-                                }
+                                onValueChange={(v) => handleFilterChange(v, 'mode')}
                             >
-                                <SelectTrigger className="w-[140px] bg-white">
+                                <SelectTrigger className="h-10 w-[140px] bg-white text-sm shadow-sm">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="weekly">
-                                        Weekly
-                                    </SelectItem>
-                                    <SelectItem value="monthly">
-                                        Monthly
-                                    </SelectItem>
-                                    <SelectItem value="yearly">
-                                        Yearly
-                                    </SelectItem>
+                                    <SelectItem value="weekly">Weekly</SelectItem>
+                                    <SelectItem value="monthly">Monthly</SelectItem>
+                                    <SelectItem value="yearly">Yearly</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
 
-                        <div className="space-y-1.5">
-                            <label className="ml-1 text-xs font-semibold text-muted-foreground uppercase">
+                        {/* Dynamic Date Selection */}
+                        <div className="flex flex-col gap-1.5">
+                            <label className="ml-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
                                 Select {mode}
                             </label>
                             <div className="flex items-center gap-2">
@@ -466,77 +461,64 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                                     <Input
                                         type="date"
                                         value={filters.date || ''}
-                                        onChange={(e) =>
-                                            handleFilterChange(
-                                                e.target.value,
-                                                'date',
-                                            )
-                                        }
-                                        className="w-[180px] bg-white"
+                                        onChange={(e) => handleFilterChange(e.target.value, 'date')}
+                                        className="h-10 w-[180px] bg-white text-sm shadow-sm"
                                     />
                                 )}
                                 {mode === 'weekly' && (
                                     <Input
                                         type="week"
                                         value={filters.date || ''}
-                                        onChange={(e) =>
-                                            handleFilterChange(
-                                                e.target.value,
-                                                'date',
-                                            )
-                                        }
-                                        className="w-[200px] bg-white"
+                                        onChange={(e) => handleFilterChange(e.target.value, 'date')}
+                                        className="h-10 w-[200px] bg-white text-sm shadow-sm"
                                     />
                                 )}
                                 {mode === 'monthly' && (
                                     <Input
                                         type="month"
                                         value={filters.date || ''}
-                                        onChange={(e) =>
-                                            handleFilterChange(
-                                                e.target.value,
-                                                'date',
-                                            )
-                                        }
-                                        className="w-[180px] bg-white"
+                                        onChange={(e) => handleFilterChange(e.target.value, 'date')}
+                                        className="h-10 w-[180px] bg-white text-sm shadow-sm"
                                     />
                                 )}
                                 {mode === 'yearly' && (
                                     <select
-                                        value={
-                                            filters.date
-                                                ? filters.date.substring(0, 4)
-                                                : new Date().getFullYear()
-                                        }
-                                        onChange={(e) =>
-                                            handleFilterChange(
-                                                e.target.value,
-                                                'date',
-                                            )
-                                        }
-                                        className="h-10 w-[180px] rounded-md border bg-white px-3 py-2 shadow-sm focus:ring-2 focus:ring-ring focus:outline-none"
+                                        value={filters.date ? filters.date.substring(0, 4) : new Date().getFullYear()}
+                                        onChange={(e) => handleFilterChange(e.target.value, 'date')}
+                                        className="h-10 w-[180px] rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:ring-2 focus:ring-ring focus:outline-none"
                                     >
                                         {Array.from({ length: 6 }, (_, i) => {
-                                            const year =
-                                                new Date().getFullYear() - i;
-
-                                            return (
-                                                <option key={year} value={year}>
-                                                    {year}
-                                                </option>
-                                            );
+                                            const year = new Date().getFullYear() - i;
+                                            return <option key={year} value={year}>{year}</option>;
                                         })}
                                     </select>
                                 )}
                             </div>
                         </div>
 
-                        {/* 3. Clear Button (Beside the next filter) */}
+                        {/* Checkbox Filter - Adjusted to align with Inputs */}
+                        <div className="flex h-10 items-center space-x-2 px-2 pb-0.5">
+                            <Checkbox
+                                id="include_released"
+                                checked={filters.include_released === 'true' || filters.include_released === true}
+                                onCheckedChange={(checked) =>
+                                    handleFilterChange(checked ? 'true' : 'false', 'include_released')
+                                }
+                            />
+                            <label
+                                htmlFor="include_released"
+                                className="cursor-pointer text-sm font-medium text-muted-foreground transition-colors select-none hover:text-foreground"
+                            >
+                                Include Released
+                            </label>
+                        </div>
+
+                        {/* Clear Button */}
                         <Button
                             variant="ghost"
                             size="sm"
                             onClick={clearFilters}
-                            className="h-10 px-3 text-muted-foreground transition-colors hover:text-destructive"
+                            className="h-10 px-3 text-muted-foreground hover:text-destructive"
                         >
                             <XCircle className="mr-2 h-4 w-4" />
                             Clear

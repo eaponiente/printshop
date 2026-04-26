@@ -232,15 +232,12 @@ export default function SaleIndex({
                 );
             },
         },
-        {
+        ...(auth.user.role !== 'staff' ? [{
             id: 'payment',
             header: 'Collection',
             cell: ({ row }: any) => {
                 const status = row.original.status.toLowerCase();
-
-                if (status === 'paid') {
-                    return;
-                }
+                if (status === 'paid') return null;
 
                 return (
                     <Button
@@ -253,8 +250,10 @@ export default function SaleIndex({
                         Collect Pay
                     </Button>
                 );
+
+
             },
-        },
+        }] : []),
         {
             header: 'Actions',
             cell: ({ row }: CellContext<any, any>) => {
