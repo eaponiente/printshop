@@ -85,20 +85,18 @@ class SublimationController extends Controller
             fn($q) => $q->where('status', '!=', 'completed'),
         );
 
-        $query->when($request->filled('user_id') && $request->user_id !== 'all', fn($q) => $q->where('user_id', $request->user_id));
+        // handle unassigned
+        $query->when($request->filled('user_id'), function ($q) use ($request) {
+            if ($request->user_id === 'unassigned') {
+                $q->whereNull('user_id');
+            } else {
+                $q->where('user_id', $request->user_id);
+            }
+        });
 
         $sortDirection = $request->query('sort_direction', 'desc');
 
         $query->orderBy($request->query('sort_field', 'due_at'), $sortDirection);
-
-        if (auth()->user()->role === 'superadmin') {
-            $users = User::whereIn('role', ['admin', 'staff'])->get();
-        } else {
-            $users = User::where('branch_id', auth()->user()->branch_id)
-                ->whereIn('role', ['admin', 'staff'])
-                ->get();
-        }
-
 
         if (auth()->user()->isSuperAdmin()) {
             $branches = Branch::get(['id', 'name']);
@@ -107,6 +105,17 @@ class SublimationController extends Controller
         } else {
             $branches = Branch::where('id', auth()->user()->branch_id)->get(['id', 'name']);
         }
+
+        if (auth()->user()->role === 'superadmin') {
+            $users = User::whereIn('role', ['admin', 'staff'])->get();
+        } else {
+            $users = User::whereIn('branch_id', $branches->pluck('id')->toArray())
+                ->whereIn('role', ['admin', 'staff'])
+                ->get();
+        }
+
+
+
 
         return Inertia::render('sublimations/list', [
             'sublimations' => $query->paginate(30)->withQueryString(),

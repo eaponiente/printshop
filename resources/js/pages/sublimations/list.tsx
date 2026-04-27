@@ -495,42 +495,40 @@ export default function SublimationIndex({
                             </div>
 
                             {/* User Filter - Only shows when a specific branch is selected */}
-                            {selectedValues.length > 0 && (
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="ml-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-                                        User / Staff
-                                    </label>
-                                    <Select
-                                        value={filters.user_id || 'all'}
-                                        onValueChange={(v) =>
-                                            handleFilterChange(v, 'user_id')
-                                        }
-                                    >
-                                        <SelectTrigger className="h-10 w-[160px] bg-white text-sm">
-                                            <SelectValue placeholder="All Users" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">
-                                                All Users
-                                            </SelectItem>
-                                            <SelectItem value="unassigned">
-                                                Unassigned
-                                            </SelectItem>
-                                            {users
-                                                .map((user: User) => (
-                                                    <SelectItem
-                                                        key={user.id}
-                                                        value={String(
-                                                            user.id,
-                                                        )}
-                                                    >
-                                                        {user.fullname}
-                                                    </SelectItem>
-                                                ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            )}
+                            <div className="flex flex-col gap-1.5">
+                                <label className="ml-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+                                    User / Staff
+                                </label>
+                                <Select
+                                    value={filters.user_id || 'all'}
+                                    onValueChange={(v) =>
+                                        handleFilterChange(v, 'user_id')
+                                    }
+                                >
+                                    <SelectTrigger className="h-10 w-[160px] bg-white text-sm">
+                                        <SelectValue placeholder="All Users" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">
+                                            All Users
+                                        </SelectItem>
+                                        <SelectItem value="unassigned">
+                                            Unassigned
+                                        </SelectItem>
+                                        {users
+                                            .map((user: User) => (
+                                                <SelectItem
+                                                    key={user.id}
+                                                    value={String(
+                                                        user.id,
+                                                    )}
+                                                >
+                                                    {user.fullname}
+                                                </SelectItem>
+                                            ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
 
                             {/* Status Filter */}
                             <StatusFilter filters={filters} statuses={statuses} handleFilterChange={(value: string) => handleFilterChange(value, 'status')} />

@@ -26,7 +26,7 @@ class IndexSublimationRequest extends FormRequest
             'branch_id' => 'nullable|exists:branches,id',
             'status' => 'nullable',
             'include_completed' => 'nullable',
-            'user_id' => 'nullable|exists:users,id',
+            'user_id' => 'nullable|string', // string for 'unassigned' and integer for user_id
             'sort_field' => 'nullable|string|in:due_at,user_id',
             'sort_direction' => 'nullable|string|in:asc,desc',
         ];
