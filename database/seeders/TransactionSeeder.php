@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Enums\Shared\TypeOfPaymentEnum;
+use App\Enums\Sales\TransactionTypeOfPaymentEnum;
 use App\Enums\Sublimations\SublimationStatus;
 use App\Models\Customer;
 use App\Models\Sublimation;
@@ -67,7 +67,7 @@ class TransactionSeeder extends Seeder
         $roll = rand(1, 100);
         $amountPaid = $roll <= 60 ? $amountTotal : ($roll <= 90 ? round($amountTotal * (rand(20, 80) / 100)) : 0);
         $status = $amountPaid >= $amountTotal ? 'paid' : ($amountPaid > 0 ? 'partial' : 'pending');
-        $paymentType = in_array($status, ['partial', 'paid']) ? $faker->randomElement(['cash', 'card', 'gcash']) : null;
+        $paymentType = in_array($status, ['partial', 'paid']) ? $faker->randomElement(['cash', 'card', 'gcash', 'debit', 'bank_transfer', 'check']) : null;
         $transaction = Transaction::create([
             'invoice_number' => Transaction::generateNumber(),
             'customer_id' => $customerIds->random(),
@@ -85,7 +85,7 @@ class TransactionSeeder extends Seeder
 
         if ($amountPaid > 0) {
             $transaction->recordPayment($amountPaid, $paymentType);
-            if ($paymentType === TypeOfPaymentEnum::CASH->value) {
+            if ($paymentType === TransactionTypeOfPaymentEnum::CASH->value) {
                 app(CashOnHandService::class)->adjustBalance($transaction->branch_id, $amountPaid, 'revenue');
             }
         }

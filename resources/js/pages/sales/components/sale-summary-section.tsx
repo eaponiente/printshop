@@ -10,6 +10,7 @@ interface SaleSummarySectionProps {
     bank_transfer_amount: number;
     card_amount: number;
     check_amount: number;
+    debit_amount: number;
     total_sales: number;
     total_expenses: number;
     net_income: number;
@@ -23,6 +24,7 @@ export default function SaleSummarySection({
     bank_transfer_amount,
     card_amount,
     check_amount,
+    debit_amount,
     total_sales,
     total_expenses,
     net_income,
@@ -114,12 +116,13 @@ export default function SaleSummarySection({
                         </div>
 
                         {/* Placeholder / Other */}
-                        <div className="border-t border-sidebar-border pt-2 pl-0.5 opacity-40">
-                            <p className="mb-1 text-[8px] leading-none font-medium uppercase">
-                                Other
+                        <div className="border-t border-r border-sidebar-border pt-2 pr-1">
+
+                            <p className="mb-1 text-[8px] leading-none font-medium text-muted-foreground uppercase">
+                                Debit
                             </p>
-                            <p className="text-[11px] leading-none font-bold italic">
-                                —
+                            <p className="truncate text-[11px] leading-none font-bold">
+                                {formatCurrency(debit_amount || 0)}
                             </p>
                         </div>
                     </div>

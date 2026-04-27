@@ -17,6 +17,7 @@ class UpdateSublimationRequest extends FormRequest
     {
         return [
             'description' => ['required', 'string'],
+            'notes' => ['nullable', 'string'],
             'branch_id' => ['required', 'exists:branches,id'],
             'customer_id' => ['required', 'exists:customers,id'],
             'quantity' => ['required', 'integer', 'min:1', 'max:999999'],

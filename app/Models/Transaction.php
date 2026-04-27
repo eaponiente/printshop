@@ -54,6 +54,7 @@ class Transaction extends Model
             // Use lockForUpdate to serialize concurrency
             $lastInvoiceNumber = self::whereYear('created_at', $year)
                 ->where('invoice_number', 'like', "{$prefix}%")
+                ->withTrashed()
                 ->lockForUpdate()
                 ->latest('id')
                 ->value('invoice_number');

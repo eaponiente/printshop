@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests\Transactions;
 
-use App\Enums\Shared\TypeOfPaymentEnum;
+use App\Enums\Sales\TransactionTypeOfPaymentEnum;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateTransactionPaymentRequest extends FormRequest
@@ -55,7 +55,7 @@ class UpdateTransactionPaymentRequest extends FormRequest
              * 3. payment_type (Highly Recommended):
              * - If you are receiving money, you should log HOW it was received.
              */
-            'payment_type' => 'required|string|in:' . implode(',', array_column(TypeOfPaymentEnum::cases(), 'value')),
+            'payment_type' => 'required|string|in:' . implode(',', array_column(TransactionTypeOfPaymentEnum::cases(), 'value')),
         ];
     }
 

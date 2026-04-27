@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Sales;
 
 use App\Enums\Sales\TransactionStatus;
-use App\Enums\Shared\TypeOfPaymentEnum;
+use App\Enums\Sales\TransactionTypeOfPaymentEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Transactions\GetTransactionsRequest;
 use App\Http\Requests\Transactions\StoreTransactionRequest;
@@ -38,7 +38,7 @@ class SaleController extends Controller
             'filters' => $filters,
             'branches' => Branch::accessibleBy(auth()->user())->get(['id', 'name']),
             'transactions' => $query->paginate(100)->withQueryString(),
-            'types_of_payment' => TypeOfPaymentEnum::map(),
+            'types_of_payment' => TransactionTypeOfPaymentEnum::map(),
             'cash_on_hand_amount' => $cashOnHand,
         ], $aggregates, $this->salesService->getFinanceSummary($filters)));
     }
@@ -92,7 +92,7 @@ class SaleController extends Controller
             // Logic moved to a transition method on the Model (Encapsulation)
             $transaction->recordPayment($request->amount_paid, $request->payment_type);
 
-            if ($request->payment_type === TypeOfPaymentEnum::CASH->value) {
+            if ($request->payment_type === TransactionTypeOfPaymentEnum::CASH->value) {
                 app(CashOnHandService::class)->adjustBalance(
                     $transaction->branch_id,
                     $request->amount_paid,

@@ -36,3 +36,17 @@ export function debounce<T extends (...args: any[]) => any>(fn: T, delay: number
         timeoutId = setTimeout(() => fn(...args), delay);
     };
 }
+
+export const getAvatarColor = (name: string) => {
+    const strId = String(name);
+    let hash = 0;
+    for (let i = 0; i < strId.length; i++) {
+        // Generate a unique hash from the string characters
+        hash = strId.charCodeAt(i) + ((hash << 5) - hash);
+    }
+
+    // Hue: 0-360 | Saturation: 65% | Lightness: 45%
+    // Constant saturation/lightness ensures white text always has high contrast
+    const hue = Math.abs(hash) % 360;
+    return `hsl(${hue}, 65%, 45%)`;
+};

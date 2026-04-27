@@ -8,6 +8,7 @@ use App\Enums\Users\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\StoreSublimationRequest;
 use App\Http\Requests\Settings\UpdateSublimationRequest;
+use App\Http\Requests\Sublimations\IndexSublimationRequest;
 use App\Models\Branch;
 use App\Models\Sublimation;
 use App\Models\Tag;
@@ -29,62 +30,92 @@ class SublimationController extends Controller
 
     public function __construct(protected SalesService $salesService) {}
 
-    public function index(Request $request): Response
+    public function index(IndexSublimationRequest $request): Response
     {
         $query = Sublimation::with('tags', 'branch', 'user', 'customer', 'transaction');
 
         $filters = $request->all();
 
-        $query->where(function ($query) use ($filters) {
-            $user = auth()->user();
-            $filterId = $filters['branch_id'] ?? null;
+        $specialBranches = ['Peñaplata', 'Babak', 'Tibungco'];
 
-            if (! in_array($user->role, [UserRole::SUPERADMIN->value, UserRole::ADMIN->value])) {
-                $query->where('branch_id', $user->branch_id);
-            } elseif ($filterId && $filterId !== 'all') {
-                $query->whereIn('branch_id', $filterId);
+        $query->where(function ($query) use ($filters, $specialBranches) {
+            $user = auth()->user()->load('branch');
+            $filterIds = (array) ($filters['branch_id'] ?? []);
+            $hasFilter = !empty($filterIds);
+
+            // 1. SUPERADMIN: No restrictions unless filtering
+            if ($user->role === UserRole::SUPERADMIN->value) {
+                if ($hasFilter) {
+                    $query->whereIn('branch_id', $filterIds);
+                }
+                return;
             }
+
+            // 2. SPECIAL BRANCH GROUP (Babak, Peñaplata, Tibungco)
+            if (in_array($user->branch->name, $specialBranches)) {
+                $specialBranchesIds = Branch::whereIn('name', $specialBranches)->pluck('id')->toArray();
+
+                if ($hasFilter) {
+
+                    // Security: Only allow filtering within the special branches array
+                    $validFilters = array_intersect($filterIds, $specialBranchesIds);
+                    if (count($validFilters) === 0) {
+                        return;
+                    }
+                    $query->whereIn('branch_id', $validFilters);
+                } else {
+                    // DEFAULT: Show all data from the 3 special branches
+                    $query->whereIn('branch_id', $specialBranchesIds);
+                }
+                return;
+            }
+
+            if (in_array($user->branch_id, $specialBranches)) {
+                $query->whereIn('branch_id', $specialBranches);
+                return;
+            }
+            // 3. DEFAULT: Lock non-special users to their own branch
+            $query->where('branch_id', $user->branch_id);
         });
 
-        $query->when($request->filled('status') && $request->status !== 'all', function ($q) use ($request) {
-            $q->whereIn('status', $request->status);
-        });
+        $query->when($request->filled('status') && $request->status !== 'all', fn($q) => $q->whereIn('status', $request->status));
 
         $query->when(
             ! $request->boolean('include_completed'),
-            function ($q) {
-                // If we are NOT including completed, we filter them out
-                $q->where('status', '!=', 'completed');
-            }
+            fn($q) => $q->where('status', '!=', 'completed'),
         );
 
-        $query->when($request->filled('user_id') && $request->user_id !== 'all', function ($q) use ($request) {
-            $q->where('user_id', $request->user_id);
+        // handle unassigned
+        $query->when($request->filled('user_id'), function ($q) use ($request) {
+            if ($request->user_id === 'unassigned') {
+                $q->whereNull('user_id');
+            } else {
+                $q->where('user_id', $request->user_id);
+            }
         });
 
-        // 2. Sorting Logic
-        $sortField = $request->query('sort_field', 'due_at'); // Default sort
         $sortDirection = $request->query('sort_direction', 'desc');
 
-        // Whitelist allowed sortable columns
-        $allowedSorts = ['due_at'];
+        $query->orderBy($request->query('sort_field', 'due_at'), $sortDirection);
 
-        if (in_array($sortField, $allowedSorts)) {
-            $query->orderBy($sortField, $sortDirection === 'asc' ? 'asc' : 'desc');
+        if (auth()->user()->isSuperAdmin()) {
+            $branches = Branch::get(['id', 'name']);
+        } elseif (in_array(auth()->user()->branch?->name, $specialBranches)) {
+            $branches = Branch::whereIn('name', $specialBranches)->get(['id', 'name']);
+        } else {
+            $branches = Branch::where('id', auth()->user()->branch_id)->get(['id', 'name']);
         }
 
-        // get all users filtered by branch
         if (auth()->user()->role === 'superadmin') {
             $users = User::whereIn('role', ['admin', 'staff'])->get();
         } else {
-            $users = User::where('branch_id', auth()->user()->branch_id)
+            $users = User::whereIn('branch_id', $branches->pluck('id')->toArray())
                 ->whereIn('role', ['admin', 'staff'])
                 ->get();
         }
 
-        $branches = auth()->user()->role === 'staff'
-            ? Branch::where('id', auth()->user()->branch_id)->get(['id', 'name'])
-            : Branch::get(['id', 'name']);
+
+
 
         return Inertia::render('sublimations/list', [
             'sublimations' => $query->paginate(30)->withQueryString(),

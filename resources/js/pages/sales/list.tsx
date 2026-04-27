@@ -6,8 +6,10 @@ import {
     Pencil,
     Plus,
     Trash2,
-    Wallet,
     Eye,
+    ChevronDown,
+    ChevronUp,
+    BarChart3
 } from 'lucide-react';
 import { useState, useCallback, useMemo, Suspense, lazy } from 'react';
 import { route } from 'ziggy-js';
@@ -27,6 +29,11 @@ import {
 } from '@/components/ui/alert-dialog';
 import AppLayout from '@/layouts/app-layout';
 import TableFilters from '@/pages/sales/components/table-filters';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 const SaleDialog = lazy(() => import('@/pages/sales/sales-dialog'));
 const CollectPaymentDialog = lazy(() => import('@/pages/sales/components/collect-payment-dialog'));
@@ -66,6 +73,7 @@ interface SaleIndexProps {
     check_amount: number;
     bank_transfer_amount: number;
     card_amount: number;
+    debit_amount: number;
     cash_on_hand_amount: number;
     total_expenses: number;
 }
@@ -82,6 +90,7 @@ export default function SaleIndex({
     check_amount = 0,
     bank_transfer_amount = 0,
     card_amount = 0,
+    debit_amount = 0,
     cash_on_hand_amount = 0,
     total_expenses = 0,
 }: SaleIndexProps) {
@@ -93,6 +102,7 @@ export default function SaleIndex({
     }>().props;
 
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isSalesSummaryOpen, setIsSalesSummaryOpen] = useState(false);
     const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
     const [isCollectPaymentDialogOpen, setIsCollectPaymentDialogOpen] =
         useState(false);
@@ -349,18 +359,50 @@ export default function SaleIndex({
                 </div>
 
                 {['superadmin', 'admin'].includes(auth.user.role) && (
-                    <SaleSummarySection
-                        total_sales={total_sales}
-                        net_income={net_income}
-                        cash_amount={cash_amount}
-                        gcash_amount={gcash_amount}
-                        check_amount={check_amount}
-                        bank_transfer_amount={bank_transfer_amount}
-                        card_amount={card_amount}
-                        cash_on_hand_amount={cash_on_hand_amount}
-                        total_expenses={total_expenses}
-                        selectedBranch={selectedBranch}
-                    />
+                    <div className="w-full">
+                        <Collapsible
+                            open={isSalesSummaryOpen}
+                            onOpenChange={setIsSalesSummaryOpen}
+                            className="border rounded-lg bg-white shadow-sm"
+                        >
+                            <div className="flex items-center justify-between px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                    <BarChart3 className="h-5 w-5 text-muted-foreground" />
+                                    <h4 className="text-sm font-semibold">
+                                        Sales Summary Overview
+                                    </h4>
+                                </div>
+                                <CollapsibleTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="w-9 p-0">
+                                        {isSalesSummaryOpen ? (
+                                            <ChevronUp className="h-4 w-4" />
+                                        ) : (
+                                            <ChevronDown className="h-4 w-4" />
+                                        )}
+                                        <span className="sr-only">Toggle Sales Summary</span>
+                                    </Button>
+                                </CollapsibleTrigger>
+                            </div>
+
+                            <CollapsibleContent className="space-y-2 border-t">
+                                <div className="p-4 bg-slate-50/50">
+                                    <SaleSummarySection
+                                        total_sales={total_sales}
+                                        net_income={net_income}
+                                        cash_amount={cash_amount}
+                                        gcash_amount={gcash_amount}
+                                        check_amount={check_amount}
+                                        bank_transfer_amount={bank_transfer_amount}
+                                        card_amount={card_amount}
+                                        cash_on_hand_amount={cash_on_hand_amount}
+                                        debit_amount={debit_amount}
+                                        total_expenses={total_expenses}
+                                        selectedBranch={selectedBranch}
+                                    />
+                                </div>
+                            </CollapsibleContent>
+                        </Collapsible>
+                    </div>
                 )}
 
                 <div className="rounded-md border border-sidebar-border bg-sidebar">
