@@ -1,7 +1,7 @@
 <?php
 
 use App\Enums\Expenses\ExpenseStatus;
-use App\Enums\Shared\TypeOfPaymentEnum;
+use App\Enums\Expenses\ExpenseTypeOfPaymentEnum;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -13,7 +13,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        $typeOfPayments = TypeOfPaymentEnum::cases();
+        $typeOfPayments = ExpenseTypeOfPaymentEnum::cases();
 
         Schema::create('expenses', function (Blueprint $table) use ($typeOfPayments) {
             $table->id();

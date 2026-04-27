@@ -48,7 +48,7 @@ import type { PaginatedResponse } from '@/types/pagination';
 import type { Tag } from '@/types/settings';
 import type { Sublimation } from '@/types/sublimations';
 import type { User } from '@/types/user';
-import { sortBy } from '@/utils/helpers';
+import { getAvatarColor, sortBy } from '@/utils/helpers';
 import { StatusFilter } from '@/pages/sublimations/components/status-filter';
 import { readableDate } from '@/utils/dateHelper';
 import {
@@ -123,13 +123,8 @@ export default function SublimationIndex({
     };
 
     // set default branch as babak, tibungco, penaplata ids as filter by branches data not static values
-    const defaultBranch = branches.filter((branch) => {
-        const branchNames = ['babak', 'tibungco', 'peñaplata'];
-        return branchNames.includes(branch.name.toLowerCase());
-    }).map((branch) => String(branch.id));
-
     const [branchOpen, setBranchOpen] = useState(false)
-    const selectedValues = Array.isArray(filters.branch_id) ? filters.branch_id : defaultBranch
+    const selectedValues = Array.isArray(filters.branch_id) ? filters.branch_id : []
 
     const toggleBranch = (id: string) => {
         const newSelection = selectedValues.includes(id)
@@ -217,13 +212,29 @@ export default function SublimationIndex({
         },
         {
             accessorKey: 'user.fullname',
-            header: 'Assigned To',
+            header: () => {
+                const isSorted = filters.sort_field === 'user_id';
+
+                return (
+                    <Button
+                        variant="ghost"
+                        // Pass the field, the current filters object, and the route
+                        onClick={() =>
+                            sortBy('user_id', filters, 'sublimations.index')
+                        }
+                        className="p-0 hover:bg-transparent"
+                    >
+                        Assigned To
+                        <ArrowUpDown
+                            className={`ml-2 h-4 w-4 ${isSorted ? 'text-primary' : 'text-muted-foreground/50'}`}
+                        />
+                    </Button>
+                );
+            },
             cell: ({ row }) => {
                 const assignedUser = row.original.user;
                 const recordId = row.original.id;
 
-                // Using your specific route: sublimations.update
-                // Adjust the route name if your 'patch' method has a different suffix
                 const updateStaff = (userId: string | null) => {
                     router.patch(route('sublimations.update-staff', recordId), {
                         user_id: userId,
@@ -244,14 +255,19 @@ export default function SublimationIndex({
                                         : "bg-muted/30 border-dashed border-muted-foreground/30 hover:bg-muted/50"
                                 )}
                             >
-                                {/* Avatar / Icon Circle */}
-                                <div className={cn(
-                                    "flex items-center justify-center h-5 w-5 rounded-full text-[9px] font-bold shrink-0 uppercase",
-                                    assignedUser
-                                        ? "bg-primary text-primary-foreground"
-                                        : "bg-muted-foreground/20 text-muted-foreground"
-                                )}>
-                                    {assignedUser ? assignedUser.fullname.substring(0, 2) : <UserPlus className="h-3 w-3" />}
+                                {/* Avatar Circle - Now with Dynamic Background */}
+                                <div
+                                    className={cn(
+                                        "flex items-center justify-center h-5 w-5 rounded-full text-[9px] font-bold shrink-0 uppercase text-white transition-colors",
+                                        !assignedUser && "bg-muted-foreground/20 text-muted-foreground"
+                                    )}
+                                    style={assignedUser ? { backgroundColor: getAvatarColor(assignedUser.fullname) } : {}}
+                                >
+                                    {assignedUser ? (
+                                        assignedUser.fullname.substring(0, 2)
+                                    ) : (
+                                        <UserPlus className="h-3 w-3" />
+                                    )}
                                 </div>
 
                                 {/* Name Label */}
@@ -262,7 +278,6 @@ export default function SublimationIndex({
                                     {assignedUser ? assignedUser.fullname : "Assign Staff"}
                                 </span>
 
-                                {/* Subtle Edit Indicator */}
                                 <ChevronsUpDown className="h-3 w-3 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity" />
                             </button>
                         </PopoverTrigger>
@@ -293,7 +308,11 @@ export default function SublimationIndex({
                                                 onSelect={() => updateStaff(user.id.toString())}
                                                 className="flex items-center gap-2 px-2 py-2 cursor-pointer"
                                             >
-                                                <div className="flex items-center justify-center h-6 w-6 rounded-full bg-secondary text-secondary-foreground text-[10px] font-semibold uppercase">
+                                                {/* Dropdown Avatar Color */}
+                                                <div
+                                                    className="flex items-center justify-center h-6 w-6 rounded-full text-white text-[10px] font-semibold uppercase"
+                                                    style={{ backgroundColor: getAvatarColor(user.fullname) }}
+                                                >
                                                     {user.fullname.substring(0, 2)}
                                                 </div>
                                                 <span className="flex-1 truncate">{user.fullname}</span>
@@ -308,7 +327,7 @@ export default function SublimationIndex({
                         </PopoverContent>
                     </Popover>
                 );
-            },
+            }
         },
         {
             id: 'transaction',
@@ -493,6 +512,9 @@ export default function SublimationIndex({
                                         <SelectContent>
                                             <SelectItem value="all">
                                                 All Users
+                                            </SelectItem>
+                                            <SelectItem value="unassigned">
+                                                Unassigned
                                             </SelectItem>
                                             {users
                                                 .map((user: User) => (

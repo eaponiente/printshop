@@ -49,6 +49,7 @@ export default function SublimationDialog({
         amount_paid: sublimation?.amount_paid ?? '',
         quantity: sublimation?.quantity ?? '',
         description: sublimation?.description ?? '',
+        notes: sublimation?.notes ?? '',
         branch_id: sublimation?.branch_id ?? (auth.user as any).branch_id ?? '',
         customer_id: sublimation?.customer_id ?? '',
     });
@@ -110,6 +111,20 @@ export default function SublimationDialog({
                                 }
                             />
                             <InputError message={errors.description} />
+                        </div>
+
+                        {/* Notes */}
+                        <div className="grid gap-2">
+                            <Label htmlFor="notes">Notes</Label>
+                            <Textarea
+                                id="notes"
+                                className="min-h-[80px] resize-none"
+                                value={data.notes}
+                                onChange={(e) =>
+                                    setData('notes', e.target.value)
+                                }
+                            />
+                            <InputError message={errors.notes} />
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">

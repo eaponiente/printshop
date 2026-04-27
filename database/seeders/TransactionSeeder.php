@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Enums\Shared\TypeOfPaymentEnum;
+use App\Enums\Sales\TransactionTypeOfPaymentEnum;
 use App\Enums\Sublimations\SublimationStatus;
 use App\Models\Customer;
 use App\Models\Sublimation;
@@ -85,7 +85,7 @@ class TransactionSeeder extends Seeder
 
         if ($amountPaid > 0) {
             $transaction->recordPayment($amountPaid, $paymentType);
-            if ($paymentType === TypeOfPaymentEnum::CASH->value) {
+            if ($paymentType === TransactionTypeOfPaymentEnum::CASH->value) {
                 app(CashOnHandService::class)->adjustBalance($transaction->branch_id, $amountPaid, 'revenue');
             }
         }

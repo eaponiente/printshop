@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Sales;
 
 use App\Enums\Expenses\ExpenseStatus;
-use App\Enums\Shared\TypeOfPaymentEnum;
+use App\Enums\Expenses\ExpenseTypeOfPaymentEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Sales\StoreExpenseRequest;
 use App\Http\Requests\Sales\UpdateExpenseRequest;
@@ -41,7 +41,7 @@ class ExpenseController extends Controller
             'expenses_amount' => $query->sum('amount'),
             'expenses' => $query->paginate(30)->withQueryString(),
             'branches' => Branch::accessibleBy(auth()->user())->get(['id', 'name']),
-            'payment_methods' => TypeOfPaymentEnum::map(),
+            'payment_methods' => ExpenseTypeOfPaymentEnum::map(),
         ]);
     }
 
@@ -60,7 +60,7 @@ class ExpenseController extends Controller
 
                 $expense = Expense::create($validated);
 
-                if ($expense->payment_type === TypeOfPaymentEnum::CASH->value) {
+                if ($expense->payment_type === ExpenseTypeOfPaymentEnum::CASH->value) {
                     app(CashOnHandService::class)->adjustBalance(
                         $expense->branch_id,
                         $expense->amount,
@@ -104,7 +104,7 @@ class ExpenseController extends Controller
     {
         try {
             // 4. Reverse the cash impact if it was paid in cash
-            if ($expense->payment_type === TypeOfPaymentEnum::CASH->value) {
+            if ($expense->payment_type === ExpenseTypeOfPaymentEnum::CASH->value) {
                 app(CashOnHandService::class)->adjustBalance(
                     $expense->branch_id,
                     (float) $expense->amount, // Positive amount to "refund" the drawer
@@ -142,7 +142,7 @@ class ExpenseController extends Controller
                 ]);
 
                 // 4. Reverse the cash impact if it was paid in cash
-                if ($expense->payment_type === TypeOfPaymentEnum::CASH->value) {
+                if ($expense->payment_type === ExpenseTypeOfPaymentEnum::CASH->value) {
                     app(CashOnHandService::class)->adjustBalance(
                         $expense->branch_id,
                         (float) $expense->amount, // Positive amount to "refund" the drawer

@@ -1,14 +1,15 @@
 <?php
 
-namespace App\Enums\Shared;
+namespace App\Enums\Sales;
 
-enum TypeOfPaymentEnum: string
+enum TransactionTypeOfPaymentEnum: string
 {
     case CASH = 'cash';
     case CARD = 'card';
     case CHECK = 'check';
     case BANK_TRANSFER = 'bank_transfer';
     case GCASH = 'gcash';
+    case DEBIT = 'debit';
 
     /**
      * Get the human-readable label for the UI.
@@ -21,6 +22,7 @@ enum TypeOfPaymentEnum: string
             self::CHECK => 'Check',
             self::BANK_TRANSFER => 'Bank Transfer',
             self::GCASH => 'GCash',
+            self::DEBIT => 'Debit',
         };
     }
 

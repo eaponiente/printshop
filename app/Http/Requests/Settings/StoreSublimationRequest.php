@@ -17,6 +17,7 @@ class StoreSublimationRequest extends FormRequest
     {
         return [
             'description' => ['required', 'string'],
+            'notes' => ['nullable', 'string'],
             'branch_id' => ['required', 'exists:branches,id'],
             'quantity' => ['required', 'integer', 'min:1', 'max:999999'],
             'customer_id' => ['required', 'exists:customers,id'],

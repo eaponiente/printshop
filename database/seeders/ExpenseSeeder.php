@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Enums\Shared\TypeOfPaymentEnum;
+use App\Enums\Expenses\ExpenseTypeOfPaymentEnum;
 use App\Models\Branch;
 use App\Models\Expense;
 use App\Models\User;
@@ -18,7 +18,7 @@ class ExpenseSeeder extends Seeder
         $users = User::query()->whereIn('role', ['admin', 'staff'])->get();
 
         // Get valid payment methods from config just like your migration
-        $paymentMethods = collect(TypeOfPaymentEnum::cases());
+        $paymentMethods = collect(ExpenseTypeOfPaymentEnum::cases());
 
         // Sample data for variety
         $vendors = ['Amazon Business', 'Staples', 'Local Utility Co', 'Google Cloud', 'Starbucks', 'Shell Gas'];
@@ -52,7 +52,7 @@ class ExpenseSeeder extends Seeder
                 'updated_at' => $date,
             ]);
 
-            if ($expense->status === \App\Enums\Expenses\ExpenseStatus::PAID && $expense->payment_type === TypeOfPaymentEnum::CASH->value) {
+            if ($expense->status === \App\Enums\Expenses\ExpenseStatus::PAID && $expense->payment_type === ExpenseTypeOfPaymentEnum::CASH->value) {
                 app(CashOnHandService::class)->adjustBalance(
                     $expense->branch_id,
                     $expense->amount,
