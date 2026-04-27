@@ -296,7 +296,6 @@ export default function ExpenseIndex({
                                             {p.value}
                                         </SelectItem>
                                     ))}
-                                    <SelectItem value="paid">Paid</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
