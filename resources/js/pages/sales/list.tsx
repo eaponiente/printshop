@@ -9,13 +9,22 @@ import {
     Wallet,
     Eye,
 } from 'lucide-react';
-import { Banknote, TrendingUp } from 'lucide-react';
-import React, { useEffect, useState, useCallback, useMemo, Suspense, lazy } from 'react';
+import { useState, useCallback, useMemo, Suspense, lazy } from 'react';
 import { route } from 'ziggy-js';
 import { DataTable } from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card'; // Ensure you have these shadcn components
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import AppLayout from '@/layouts/app-layout';
 import TableFilters from '@/pages/sales/components/table-filters';
 
@@ -92,6 +101,13 @@ export default function SaleIndex({
         setTransaction(transaction);
         setIsDialogOpen(true);
     }, []);
+
+    const deleteSale = (transaction: Transaction) => {
+        router.delete(route('sales.destroy', transaction.id), {
+            onSuccess: () => toast.success(transaction.invoice_number + ' has been deleted.', { position: 'top-center' }),
+            onError: (errors) => toast.error(errors.message, { position: 'top-center' }),
+        });
+    };
 
     const openDetailsForm = useCallback((transaction: Transaction) => {
         setTransaction(transaction);
@@ -273,6 +289,37 @@ export default function SaleIndex({
                         >
                             <Pencil />
                         </Button>
+                        {/* only superadmin */}
+                        {auth.user.role === 'superadmin' && (
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="sm">
+                                        <Trash2 />
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>
+                                            Are you absolutely sure?
+                                        </AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This action cannot be undone. This will
+                                            permanently delete this sublimation.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction
+                                            onClick={() =>
+                                                deleteSale(row.original)
+                                            }
+                                        >
+                                            Continue
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        )}
                     </>
                 );
             },

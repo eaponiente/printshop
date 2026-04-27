@@ -7,11 +7,12 @@ use App\Concerns\Sortable;
 use App\Enums\Sales\TransactionStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 
 class Transaction extends Model
 {
-    use SaleFilterTrait, Sortable, HasFactory;
+    use SaleFilterTrait, Sortable, HasFactory, SoftDeletes;
 
     public $guarded = ['id'];
 

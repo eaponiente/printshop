@@ -107,4 +107,37 @@ class SaleController extends Controller
             return back()->withErrors(['amount_paid' => $e->getMessage()]);
         }
     }
+
+    public function destroy(Transaction $sale): RedirectResponse
+    {
+        // only superadmin
+        if (! auth()->user()->isSuperAdmin()) {
+            return back()->withErrors(['message' => 'Only superadmin can delete sales.']);
+        }
+
+        // check if transaction exists
+        if ($sale->deleted_at !== null) {
+            return back()->withErrors(['message' => 'Transaction already deleted.']);
+        }
+
+        // only if pending
+        if ($sale->status !== TransactionStatus::PENDING->value) {
+            return back()->withErrors(['message' => 'Cannot delete processed sales.']);
+        }
+
+        // only if no payments
+        if ($sale->payments()->exists()) {
+            return back()->withErrors(['message' => 'Cannot delete sales with payments.']);
+        }
+
+        try {
+            $sale->delete();
+
+            return back()->with('success', 'Sale deleted successfully.');
+        } catch (\Exception $e) {
+            Log::error('Failed to delete sale: ' . $e->getMessage());
+
+            return back()->withErrors(['message' => 'An error occurred while deleting the sale.']);
+        }
+    }
 }
