@@ -271,7 +271,6 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                                 )}
                             </div>
 
-                            {/* 3. Lean Action */}
                             <div className="flex items-center pl-4">
                                 {transaction ? (
                                     <a
