@@ -117,7 +117,7 @@ export default function ExpenseIndex({
                         className:
                             'bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 border-blue-200',
                     },
-                    credit_card: {
+                    credit: {
                         label: 'Credit',
                         className:
                             'bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 border-blue-200',
