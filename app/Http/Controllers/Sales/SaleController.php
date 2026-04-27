@@ -110,6 +110,16 @@ class SaleController extends Controller
 
     public function destroy(Transaction $sale): RedirectResponse
     {
+        // only superadmin
+        if (! auth()->user()->isSuperAdmin()) {
+            return back()->withErrors(['message' => 'Only superadmin can delete sales.']);
+        }
+
+        // check if transaction exists
+        if ($sale->deleted_at !== null) {
+            return back()->withErrors(['message' => 'Transaction already deleted.']);
+        }
+
         // only if pending
         if ($sale->status !== TransactionStatus::PENDING->value) {
             return back()->withErrors(['message' => 'Cannot delete processed sales.']);

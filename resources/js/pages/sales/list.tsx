@@ -289,34 +289,37 @@ export default function SaleIndex({
                         >
                             <Pencil />
                         </Button>
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="sm">
-                                    <Trash2 />
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                        Are you absolutely sure?
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        This action cannot be undone. This will
-                                        permanently delete this sublimation.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction
-                                        onClick={() =>
-                                            deleteSale(row.original)
-                                        }
-                                    >
-                                        Continue
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
+                        {/* only superadmin */}
+                        {auth.user.role === 'superadmin' && (
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="sm">
+                                        <Trash2 />
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>
+                                            Are you absolutely sure?
+                                        </AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This action cannot be undone. This will
+                                            permanently delete this sublimation.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction
+                                            onClick={() =>
+                                                deleteSale(row.original)
+                                            }
+                                        >
+                                            Continue
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        )}
                     </>
                 );
             },
