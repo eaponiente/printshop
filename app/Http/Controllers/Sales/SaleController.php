@@ -37,7 +37,7 @@ class SaleController extends Controller
         return Inertia::render('sales/list', array_merge([
             'filters' => $filters,
             'branches' => Branch::accessibleBy(auth()->user())->get(['id', 'name']),
-            'transactions' => $query->paginate(30)->withQueryString(),
+            'transactions' => $query->paginate(100)->withQueryString(),
             'types_of_payment' => TypeOfPaymentEnum::map(),
             'cash_on_hand_amount' => $cashOnHand,
         ], $aggregates, $this->salesService->getFinanceSummary($filters)));
@@ -89,7 +89,6 @@ class SaleController extends Controller
     public function updatePayment(UpdateTransactionPaymentRequest $request, Transaction $transaction): RedirectResponse
     {
         try {
-
             // Logic moved to a transition method on the Model (Encapsulation)
             $transaction->recordPayment($request->amount_paid, $request->payment_type);
 
@@ -100,8 +99,6 @@ class SaleController extends Controller
                     'revenue'
                 );
             }
-
-
 
             return back()->with('success', 'Payment updated.');
         } catch (\Exception $e) {
