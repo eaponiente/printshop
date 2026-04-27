@@ -67,7 +67,7 @@ Route::middleware(['auth'])->group(function () {
 
     Route::patch('sales/payment/{transaction}', [SaleController::class, 'updatePayment'])->name('sales.update-payment');
     Route::resource('sales', SaleController::class)
-        ->only(['index', 'store', 'update']);
+        ->only(['index', 'store', 'update', 'destroy']);
 
     Route::patch('purchase-orders/{purchaseOrder}/status', [PurchaseOrderController::class, 'updateStatus'])->name('purchase-orders.status.update');
     Route::post('purchase-orders/{purchaseOrder}/transactions', [PurchaseOrderController::class, 'createTransaction'])->name('purchase-orders.transactions.store');
