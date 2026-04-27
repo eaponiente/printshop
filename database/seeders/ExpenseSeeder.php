@@ -30,7 +30,7 @@ class ExpenseSeeder extends Seeder
             $user = $users->random();
 
             $date = Carbon::now()->addDays(random_int(-7, 7))->format('Y-m-d');
-            
+
             $isVoid = rand(1, 100) <= 10; // 10% chance to be voided
             $status = $isVoid ? \App\Enums\Expenses\ExpenseStatus::VOID : \App\Enums\Expenses\ExpenseStatus::PAID;
 
@@ -39,12 +39,12 @@ class ExpenseSeeder extends Seeder
                 'vendor_name' => rand(0, 1) ? $vendors[array_rand($vendors)] : null,
                 'amount' => $amount,
                 'status' => $status,
-                'payment_type' => rand(0, 1) ? $paymentMethods->random() : null,
+                'payment_type' => $paymentMethods->random()->value,
 
                 // Assuming ID 1 exists for user and branch - adjust if necessary
                 'user_id' => $user->id,
                 'branch_id' => $user->branch_id,
-                
+
                 'void_reason' => $isVoid ? 'Entered by mistake' : null,
 
                 'expense_date' => $date,

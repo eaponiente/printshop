@@ -117,7 +117,14 @@ export default function ExpenseIndex({
                         className:
                             'bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 border-blue-200',
                     },
+                    credit_card: {
+                        label: 'Credit',
+                        className:
+                            'bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 border-blue-200',
+                    },
                 };
+                console.log('ptc', paymentTypeConfig);
+                console.log('paymentType', paymentType);
                 const config = paymentTypeConfig[paymentType] || {
                     label: paymentType.charAt(0).toUpperCase() + paymentType.slice(1),
                     className: '',
