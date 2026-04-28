@@ -1,4 +1,4 @@
-import { Form } from '@inertiajs/react';
+import { Form, usePage } from '@inertiajs/react';
 import { toast } from "sonner"
 import InputError from '@/components/input-error';
 import PasswordInput from '@/components/password-input';
@@ -27,6 +27,8 @@ interface UserDialogProps {
 export default function UserDialog({ open, setOpen, user, branches }: UserDialogProps) {
 
     const isEdit = !!user;
+
+    const { auth } = usePage().props;
 
     const roles = [
         {
@@ -94,7 +96,7 @@ export default function UserDialog({ open, setOpen, user, branches }: UserDialog
                                     <NativeSelect
                                         tabIndex={3}
                                         name={'branch_id'}
-                                        defaultValue={user?.branch_id}
+                                        defaultValue={isEdit ? user?.branch_id : auth.user.branch_id}
                                     >
                                         <NativeSelectOption value="">
                                             Select branch
