@@ -22,10 +22,7 @@ export const toManilaTime = (
         return 'N/A';
     }
 
-    // 1. Parse the date as UTC
-    // 2. Convert to Manila Timezone
-    // 3. Format the output
-    return dayjs.utc(date).tz(MANILA_TIMEZONE).format(format);
+    return dayjs(date).format(format);
 };
 
 export const readableDate = (dateInput: string | Date) => {
