@@ -60,8 +60,8 @@ class PurchaseOrderController extends Controller
                     // When NOT checked, we hide POs that are BOTH Released AND Paid
                     $q->where(function ($query) {
                         $query->where('status', '!=', PurchaseOrderStatus::RELEASED->value)
-                            ->orWhereHas('transaction', function ($sub) {
-                                $sub->where('status', '!=', 'paid');
+                            ->orWhereDoesntHave('transaction', function ($sub) {
+                                $sub->where('status', 'paid');
                             });
                     });
                 }

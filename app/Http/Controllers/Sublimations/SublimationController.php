@@ -186,7 +186,8 @@ class SublimationController extends Controller
                 }
             }
 
-            $sublimation->transaction->delete();
+
+            $sublimation->transaction()->delete();
             $sublimation->delete();
 
             return redirect()->back()->with('success', 'Sublimation deleted successfully.');
