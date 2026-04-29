@@ -18,6 +18,7 @@ class StoreExpenseRequest extends FormRequest
     {
         return [
             'description' => ['required', 'string', 'max:1000'],
+            'notes' => ['nullable', 'string'],
             'vendor_name' => ['nullable', 'string', 'max:255'],
             'amount' => ['required', 'numeric', 'min:0'],
             'payment_type' => ['required', Rule::in(ExpenseTypeOfPaymentEnum::cases())],

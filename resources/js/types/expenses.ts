@@ -16,6 +16,7 @@ export type ExpenseStatus = 'pending' | 'approved' | 'rejected' | 'reimbursed';
 export interface Expense {
     id: number;
     description: string;
+    notes: string;
     vendor_name: string | null;
 
     // In TS, Decimal/Numeric from MySQL usually comes as a string
