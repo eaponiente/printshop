@@ -40,7 +40,7 @@ class ExpenseController extends Controller
             'filters' => $request->all(),
             'expenses_amount' => $query->sum('amount'),
             'expenses' => $query->paginate(30)->withQueryString(),
-            'branches' => Branch::accessibleBy(auth()->user())->get(['id', 'name']),
+            'branches' => Branch::get(['id', 'name']),
             'payment_methods' => ExpenseTypeOfPaymentEnum::map(),
         ]);
     }
