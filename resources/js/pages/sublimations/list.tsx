@@ -71,6 +71,7 @@ import { Calendar as CalendarIcon, Clock } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { EditableDateCell } from './components/editable-date-cell';
 import { Badge } from '@/components/ui/badge';
+import { getCustomerDisplayName } from '@/utils/formatters';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -161,7 +162,10 @@ export default function SublimationIndex({
     const columns: ColumnDef<any>[] = [
         {
             accessorKey: 'customer.full_name',
-            header: 'Customer'
+            header: 'Customer',
+            cell: ({ row }: CellContext<any, any>) => {
+                return getCustomerDisplayName(row.original.customer);
+            }
         },
         {
             accessorKey: 'description',

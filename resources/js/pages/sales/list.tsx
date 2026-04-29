@@ -5,6 +5,7 @@ import {
     CreditCard,
     Pencil,
     Plus,
+    RotateCcw,
     Trash2,
     Eye,
     ChevronDown,
@@ -37,6 +38,7 @@ import {
 
 const SaleDialog = lazy(() => import('@/pages/sales/sales-dialog'));
 const CollectPaymentDialog = lazy(() => import('@/pages/sales/components/collect-payment-dialog'));
+const RefundPaymentDialog = lazy(() => import('@/pages/sales/components/refund-payment-dialog'));
 const TransactionDetailsDialog = lazy(() => import('@/pages/sales/components/transaction-details-dialog'));
 
 const statusConfig = {
@@ -51,7 +53,7 @@ import type { TypeOfPayment } from '@/types/settings';
 import type { Transaction } from '@/types/transaction';
 import type { Customer, User } from '@/types/user';
 import { toManilaTime } from '@/utils/dateHelper';
-import { formatCurrency } from '@/utils/formatters';
+import { formatCurrency, getCustomerDisplayName } from '@/utils/formatters';
 import { sortBy } from '@/utils/helpers';
 import { toast } from 'sonner';
 import SaleSummarySection from './components/sale-summary-section';
@@ -106,6 +108,7 @@ export default function SaleIndex({
     const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
     const [isCollectPaymentDialogOpen, setIsCollectPaymentDialogOpen] =
         useState(false);
+    const [isRefundDialogOpen, setIsRefundDialogOpen] = useState(false);
 
     const openEditForm = useCallback((transaction: Transaction | null) => {
         setTransaction(transaction);
@@ -170,6 +173,11 @@ export default function SaleIndex({
         setTransaction(transaction);
     }, []);
 
+    const handleRefundPayment = useCallback((transaction: Transaction) => {
+        setIsRefundDialogOpen(true);
+        setTransaction(transaction);
+    }, []);
+
     const columns: ColumnDef<unknown, any>[] = useMemo(() => [
         {
             accessorKey: 'invoice_number',
@@ -190,6 +198,9 @@ export default function SaleIndex({
         {
             accessorKey: 'customer.full_name',
             header: 'Customer Name',
+            cell: ({ row }: CellContext<any, any>) => {
+                return getCustomerDisplayName(row.original.customer);
+            }
         },
         {
             accessorKey: 'particular',
@@ -266,15 +277,31 @@ export default function SaleIndex({
                 if (status === 'paid') return null;
 
                 return (
-                    <Button
-                        size="sm"
-                        variant="default"
-                        className="h-8 bg-indigo-600 text-white shadow-sm hover:bg-indigo-700"
-                        onClick={() => handleReceivePayment(row.original)}
-                    >
-                        <CreditCard className="mr-2 h-3.5 w-3.5" />
-                        Collect Pay
-                    </Button>
+                    <div className="flex gap-2">
+                        {status !== 'paid' && (
+                            <Button
+                                size="sm"
+                                variant="default"
+                                className="h-8 bg-indigo-600 text-white shadow-sm hover:bg-indigo-700"
+                                onClick={() => handleReceivePayment(row.original)}
+                            >
+                                <CreditCard className="mr-2 h-3.5 w-3.5" />
+                                Collect Pay
+                            </Button>
+                        )}
+                        {status === 'partial' &&
+                            auth.user.role === 'superadmin' && (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 border-amber-300 text-amber-700 hover:bg-amber-50"
+                                    onClick={() => handleRefundPayment(row.original)}
+                                >
+                                    <RotateCcw className="mr-2 h-3.5 w-3.5" />
+                                    Refund
+                                </Button>
+                            )}
+                    </div>
                 );
 
 
@@ -334,7 +361,7 @@ export default function SaleIndex({
                 );
             },
         },
-    ], [filters, handleReceivePayment, openDetailsForm, openEditForm]);
+    ], [filters, handleReceivePayment, handleRefundPayment, openDetailsForm, openEditForm]);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -434,6 +461,15 @@ export default function SaleIndex({
                         open={isCollectPaymentDialogOpen}
                         typesOfPayment={types_of_payment}
                         setOpen={setIsCollectPaymentDialogOpen}
+                    />
+                )}
+
+                {isRefundDialogOpen && (
+                    <RefundPaymentDialog
+                        transaction={getTransaction}
+                        open={isRefundDialogOpen}
+                        typesOfPayment={types_of_payment}
+                        setOpen={setIsRefundDialogOpen}
                     />
                 )}
 
