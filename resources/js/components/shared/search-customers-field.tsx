@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { AddGuestModal } from '@/pages/sales/components/add-guest-dialog';
 import type { Customer } from '@/types/user';
 import { debounce } from '@/utils/helpers';
+import { getCustomerDisplayName } from '@/utils/formatters';
 
 export default function SearchCustomersField({ field, selectCustomer, errors }: any) {
     const [searchQuery, setSearchQuery] = useState('');
@@ -16,7 +17,7 @@ export default function SearchCustomersField({ field, selectCustomer, errors }: 
     const [searchOpen, setSearchOpen] = useState(false);
     const [showAddCustomer, setShowAddCustomer] = useState(false);
     const [displayName, setDisplayName] = useState(
-        field ? `${field.customer?.first_name} ${field.customer?.last_name}` : ''
+        field?.customer ? getCustomerDisplayName(field.customer) : ''
     );
 
     const handleCustomerSelect = (id: number, name: string) => {
@@ -120,24 +121,36 @@ export default function SearchCustomersField({ field, selectCustomer, errors }: 
 
                                 <CommandGroup>
                                     {customers.map((c: Customer) => {
-                                        const fullName = `${c.first_name} ${c.last_name}`;
-                                        const isSelected = displayName === fullName;
+                                        // 1. Check if we actually have a name to show
+                                        const hasName = c.first_name && c.first_name.trim() !== "";
+
+                                        // 2. Set the Primary Label: Name takes priority, Company is the fallback
+                                        const primaryLabel = hasName
+                                            ? `${c.first_name} ${c.last_name || ""}`.trim()
+                                            : (c.company || "Unknown Customer");
+
+                                        // 3. Set the Secondary Label: Only show company if it's not already the primary label
+                                        const secondaryLabel = hasName ? c.company : null;
+
+                                        // 4. Update selection logic to match the displayed primary label
+                                        const isSelected = displayName === primaryLabel;
 
                                         return (
                                             <CommandItem
                                                 key={c.id}
-                                                onSelect={() => handleCustomerSelect(c.id, fullName)}
+                                                onSelect={() => handleCustomerSelect(c.id, primaryLabel)}
                                                 className="flex flex-col items-start px-3 py-2 cursor-pointer"
                                             >
                                                 <span className={cn(
                                                     "text-sm",
                                                     isSelected && "font-bold text-primary"
                                                 )}>
-                                                    {fullName}
+                                                    {primaryLabel}
                                                 </span>
-                                                {c.company && (
+
+                                                {secondaryLabel && (
                                                     <span className="text-[11px] text-muted-foreground line-clamp-1 italic">
-                                                        {c.company}
+                                                        {secondaryLabel}
                                                     </span>
                                                 )}
                                             </CommandItem>

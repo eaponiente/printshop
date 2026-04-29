@@ -51,7 +51,7 @@ import type { TypeOfPayment } from '@/types/settings';
 import type { Transaction } from '@/types/transaction';
 import type { Customer, User } from '@/types/user';
 import { toManilaTime } from '@/utils/dateHelper';
-import { formatCurrency } from '@/utils/formatters';
+import { formatCurrency, getCustomerDisplayName } from '@/utils/formatters';
 import { sortBy } from '@/utils/helpers';
 import { toast } from 'sonner';
 import SaleSummarySection from './components/sale-summary-section';
@@ -190,6 +190,9 @@ export default function SaleIndex({
         {
             accessorKey: 'customer.full_name',
             header: 'Customer Name',
+            cell: ({ row }: CellContext<any, any>) => {
+                return getCustomerDisplayName(row.original.customer);
+            }
         },
         {
             accessorKey: 'particular',
