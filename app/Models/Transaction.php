@@ -38,7 +38,7 @@ class Transaction extends Model
 
     public function sublimation()
     {
-        return $this->hasOne(Sublimation::class);
+        return $this->hasOne(Sublimation::class, 'transaction_id');
     }
 
     /**

@@ -223,7 +223,7 @@ class SublimationController extends Controller
                             'amount_total' => $sublimation->amount_total,
                             'particular' => 'Sublimation',
                             'staff_id' => auth()->id(),
-                            'transaction_date' => now(),
+                            'transaction_date' => now()
                         ]));
 
                         $sublimation->transaction_id = $transaction->id;
