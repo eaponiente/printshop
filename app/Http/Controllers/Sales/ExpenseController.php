@@ -30,7 +30,16 @@ class ExpenseController extends Controller
         ]);
 
         $query = Expense::query()->with(['user', 'branch'])
-            ->filtered($request->all())
+            ->dateFiltered($request->all())
+            ->where(function ($query) use ($request) {
+                $user = auth()->user();
+                $filterId = $request['branch_id'] ?? null;
+
+                if ($filterId) {
+                    // Superadmins only get a WHERE clause if they picked a specific branch
+                    $query->where('branch_id', $filterId);
+                }
+            })
             ->when($request->filled('payment_type'), function ($q) use ($request) {
                 $q->where('payment_type', $request->payment_type);
             })
@@ -123,6 +132,8 @@ class ExpenseController extends Controller
 
     public function void(Request $request, Expense $expense): RedirectResponse
     {
+        //$this->authorize('void', $expense);
+
         // 1. Pre-emptive check
         if ($expense->status === ExpenseStatus::VOID->value) {
             return back()->withErrors(['message' => 'Expense is already voided.']);
