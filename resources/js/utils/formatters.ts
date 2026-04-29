@@ -31,3 +31,22 @@ export const formatStatus = (status: string): string => {
         )
         .join(' ');
 };
+
+/**
+ * Resolves the display label for a customer.
+ * Prioritizes Full Name if First Name exists, otherwise falls back to Company.
+ */
+export const getCustomerDisplayName = (customer?: {
+    first_name?: string | null;
+    full_name?: string | null;
+    company?: string | null;
+}) => {
+    if (!customer) return "Unknown Customer";
+
+    // Check if first_name exists and isn't just whitespace
+    const hasFirstName = !!customer.first_name?.trim();
+
+    return hasFirstName
+        ? (customer.full_name ?? "Unknown Name")
+        : (customer.company ?? "Unknown Customer");
+};
