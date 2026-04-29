@@ -15,6 +15,7 @@ class UpdateExpenseRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'notes' => ['nullable', 'string'],
             'description' => ['required', 'string', 'max:1000'],
             'vendor_name' => ['nullable', 'string', 'max:255'],
             'expense_date' => ['required', 'date'],
