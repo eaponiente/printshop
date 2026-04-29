@@ -178,9 +178,7 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches }: 
                     {/* --- Items Table --- */}
                     <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                            <Label className="text-lg font-bold">
-                                Line Items
-                            </Label>
+                            <Label className="text-lg font-bold">Line Items</Label>
                             <Button
                                 type="button"
                                 variant="outline"
@@ -188,11 +186,7 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches }: 
                                 onClick={() =>
                                     setData('details', [
                                         ...data.details,
-                                        {
-                                            item_name: '',
-                                            quantity: 1,
-                                            unit_price: 0,
-                                        },
+                                        { item_name: '', quantity: 1, unit_price: 0 },
                                     ])
                                 }
                             >
@@ -205,93 +199,69 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches }: 
                                 key={index}
                                 className="group relative flex items-end gap-3 rounded-md border bg-slate-50/50 p-3"
                             >
+                                {/* Changed grid-cols-12 to accommodate the Total column */}
                                 <div className="grid flex-1 grid-cols-12 gap-3">
-                                    <div className="col-span-6 grid gap-1.5">
-                                        <Label className="text-xs">
-                                            Item Description
-                                        </Label>
+                                    <div className="col-span-5 grid gap-1.5">
+                                        <Label className="text-xs">Item Description</Label>
                                         <Input
                                             value={item.item_name}
-                                            onChange={(e) =>
-                                                updateItem(
-                                                    index,
-                                                    'item_name',
-                                                    e.target.value,
-                                                )
-                                            }
+                                            onChange={(e) => updateItem(index, 'item_name', e.target.value)}
                                         />
                                     </div>
-                                    <div className="col-span-3 grid gap-1.5">
+                                    <div className="col-span-2 grid gap-1.5">
                                         <Label className="text-xs">Qty</Label>
                                         <Input
                                             type="number"
-                                            className={
-                                                errors[
-                                                    `details.${index}.quantity` as keyof typeof errors
-                                                ]
-                                                    ? 'border-destructive focus-visible:ring-destructive'
-                                                    : ''
-                                            }
+                                            className={errors[`details.${index}.quantity`] ? 'border-destructive' : ''}
                                             value={item.quantity}
-                                            onChange={(e) =>
-                                                updateItem(
-                                                    index,
-                                                    'quantity',
-                                                    e.target.value,
-                                                )
-                                            }
+                                            onChange={(e) => updateItem(index, 'quantity', e.target.value)}
                                         />
                                     </div>
-                                    <div className="col-span-3 grid gap-1.5">
+                                    <div className="col-span-2 grid gap-1.5">
                                         <Label className="text-xs">Unit Price</Label>
                                         <Input
                                             type="number"
-                                            className={
-                                                errors[
-                                                    `details.${index}.unit_price` as keyof typeof errors
-                                                ]
-                                                    ? 'border-destructive focus-visible:ring-destructive'
-                                                    : ''
-                                            }
+                                            className={errors[`details.${index}.unit_price`] ? 'border-destructive' : ''}
                                             value={item.unit_price}
-                                            onChange={(e) =>
-                                                updateItem(
-                                                    index,
-                                                    'unit_price',
-                                                    e.target.value,
-                                                )
-                                            }
+                                            onChange={(e) => updateItem(index, 'unit_price', e.target.value)}
                                         />
                                     </div>
+                                    {/* Row Total Column */}
+                                    <div className="col-span-3 grid gap-1.5 text-right">
+                                        <Label className="text-xs">Total</Label>
+                                        <div className="flex h-10 items-center justify-end px-3 font-medium">
+                                            {(item.quantity * item.unit_price).toLocaleString()}
+                                        </div>
+                                    </div>
                                 </div>
+
                                 <Button
                                     type="button"
                                     variant="ghost"
                                     size="icon"
                                     className="mb-0.5 text-destructive"
-                                    onClick={() =>
-                                        setData(
-                                            'details',
-                                            data.details.filter(
-                                                (_, i) => i !== index,
-                                            ),
-                                        )
-                                    }
+                                    onClick={() => setData('details', data.details.filter((_, i) => i !== index))}
                                 >
                                     <Trash2 className="h-4 w-4" />
                                 </Button>
                             </div>
                         ))}
 
-                        {/* Find the first error that starts with "details" */}
-                        {Object.keys(errors).some((key) =>
-                            key.startsWith('details'),
-                        ) && (
-                                <p className="text-sm font-medium text-destructive">
-                                    There are errors in your line items. Please
-                                    check the quantities and prices.
-                                </p>
-                            )}
+                        {/* Grand Total Section */}
+                        <div className="flex flex-col items-end gap-2 border-t pt-4">
+                            <div className="flex w-full max-w-[200px] justify-between text-lg font-bold">
+                                <span>Subtotal:</span>
+                                <span className="text-primary">
+                                    {data.details.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0).toLocaleString()}
+                                </span>
+                            </div>
+                        </div>
+
+                        {Object.keys(errors).some((key) => key.startsWith('details')) && (
+                            <p className="text-sm font-medium text-destructive text-right">
+                                There are errors in your line items. Please check the quantities and prices.
+                            </p>
+                        )}
                     </div>
 
                     <Button
