@@ -117,4 +117,43 @@ class Transaction extends Model
             ]);
         });
     }
+
+    /**
+     * Reverse the full collected amount on a partial transaction.
+     *
+     * We keep payment rows as an immutable ledger and append a negative
+     * refund entry instead of deleting historical collections.
+     *
+     * @throws \Exception
+     */
+    public function refundPayment(string $paymentType): float
+    {
+        return DB::transaction(function () use ($paymentType) {
+            $fresh = self::lockForUpdate()->find($this->id);
+
+            if ($fresh->status !== TransactionStatus::PARTIAL->value) {
+                throw new \Exception('Only partial transactions can be refunded.');
+            }
+
+            $refundAmount = (float) $fresh->amount_paid;
+
+            if ($refundAmount <= 0) {
+                throw new \Exception('There is no collected amount available to refund.');
+            }
+
+            $fresh->payments()->create([
+                'amount' => -$refundAmount,
+                'payment_type' => $paymentType,
+                'staff_id' => auth()->id(),
+            ]);
+
+            $fresh->update([
+                'amount_paid' => 0,
+                'status' => TransactionStatus::PENDING,
+                'fulfilled_at' => null,
+            ]);
+
+            return $refundAmount;
+        });
+    }
 }

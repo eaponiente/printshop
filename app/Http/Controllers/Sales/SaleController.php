@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Sales;
 use App\Enums\Sales\TransactionStatus;
 use App\Enums\Sales\TransactionTypeOfPaymentEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Transactions\RefundTransactionPaymentRequest;
 use App\Http\Requests\Transactions\GetTransactionsRequest;
 use App\Http\Requests\Transactions\StoreTransactionRequest;
 use App\Http\Requests\Transactions\UpdateTransactionPaymentRequest;
@@ -105,6 +106,27 @@ class SaleController extends Controller
             Log::error('Failed to update payment: ' . $e->getMessage());
 
             return back()->withErrors(['amount_paid' => $e->getMessage()]);
+        }
+    }
+
+    public function refundPayment(RefundTransactionPaymentRequest $request, Transaction $transaction): RedirectResponse
+    {
+        try {
+            $refundedAmount = $transaction->refundPayment($request->payment_type);
+
+            if ($request->payment_type === TransactionTypeOfPaymentEnum::CASH->value) {
+                app(CashOnHandService::class)->adjustBalance(
+                    $transaction->branch_id,
+                    $refundedAmount,
+                    'expense'
+                );
+            }
+
+            return back()->with('success', 'Full refund recorded.');
+        } catch (\Exception $e) {
+            Log::error('Failed to refund payment: ' . $e->getMessage());
+
+            return back()->withErrors(['payment_type' => $e->getMessage()]);
         }
     }
 

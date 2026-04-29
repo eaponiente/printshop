@@ -66,6 +66,7 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('customers', CustomerController::class);
 
     Route::patch('sales/payment/{transaction}', [SaleController::class, 'updatePayment'])->name('sales.update-payment');
+    Route::patch('sales/refund/{transaction}', [SaleController::class, 'refundPayment'])->name('sales.refund-payment');
     Route::resource('sales', SaleController::class)
         ->only(['index', 'store', 'update', 'destroy']);
 
