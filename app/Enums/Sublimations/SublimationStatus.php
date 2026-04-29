@@ -12,7 +12,6 @@ enum SublimationStatus: string
     case DONE_SIZING = 'done_sizing';
     case PRINTED = 'printed';
     case CUT = 'cut';
-    case PRINTED_RED = 'printed_alt'; // Handling the duplicate "Printed" in red
     case SEWING = 'sewing';
     case SEWED = 'sewed';
     case CHECKED = 'checked';
@@ -34,7 +33,6 @@ enum SublimationStatus: string
             self::DONE_SIZING => 'Done Sizing',
             self::PRINTED => 'Printed',
             self::CUT => 'Cut',
-            self::PRINTED_RED => 'Printed',
             self::SEWING => 'Sewing',
             self::SEWED => 'Sewed',
             self::CHECKED => 'Checked',
@@ -61,7 +59,6 @@ enum SublimationStatus: string
             self::DONE_SIZING => 'bg-cyan-400 text-black',
             self::PRINTED => 'bg-teal-200 text-black',
             self::CUT => 'bg-purple-300 text-black',
-            self::PRINTED_RED => 'bg-red-500 text-white',
             self::SEWING => 'bg-violet-300 text-black',
             self::SEWED => 'bg-orange-400 text-white',
             self::CHECKED => 'bg-rose-400 text-white',
@@ -76,7 +73,7 @@ enum SublimationStatus: string
     public static function map(): array
     {
         return collect(self::cases())
-            ->map(fn ($case) => [
+            ->map(fn($case) => [
                 'key' => $case->value,
                 'value' => $case->label(),
                 'color' => $case->color(),
@@ -102,7 +99,6 @@ enum SublimationStatus: string
             self::DONE_SIZING,
             self::PRINTED,
             self::CUT,
-            self::PRINTED_RED,
             self::SEWING,
             self::SEWED,
             self::CHECKED,
