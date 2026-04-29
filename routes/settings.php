@@ -75,6 +75,8 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('purchase-orders', PurchaseOrderController::class);
     Route::resource('endorsements', EndorsementController::class);
     Route::patch('/expenses/{expense}/void', [ExpenseController::class, 'void'])->name('expenses.void');
+    Route::post('/expenses/{expense}/approve', [ExpenseController::class, 'approve'])->name('expenses.approve');
+    Route::post('/expenses/{expense}/reject', [ExpenseController::class, 'reject'])->name('expenses.reject');
     Route::resource('expenses', ExpenseController::class);
 
     Route::prefix('api')->group(function () {

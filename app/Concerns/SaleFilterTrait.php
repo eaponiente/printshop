@@ -16,11 +16,14 @@ trait SaleFilterTrait
                 $user = auth()->user();
                 $filterId = $filters['branch_id'] ?? null;
 
-                if ($user->role !== 'superadmin') {
-                    // Non-admins are FORCED to their branch, regardless of the filter
-                    $query->where('branch_id', $user->branch_id);
+                if (!in_array($user->role, ['superadmin', 'admin'])) {
+                    // Non-admins are FORCED to their branch or expenses they created
+                    $query->where(function($q) use ($user) {
+                        $q->where('branch_id', $user->branch_id)
+                          ->orWhere('user_id', $user->id);
+                    });
                 } elseif ($filterId && $filterId !== 'all') {
-                    // Superadmins only get a WHERE clause if they picked a specific branch
+                    // Admins/Superadmins only get a WHERE clause if they picked a specific branch
                     $query->where('branch_id', $filterId);
                 }
             });

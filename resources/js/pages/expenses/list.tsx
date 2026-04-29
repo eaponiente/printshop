@@ -146,6 +146,16 @@ export default function ExpenseIndex({
                         className:
                             'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border-emerald-200',
                     },
+                    pending: {
+                        label: 'Pending',
+                        className:
+                            'bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border-amber-200',
+                    },
+                    rejected: {
+                        label: 'Rejected',
+                        className:
+                            'bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-200',
+                    },
                     void: {
                         label: 'Voided',
                         className:

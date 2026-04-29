@@ -40,7 +40,7 @@ class ExpenseController extends Controller
             'filters' => $request->all(),
             'expenses_amount' => $query->sum('amount'),
             'expenses' => $query->paginate(30)->withQueryString(),
-            'branches' => Branch::accessibleBy(auth()->user())->get(['id', 'name']),
+            'branches' => Branch::get(['id', 'name']),
             'payment_methods' => ExpenseTypeOfPaymentEnum::map(),
         ]);
     }
@@ -58,9 +58,14 @@ class ExpenseController extends Controller
                 $validated['user_id'] = auth()->id();
                 $validated['expense_date'] = now();
 
+                $isCrossBranch = $validated['branch_id'] != auth()->user()->branch_id;
+                $isSuperAdmin = auth()->user()->role === 'superadmin';
+                $status = ($isCrossBranch && !$isSuperAdmin) ? ExpenseStatus::PENDING->value : ExpenseStatus::PAID->value;
+                $validated['status'] = $status;
+
                 $expense = Expense::create($validated);
 
-                if ($expense->payment_type === ExpenseTypeOfPaymentEnum::CASH->value) {
+                if ($expense->status === ExpenseStatus::PAID->value && $expense->payment_type === ExpenseTypeOfPaymentEnum::CASH->value) {
                     app(CashOnHandService::class)->adjustBalance(
                         $expense->branch_id,
                         $expense->amount,
@@ -159,6 +164,47 @@ class ExpenseController extends Controller
             return back()->withErrors([
                 'message' => 'Failed to void the expense. Please try again or contact support.',
             ]);
+        }
+    }
+
+    public function approve(Expense $expense): RedirectResponse
+    {
+        if ($expense->status !== ExpenseStatus::PENDING->value) {
+            return back()->withErrors(['message' => 'Only pending expenses can be approved.']);
+        }
+
+        try {
+            DB::transaction(function () use ($expense) {
+                $expense->update(['status' => ExpenseStatus::PAID->value]);
+
+                if ($expense->payment_type === ExpenseTypeOfPaymentEnum::CASH->value) {
+                    app(CashOnHandService::class)->adjustBalance(
+                        $expense->branch_id,
+                        $expense->amount,
+                        'expense'
+                    );
+                }
+            });
+
+            return back()->with('success', 'Expense approved successfully.');
+        } catch (\Exception $e) {
+            Log::error("Failed to approve expense #{$expense->id}: " . $e->getMessage());
+            return back()->withErrors(['message' => 'Failed to approve the expense.']);
+        }
+    }
+
+    public function reject(Expense $expense): RedirectResponse
+    {
+        if ($expense->status !== ExpenseStatus::PENDING->value) {
+            return back()->withErrors(['message' => 'Only pending expenses can be rejected.']);
+        }
+
+        try {
+            $expense->update(['status' => ExpenseStatus::REJECTED->value]);
+            return back()->with('success', 'Expense rejected successfully.');
+        } catch (\Exception $e) {
+            Log::error("Failed to reject expense #{$expense->id}: " . $e->getMessage());
+            return back()->withErrors(['message' => 'Failed to reject the expense.']);
         }
     }
 }
