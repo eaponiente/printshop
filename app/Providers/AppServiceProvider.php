@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Models\Expense;
 use App\Models\PurchaseOrder;
+use App\Policies\ExpensePolicy;
 use App\Policies\PurchaseOrderPolicy;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
@@ -33,7 +35,7 @@ class AppServiceProvider extends ServiceProvider
             URL::forceScheme('https');
         }
 
-        //Gate::policy(PurchaseOrder::class, PurchaseOrderPolicy::class);
+        Gate::policy(Expense::class, ExpensePolicy::class);
     }
 
     /**
@@ -47,14 +49,15 @@ class AppServiceProvider extends ServiceProvider
             app()->isProduction(),
         );
 
-        Password::defaults(fn (): ?Password => app()->isProduction()
-            ? Password::min(12)
+        Password::defaults(
+            fn(): ?Password => app()->isProduction()
+                ? Password::min(12)
                 ->mixedCase()
                 ->letters()
                 ->numbers()
                 ->symbols()
                 ->uncompromised()
-            : null,
+                : null,
         );
     }
 }

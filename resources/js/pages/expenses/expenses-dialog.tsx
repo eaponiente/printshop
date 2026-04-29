@@ -49,7 +49,6 @@ export default function ExpenseDialog({
             expense_date: expense?.expense_date
                 ? new Date(expense.expense_date).toISOString().split('T')[0]
                 : new Date().toISOString().split('T')[0],
-            receipt: null as File | null, // Used for the file upload
         });
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -196,7 +195,7 @@ export default function ExpenseDialog({
                     </div>
 
                     {/* Status & Receipt Upload */}
-                    <div className="grid grid-cols-2 gap-4">
+                    {/* <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
                             <Label htmlFor="receipt">Receipt (Image/PDF)</Label>
                             <Input
@@ -213,7 +212,7 @@ export default function ExpenseDialog({
                             />
                             <InputError message={errors.receipt} />
                         </div>
-                    </div>
+                    </div> */}
 
                     <Button
                         type="submit"

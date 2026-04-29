@@ -1,6 +1,6 @@
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { Pencil, Ban } from 'lucide-react';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { route } from 'ziggy-js';
 import { Button } from '@/components/ui/button';
 import {
@@ -28,6 +28,7 @@ export default function ExpenseActions({
 }: ExpenseActionsProps) {
     const [reason, setReason] = useState('');
     const [isOpen, setIsOpen] = useState(false);
+    const { auth } = usePage().props;
 
     const handleVoid = () => {
         if (!reason.trim()) {
@@ -39,7 +40,6 @@ export default function ExpenseActions({
             { reason },
             {
                 onSuccess: () => {
-                    console.log(999);
                     setReason('');
                     setIsOpen(false);
                 },
@@ -57,15 +57,13 @@ export default function ExpenseActions({
     return (
         <div className="flex items-center gap-1">
             {/* Edit Button */}
-            {!isVoided && (
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onEdit(expense)}
-                >
-                    <Pencil className="h-4 w-4" />
-                </Button>
-            )}
+            <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onEdit(expense)}
+            >
+                <Pencil className="h-4 w-4" />
+            </Button>
 
             {/* Void Dialog */}
             <Dialog open={isOpen} onOpenChange={setIsOpen}>

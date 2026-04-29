@@ -97,7 +97,7 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
     const columns: ColumnDef<unknown, any>[] = [
         {
             accessorKey: 'Customer',
-            header: 'PO #',
+            header: 'Customer',
             cell: ({ row }: CellContext<any, any>) => {
                 return row.original.customer?.first_name ? `${row.original.customer?.full_name}` : row.original.customer?.company;
             }
