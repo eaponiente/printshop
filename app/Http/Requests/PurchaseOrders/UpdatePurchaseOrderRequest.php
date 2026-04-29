@@ -16,7 +16,7 @@ class UpdatePurchaseOrderRequest extends FormRequest
     {
         return [
             'customer_id' => ['required', Rule::exists('customers', 'id')],
-            'due_at' => ['required', 'date', 'after:today', 'after:received_at'],
+            'due_at' => ['required', 'date', 'after:received_at'],
             'received_at' => ['required'],
             'po_number' => ['sometimes', 'string'],
             'details' => ['sometimes', 'array'],
