@@ -40,6 +40,7 @@ export default function ExpenseDialog({
     const { data, setData, post, transform, processing, errors, reset } =
         useForm({
             description: expense?.description ?? '',
+            notes: expense?.notes ?? '',
             vendor_name: expense?.vendor_name ?? '',
             amount: expense?.amount ?? '',
             payment_type: expense?.payment_type ?? '',
@@ -49,7 +50,6 @@ export default function ExpenseDialog({
             expense_date: expense?.expense_date
                 ? new Date(expense.expense_date).toISOString().split('T')[0]
                 : new Date().toISOString().split('T')[0],
-            receipt: null as File | null, // Used for the file upload
         });
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -193,10 +193,23 @@ export default function ExpenseDialog({
                             />
                             <InputError message={errors.expense_date} />
                         </div>
+
+
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="notes">Notes</Label>
+                        <Textarea
+                            id="notes"
+                            className="min-h-[120px] resize-none"
+                            value={data.notes}
+                            onChange={(e) => setData('notes', e.target.value)}
+                        />
+                        <InputError message={errors.notes} />
                     </div>
 
                     {/* Status & Receipt Upload */}
-                    <div className="grid grid-cols-2 gap-4">
+                    {/* <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
                             <Label htmlFor="receipt">Receipt (Image/PDF)</Label>
                             <Input
@@ -213,7 +226,7 @@ export default function ExpenseDialog({
                             />
                             <InputError message={errors.receipt} />
                         </div>
-                    </div>
+                    </div> */}
 
                     <Button
                         type="submit"

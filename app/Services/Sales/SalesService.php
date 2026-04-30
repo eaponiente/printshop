@@ -16,7 +16,7 @@ class SalesService
     public function getTransactionQuery(array $filters): Builder
     {
         $query = Transaction::query()
-            ->with(['user:id,first_name,last_name', 'branch:id,name', 'customer', 'payments'])
+            ->with(['user:id,first_name,last_name', 'branch:id,name', 'customer', 'payments', 'sublimation'])
             ->filtered($filters)
             ->when($filters['search'] ?? null, function ($q, $s) {
                 if ($s !== 'all') {

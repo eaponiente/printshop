@@ -89,6 +89,10 @@ export default function ExpenseIndex({
             header: 'Staff',
         },
         {
+            accessorKey: 'description',
+            header: 'Description',
+        },
+        {
             accessorKey: 'payment_type',
             header: 'Payment Type',
             cell: ({ row }: CellContext<any, any>) => {

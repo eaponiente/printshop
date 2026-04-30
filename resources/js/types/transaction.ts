@@ -1,3 +1,5 @@
+import { Sublimation } from "./sublimations"
+
 export type TransactionStatus = {
     name: string
 }
@@ -48,6 +50,8 @@ export type Transaction = {
         id: number;
         name: string;
     };
+
+    sublimation?: Sublimation;
 
     // Dates
     transaction_date: string; // ISO string from Laravel

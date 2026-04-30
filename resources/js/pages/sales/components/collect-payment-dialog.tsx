@@ -19,6 +19,12 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Spinner } from '@/components/ui/spinner';
 import type { TypeOfPayment } from '@/types/settings';
 import { formatCurrency } from '@/utils/formatters';
+import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+} from "@/components/ui/accordion"
 
 interface PaymentDialogProps {
     transaction: any;
@@ -97,25 +103,52 @@ export default function PaymentDialog({ open, setOpen, transaction, typesOfPayme
                         </div>
                     </div>
 
+                    <div className="grid grid-cols-1 gap-4 border-t border-border/30 pt-2">
+                        <div className="flex flex-col text-sm">
+                            {/* Row 1: Description */}
+                            <div className="text-foreground/80">
+                                {transaction.description}
+                            </div>
+
+                            {/* Row 2: Sublimation Quantity */}
+                            {transaction.sublimation && (
+                                <div className="text-muted-foreground text-[14px] font-medium mt-0.5">
+                                    Quantity: {transaction.sublimation.quantity}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
                     {/* Show payment history if any exists */}
                     {transaction.payments && transaction.payments.length > 0 && (
-                        <div className="border-t border-border/30 pt-3">
-                            <Label className="text-[10px] tracking-widest text-muted-foreground uppercase">
-                                Payment History
-                            </Label>
-                            <div className="mt-1.5 space-y-1.5">
-                                {transaction.payments.map((payment: any) => (
-                                    <div key={payment.id} className="flex justify-between text-xs items-center bg-background/50 p-1.5 rounded-md border border-border/40">
-                                        <div className="flex gap-2">
-                                            <span className="font-medium text-foreground capitalize">{payment.payment_type || 'Unknown'}</span>
-                                        </div>
-                                        <div className="font-mono text-green-600 dark:text-green-400 font-medium">
-                                            {formatCurrency(payment.amount)}
-                                        </div>
+                        <Accordion type="single" collapsible className="w-full border-t border-border/30 pt-1">
+                            <AccordionItem value="payment-history" className="border-none">
+                                <AccordionTrigger className="py-2 hover:no-underline">
+                                    <Label className="text-[10px] tracking-widest text-muted-foreground uppercase cursor-pointer">
+                                        Payment History ({transaction.payments.length})
+                                    </Label>
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                    <div className="space-y-1.5 pt-1">
+                                        {transaction.payments.map((payment: any) => (
+                                            <div
+                                                key={payment.id}
+                                                className="flex justify-between text-xs items-center bg-background/50 p-1.5 rounded-md border border-border/40"
+                                            >
+                                                <div className="flex gap-2">
+                                                    <span className="font-medium text-foreground capitalize">
+                                                        {payment.payment_type || 'Unknown'}
+                                                    </span>
+                                                </div>
+                                                <div className="font-mono text-green-600 dark:text-green-400 font-medium">
+                                                    {formatCurrency(payment.amount)}
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
-                            </div>
-                        </div>
+                                </AccordionContent>
+                            </AccordionItem>
+                        </Accordion>
                     )}
                 </div>
 
