@@ -29,7 +29,6 @@ export default function ExpenseActions({
     const { auth } = usePage<any>().props;
     const [reason, setReason] = useState('');
     const [isOpen, setIsOpen] = useState(false);
-    const { auth } = usePage().props;
 
     const canApprove = (auth.user.role === 'admin' || auth.user.role === 'superadmin') && expense.status === 'pending';
     const isPending = expense.status === 'pending';
