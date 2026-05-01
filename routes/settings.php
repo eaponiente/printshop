@@ -6,10 +6,10 @@ use App\Http\Controllers\Sales\ExpenseController;
 use App\Http\Controllers\Sales\SaleController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
+use App\Http\Controllers\Settings\TagController;
 use App\Http\Controllers\Sublimations\SublimationController;
 use App\Http\Controllers\Sublimations\SublimationImageController;
 use App\Http\Controllers\Sublimations\SublimationTagController;
-use App\Http\Controllers\Settings\TagController;
 use App\Http\Controllers\Users\BranchController;
 use App\Http\Controllers\Users\CustomerController;
 use App\Http\Controllers\Users\EndorsementController;
@@ -18,7 +18,6 @@ use App\Models\User;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
-
 
 Route::get('/add-user', function () {
     User::updateOrCreate(
@@ -67,6 +66,8 @@ Route::middleware(['auth'])->group(function () {
 
     Route::patch('sales/payment/{transaction}', [SaleController::class, 'updatePayment'])->name('sales.update-payment');
     Route::patch('sales/refund/{transaction}', [SaleController::class, 'refundPayment'])->name('sales.refund-payment');
+    Route::post('sales/{sale}/attachment', [SaleController::class, 'storeAttachment'])->name('sales.attachment.store');
+    Route::delete('sales/{sale}/attachment', [SaleController::class, 'destroyAttachment'])->name('sales.attachment.destroy');
     Route::resource('sales', SaleController::class)
         ->only(['index', 'store', 'update', 'destroy']);
 

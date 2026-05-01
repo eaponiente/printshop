@@ -3,11 +3,12 @@
 namespace App\Services\Sales;
 
 use App\Enums\Expenses\ExpenseStatus;
+use App\Enums\Users\UserRole;
+use App\Models\CashOnHand;
 use App\Models\Customer;
 use App\Models\Expense;
-use App\Models\Transaction;
 use App\Models\Payment;
-use App\Models\CashOnHand;
+use App\Models\Transaction;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
@@ -18,6 +19,9 @@ class SalesService
         $query = Transaction::query()
             ->with(['user:id,first_name,last_name', 'branch:id,name', 'customer', 'payments', 'sublimation'])
             ->filtered($filters)
+            ->when(auth()->user()->role === UserRole::STAFF->value, function ($q) {
+                return $q->where('staff_id', auth()->id());
+            })
             ->when($filters['search'] ?? null, function ($q, $s) {
                 if ($s !== 'all') {
                     $q->where(function ($query) use ($s) {
@@ -29,10 +33,10 @@ class SalesService
                     });
                 }
             })
-            ->when($filters['status'] ?? null, fn($q, $s) => $s !== 'all' ? $q->where('status', $s) : $q)
+            ->when($filters['status'] ?? null, fn ($q, $s) => $s !== 'all' ? $q->where('status', $s) : $q)
             ->when($filters['payment_type'] ?? null, function ($q, $s) {
                 if ($s !== 'all') {
-                    $q->whereHas('payments', fn($sq) => $sq->where('payment_type', $s));
+                    $q->whereHas('payments', fn ($sq) => $sq->where('payment_type', $s));
                 }
             });
 
@@ -74,7 +78,7 @@ class SalesService
     public function getCashOnHandTotal(?string $branchId): float
     {
         return (float) CashOnHand::query()
-            ->when($branchId && $branchId !== 'all', fn($q) => $q->where('branch_id', $branchId))
+            ->when($branchId && $branchId !== 'all', fn ($q) => $q->where('branch_id', $branchId))
             ->sum('amount');
     }
 
@@ -97,7 +101,7 @@ class SalesService
     public function searchCustomers(?string $search)
     {
         return Customer::query()
-            ->when($search, fn($q, $t) => $q->whereAny(['first_name', 'last_name', 'company'], 'like', "%{$t}%"))
+            ->when($search, fn ($q, $t) => $q->whereAny(['first_name', 'last_name', 'company'], 'like', "%{$t}%"))
             ->limit(10)->get();
     }
 

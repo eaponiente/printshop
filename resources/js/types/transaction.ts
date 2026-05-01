@@ -53,6 +53,9 @@ export type Transaction = {
 
     sublimation?: Sublimation;
 
+    /** Public URL when an attachment exists (from Laravel accessor). */
+    attachment_url?: string | null;
+
     // Dates
     transaction_date: string; // ISO string from Laravel
     fulfilled_at: string | null;

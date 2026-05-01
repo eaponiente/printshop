@@ -10,7 +10,8 @@ import {
     Eye,
     ChevronDown,
     ChevronUp,
-    BarChart3
+    BarChart3,
+    Paperclip,
 } from 'lucide-react';
 import { useState, useCallback, useMemo, Suspense, lazy } from 'react';
 import { route } from 'ziggy-js';
@@ -40,6 +41,7 @@ const SaleDialog = lazy(() => import('@/pages/sales/sales-dialog'));
 const CollectPaymentDialog = lazy(() => import('@/pages/sales/components/collect-payment-dialog'));
 const RefundPaymentDialog = lazy(() => import('@/pages/sales/components/refund-payment-dialog'));
 const TransactionDetailsDialog = lazy(() => import('@/pages/sales/components/transaction-details-dialog'));
+const SaleAttachmentDialog = lazy(() => import('@/pages/sales/components/sale-attachment-dialog'));
 
 const statusConfig = {
     paid: 'bg-green-100 text-green-700 border-green-200',
@@ -109,6 +111,20 @@ export default function SaleIndex({
     const [isCollectPaymentDialogOpen, setIsCollectPaymentDialogOpen] =
         useState(false);
     const [isRefundDialogOpen, setIsRefundDialogOpen] = useState(false);
+    const [attachmentSaleId, setAttachmentSaleId] = useState<number | null>(
+        null,
+    );
+    const [isAttachmentDialogOpen, setIsAttachmentDialogOpen] =
+        useState(false);
+
+    const attachmentTransaction = useMemo(
+        () =>
+            attachmentSaleId == null
+                ? null
+                : (transactions.data.find((t) => t.id === attachmentSaleId) ??
+                    null),
+        [transactions.data, attachmentSaleId],
+    );
 
     const openEditForm = useCallback((transaction: Transaction | null) => {
         setTransaction(transaction);
@@ -125,6 +141,18 @@ export default function SaleIndex({
     const openDetailsForm = useCallback((transaction: Transaction) => {
         setTransaction(transaction);
         setIsDetailsDialogOpen(true);
+    }, []);
+
+    const openAttachmentDialog = useCallback((transaction: Transaction) => {
+        setAttachmentSaleId(transaction.id);
+        setIsAttachmentDialogOpen(true);
+    }, []);
+
+    const setAttachmentDialogOpen = useCallback((open: boolean) => {
+        setIsAttachmentDialogOpen(open);
+        if (!open) {
+            setAttachmentSaleId(null);
+        }
     }, []);
 
     const selectedBranch = useMemo(
@@ -179,22 +207,6 @@ export default function SaleIndex({
     }, []);
 
     const columns: ColumnDef<unknown, any>[] = useMemo(() => [
-        {
-            accessorKey: 'invoice_number',
-            header: ({ column }) => {
-                return (
-                    <Button
-                        variant="ghost"
-                        onClick={() =>
-                            column.toggleSorting(column.getIsSorted() === 'asc')
-                        }
-                    >
-                        Invoice #
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                );
-            },
-        },
         {
             accessorKey: 'customer.full_name',
             header: 'Customer Name',
@@ -311,7 +323,7 @@ export default function SaleIndex({
             header: 'Actions',
             cell: ({ row }: CellContext<any, any>) => {
                 return (
-                    <>
+                    <div className="flex flex-wrap items-center gap-0.5">
                         <Button
                             variant="ghost"
                             size="sm"
@@ -319,6 +331,18 @@ export default function SaleIndex({
                         >
                             <Eye className="h-4 w-4 text-muted-foreground" />
                         </Button>
+                        {auth.user.role !== 'staff' && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Upload attachment"
+                                onClick={() =>
+                                    openAttachmentDialog(row.original)
+                                }
+                            >
+                                <Paperclip className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                        )}
                         <Button
                             variant="ghost"
                             size="sm"
@@ -357,11 +381,11 @@ export default function SaleIndex({
                                 </AlertDialogContent>
                             </AlertDialog>
                         )}
-                    </>
+                    </div>
                 );
             },
         },
-    ], [filters, handleReceivePayment, handleRefundPayment, openDetailsForm, openEditForm]);
+    ], [auth.user.role, deleteSale, filters, handleReceivePayment, handleRefundPayment, openAttachmentDialog, openDetailsForm, openEditForm]);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -478,6 +502,14 @@ export default function SaleIndex({
                         transaction={getTransaction}
                         open={isDetailsDialogOpen}
                         setOpen={setIsDetailsDialogOpen}
+                    />
+                )}
+
+                {isAttachmentDialogOpen && attachmentTransaction && (
+                    <SaleAttachmentDialog
+                        transaction={attachmentTransaction}
+                        open={isAttachmentDialogOpen}
+                        setOpen={setAttachmentDialogOpen}
                     />
                 )}
             </Suspense>
