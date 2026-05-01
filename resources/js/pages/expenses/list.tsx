@@ -76,6 +76,14 @@ export default function ExpenseIndex({
         {
             accessorKey: 'branch.name',
             header: 'Branch',
+            cell: ({ row }: CellContext<any, any>) => {
+                const branchName = row.original.branch?.name;
+                return (
+                    <div className="max-w-[150px] truncate" title={branchName}>
+                        {branchName}
+                    </div>
+                );
+            }
         },
         {
             accessorKey: 'amount',
@@ -87,10 +95,26 @@ export default function ExpenseIndex({
         {
             accessorKey: 'user.fullname',
             header: 'Staff',
+            cell: ({ row }: CellContext<any, any>) => {
+                const staffName = row.original.user?.fullname;
+                return (
+                    <div className="max-w-[150px] truncate" title={staffName}>
+                        {staffName}
+                    </div>
+                );
+            }
         },
         {
             accessorKey: 'description',
             header: 'Description',
+            cell: ({ row }: CellContext<any, any>) => {
+                const description = row.original.description;
+                return (
+                    <div className="max-w-[200px] truncate" title={description}>
+                        {description}
+                    </div>
+                );
+            }
         },
         {
             accessorKey: 'payment_type',
@@ -181,7 +205,15 @@ export default function ExpenseIndex({
         },
         {
             accessorKey: 'void_reason',
-            header: 'Void Reason'
+            header: 'Void Reason',
+            cell: ({ row }: CellContext<any, any>) => {
+                const voidReason = row.original.void_reason;
+                return (
+                    <div className="max-w-[200px] truncate" title={voidReason}>
+                        {voidReason}
+                    </div>
+                );
+            }
         },
         {
             header: 'Actions',

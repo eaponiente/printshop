@@ -99,12 +99,25 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
             accessorKey: 'Customer',
             header: 'Customer',
             cell: ({ row }: CellContext<any, any>) => {
-                return row.original.customer?.first_name ? `${row.original.customer?.full_name}` : row.original.customer?.company;
+                const customerName = row.original.customer?.first_name ? `${row.original.customer?.full_name}` : row.original.customer?.company;
+                return (
+                    <div className="max-w-[150px] truncate" title={customerName}>
+                        {customerName}
+                    </div>
+                );
             }
         },
         {
             accessorKey: 'branch.name',
             header: 'Branch',
+            cell: ({ row }: CellContext<any, any>) => {
+                const branchName = row.original.branch?.name;
+                return (
+                    <div className="max-w-[150px] truncate" title={branchName}>
+                        {branchName}
+                    </div>
+                );
+            }
         },
         {
             accessorKey: 'grand_total',
@@ -176,6 +189,14 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
         {
             accessorKey: 'user.fullname',
             header: 'Staff',
+            cell: ({ row }: CellContext<any, any>) => {
+                const staffName = row.original.user?.fullname;
+                return (
+                    <div className="max-w-[150px] truncate" title={staffName}>
+                        {staffName}
+                    </div>
+                );
+            }
         },
         {
             accessorKey: 'received_at',
