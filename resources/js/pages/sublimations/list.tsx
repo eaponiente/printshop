@@ -165,12 +165,25 @@ export default function SublimationIndex({
             accessorKey: 'customer.full_name',
             header: 'Customer',
             cell: ({ row }: CellContext<any, any>) => {
-                return getCustomerDisplayName(row.original.customer);
+                const customerName = getCustomerDisplayName(row.original.customer);
+                return (
+                    <div className="max-w-[150px] truncate" title={customerName}>
+                        {customerName}
+                    </div>
+                );
             }
         },
         {
             accessorKey: 'description',
             header: 'Description',
+            cell: ({ row }: CellContext<any, any>) => {
+                const description = row.original.description;
+                return (
+                    <div className="max-w-[200px] truncate" title={description}>
+                        {description}
+                    </div>
+                );
+            }
         },
         {
             accessorKey: 'due_at',
@@ -214,6 +227,14 @@ export default function SublimationIndex({
         {
             accessorKey: 'branch.name',
             header: 'Branch',
+            cell: ({ row }: CellContext<any, any>) => {
+                const branchName = row.original.branch?.name;
+                return (
+                    <div className="max-w-[150px] truncate" title={branchName}>
+                        {branchName}
+                    </div>
+                );
+            }
         },
         {
             accessorKey: 'user.fullname',
