@@ -213,7 +213,7 @@ export default function SaleIndex({
             cell: ({ row }: CellContext<any, any>) => {
                 const name = getCustomerDisplayName(row.original.customer);
                 return (
-                    <div className="max-w-[150px] truncate" title={name}>
+                    <div className="max-w-[120px] truncate" title={name}>
                         {name}
                     </div>
                 );
@@ -224,7 +224,7 @@ export default function SaleIndex({
             header: 'Particular',
             cell: ({ row }: CellContext<any, any>) => {
                 return (
-                    <div className="max-w-[200px] truncate" title={row.original.particular}>
+                    <div className="max-w-[110px] truncate" title={row.original.particular}>
                         {row.original.particular}
                     </div>
                 );
@@ -275,7 +275,7 @@ export default function SaleIndex({
             cell: ({ row }: CellContext<any, any>) => {
                 const staffName = row.original.user?.fullname;
                 return (
-                    <div className="max-w-[150px] truncate" title={staffName}>
+                    <div className="max-w-[120px] truncate" title={staffName}>
                         {staffName}
                     </div>
                 );

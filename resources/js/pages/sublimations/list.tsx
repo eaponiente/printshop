@@ -179,7 +179,7 @@ export default function SublimationIndex({
             cell: ({ row }: CellContext<any, any>) => {
                 const description = row.original.description;
                 return (
-                    <div className="max-w-[200px] truncate" title={description}>
+                    <div className="max-w-[150px] truncate" title={description}>
                         {description}
                     </div>
                 );
