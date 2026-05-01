@@ -5,16 +5,41 @@ namespace App\Models;
 use App\Concerns\SaleFilterTrait;
 use App\Concerns\Sortable;
 use App\Enums\Sales\TransactionStatus;
+use App\Enums\Users\UserRole;
+use App\Services\Files\FileUploadService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class Transaction extends Model
 {
-    use SaleFilterTrait, Sortable, HasFactory, SoftDeletes;
+    use HasFactory, SaleFilterTrait, SoftDeletes, Sortable;
 
     public $guarded = ['id'];
+
+    protected $hidden = [
+        'attachment_path',
+    ];
+
+    protected $appends = [
+        'attachment_url',
+    ];
+
+    public function getAttachmentUrlAttribute(): ?string
+    {
+        if (! $this->attachment_path) {
+            return null;
+        }
+
+        if (auth()->user()->role === UserRole::STAFF->value) {
+            return null;
+        }
+
+        $service = app(FileUploadService::class);
+        return $service->getSignedUrl($this->attachment_path);
+    }
 
     public function user()
     {
@@ -80,7 +105,7 @@ class Transaction extends Model
     public function recordPayment(float $paymentAmount, string $paymentType): void
     {
         DB::transaction(function () use ($paymentAmount, $paymentType) {
-            // Fetch fresh with lock 
+            // Fetch fresh with lock
             $fresh = self::lockForUpdate()->find($this->id);
 
             // 1. Calculate new totals

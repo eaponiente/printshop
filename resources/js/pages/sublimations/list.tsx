@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
 import {
     ArrowUpDown,
@@ -100,6 +100,7 @@ export default function SublimationIndex({
 
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
     const [gallerySublimation, setGallerySublimation] = useState<Sublimation | null>(null);
+    const { auth } = usePage().props;
 
     const openGallery = (sublimation: Sublimation) => {
         setGallerySublimation(sublimation);
@@ -338,6 +339,10 @@ export default function SublimationIndex({
             header: 'Transaction',
             cell: ({ row }) => {
                 const sublimation = row.original as Sublimation;
+                if (auth.user.role === 'staff' && +sublimation.user_id !== +auth.user.id) {
+                    return '-';
+                }
+
                 if (sublimation.transaction) {
                     return (
                         <a

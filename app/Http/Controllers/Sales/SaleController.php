@@ -4,17 +4,20 @@ namespace App\Http\Controllers\Sales;
 
 use App\Enums\Sales\TransactionStatus;
 use App\Enums\Sales\TransactionTypeOfPaymentEnum;
+use App\Enums\Users\UserRole;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Transactions\RefundTransactionPaymentRequest;
 use App\Http\Requests\Transactions\GetTransactionsRequest;
+use App\Http\Requests\Transactions\RefundTransactionPaymentRequest;
 use App\Http\Requests\Transactions\StoreTransactionRequest;
 use App\Http\Requests\Transactions\UpdateTransactionPaymentRequest;
 use App\Http\Requests\Transactions\UpdateTransactionRequest;
 use App\Models\Branch;
 use App\Models\Transaction;
+use App\Services\Files\FileUploadService;
 use App\Services\Sales\CashOnHandService;
 use App\Services\Sales\SalesService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -130,6 +133,50 @@ class SaleController extends Controller
         }
     }
 
+    public function storeAttachment(Request $request, Transaction $sale, FileUploadService $fileUploadService): RedirectResponse
+    {
+        $this->authorizeTransactionAccess($sale);
+
+        $request->validate([
+            'attachment' => ['required', 'image', 'max:5120'],
+        ]);
+
+        try {
+            if ($sale->attachment_path) {
+                $fileUploadService->delete($sale->attachment_path);
+            }
+
+            $path = $fileUploadService->upload($request->file('attachment'), 'sale_attachments');
+            $sale->update(['attachment_path' => $path]);
+
+            return back()->with('success', 'Attachment saved.');
+        } catch (\Exception $e) {
+            Log::error('Failed to upload sale attachment: ' . $e->getMessage());
+
+            return back()->withErrors(['attachment' => 'Could not upload attachment.']);
+        }
+    }
+
+    public function destroyAttachment(Transaction $sale, FileUploadService $fileUploadService): RedirectResponse
+    {
+        $this->authorizeTransactionAccess($sale);
+
+        if (! $sale->attachment_path) {
+            return back()->withErrors(['attachment' => 'No attachment to remove.']);
+        }
+
+        try {
+            $fileUploadService->delete($sale->attachment_path);
+            $sale->update(['attachment_path' => null]);
+
+            return back()->with('success', 'Attachment removed.');
+        } catch (\Exception $e) {
+            Log::error('Failed to delete sale attachment: ' . $e->getMessage());
+
+            return back()->withErrors(['attachment' => 'Could not remove attachment.']);
+        }
+    }
+
     public function destroy(Transaction $sale): RedirectResponse
     {
         // only superadmin
@@ -160,6 +207,26 @@ class SaleController extends Controller
             Log::error('Failed to delete sale: ' . $e->getMessage());
 
             return back()->withErrors(['message' => 'An error occurred while deleting the sale.']);
+        }
+    }
+
+    private function authorizeTransactionAccess(Transaction $transaction): void
+    {
+        $user = auth()->user();
+
+        // super admin can delete
+        if ($user->isSuperAdmin()) {
+            return;
+        }
+
+        // must have the same branch
+        if ((int) $user->branch_id !== (int) $transaction->branch_id) {
+            abort(403);
+        }
+
+        // staff can only access their own transactions
+        if ($user->role === UserRole::STAFF->value && (int) $transaction->staff_id !== (int) $user->id) {
+            abort(403);
         }
     }
 }
