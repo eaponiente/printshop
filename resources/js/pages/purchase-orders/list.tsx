@@ -101,7 +101,7 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
             cell: ({ row }: CellContext<any, any>) => {
                 const customerName = row.original.customer?.first_name ? `${row.original.customer?.full_name}` : row.original.customer?.company;
                 return (
-                    <div className="max-w-[150px] truncate" title={customerName}>
+                    <div className="max-w-[120px] truncate" title={customerName}>
                         {customerName}
                     </div>
                 );
