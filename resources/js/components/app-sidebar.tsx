@@ -2,6 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import {
     BadgeDollarSign,
     Cog,
+    Folder,
     LayoutGrid,
     Newspaper,
     NotebookPen,
@@ -58,9 +59,9 @@ export function AppSidebar() {
 
         // 2. Sales: Everyone
         {
-            title: 'Sales',
+            title: 'Projects',
             href: sales.index(),
-            icon: BadgeDollarSign,
+            icon: Folder,
         },
 
         // 3. Expenses & Purchase Orders: Admin/SuperAdmin only
