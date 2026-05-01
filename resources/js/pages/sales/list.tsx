@@ -326,7 +326,7 @@ export default function SaleIndex({
                                 onClick={() => handleReceivePayment(row.original)}
                             >
                                 <CreditCard className="mr-2 h-3.5 w-3.5" />
-                                Collect Pay
+                                Collect
                             </Button>
                         )}
                         {status === 'partial' &&
