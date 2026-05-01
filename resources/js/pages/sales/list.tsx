@@ -62,7 +62,7 @@ import SaleSummarySection from './components/sale-summary-section';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Sales', href: '/sales' },
+    { title: 'Projects', href: '/sales' },
 ];
 
 interface SaleIndexProps {
@@ -395,17 +395,17 @@ export default function SaleIndex({
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-xl font-semibold">
-                            Sale Management
+                            Project Management
                         </h1>
                         <p className="text-sm text-muted-foreground">
-                            Manage your sale.
+                            Manage your projects.
                         </p>
                     </div>
 
                     {/* Create Staff Button */}
                     <Button onClick={() => openEditForm(null)}>
                         <Plus className="mr-2 h-4 w-4" />
-                        Add Transaction
+                        Add Project
                     </Button>
                 </div>
 
@@ -420,7 +420,7 @@ export default function SaleIndex({
                                 <div className="flex items-center gap-2">
                                     <BarChart3 className="h-5 w-5 text-muted-foreground" />
                                     <h4 className="text-sm font-semibold">
-                                        Sales Summary Overview
+                                        Project Summary Overview
                                     </h4>
                                 </div>
                                 <CollapsibleTrigger asChild>

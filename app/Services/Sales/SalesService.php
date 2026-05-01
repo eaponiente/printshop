@@ -9,6 +9,7 @@ use App\Models\Customer;
 use App\Models\Expense;
 use App\Models\Payment;
 use App\Models\Transaction;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
@@ -16,12 +17,26 @@ class SalesService
 {
     public function getTransactionQuery(array $filters): Builder
     {
+        $user = auth()->user();
+
         $query = Transaction::query()
             ->with(['user:id,first_name,last_name', 'branch:id,name', 'customer', 'payments', 'sublimation'])
-            ->filtered($filters)
-            ->when(auth()->user()->role === UserRole::STAFF->value, function ($q) {
-                return $q->where('staff_id', auth()->id());
+            ->where(function (Builder $q) use ($filters) {
+                $this->applyDateFilter($q, 'transactions.transaction_date', $filters);
+                $q->orWhereHas('payments', function (Builder $pq) use ($filters) {
+                    $this->applyDateFilter($pq, 'payments.created_at', $filters);
+                });
             })
+            ->where(function (Builder $q) use ($filters, $user) {
+                $filterId = $filters['branch_id'] ?? null;
+
+                if ($user->role !== 'superadmin') {
+                    $q->where('branch_id', $user->branch_id);
+                } elseif ($filterId && $filterId !== 'all') {
+                    $q->where('branch_id', $filterId);
+                }
+            })
+            ->when($user->role === UserRole::STAFF->value, fn ($q) => $q->where('staff_id', $user->id))
             ->when($filters['search'] ?? null, function ($q, $s) {
                 if ($s !== 'all') {
                     $q->where(function ($query) use ($s) {
@@ -40,11 +55,8 @@ class SalesService
                 }
             });
 
-        // 2. Sorting Logic
-        $sortField = $filters['sort_field'] ?? 'invoice_number'; // Default sort
+        $sortField = $filters['sort_field'] ?? 'invoice_number';
         $sortDirection = $filters['sort_direction'] ?? 'desc';
-
-        // Whitelist allowed sortable columns
         $allowedSorts = ['transaction_date'];
 
         if (in_array($sortField, $allowedSorts)) {
@@ -54,15 +66,24 @@ class SalesService
         return $query;
     }
 
-    public function getPaymentAggregates(Builder $query): array
+    public function getPaymentAggregates(array|Builder $source): array
     {
-        // Join the payments table natively against the filtered transactions query
-        $totals = Payment::query()
-            ->joinSub((clone $query)->select('transactions.id')->reorder(), 't', 'payments.transaction_id', '=', 't.id')
-            ->select('payments.payment_type', DB::raw('SUM(payments.amount) as total'))
-            ->groupBy('payments.payment_type')
-            ->pluck('total', 'payment_type')
-            ->toArray();
+        if ($source instanceof Builder) {
+            $totals = Payment::query()
+                ->joinSub((clone $source)->select('transactions.id')->reorder(), 't', 'payments.transaction_id', '=', 't.id')
+                ->select('payments.payment_type', DB::raw('SUM(payments.amount) as total'))
+                ->groupBy('payments.payment_type')
+                ->pluck('total', 'payment_type')
+                ->toArray();
+        } else {
+            $paymentsQuery = $this->buildPaymentDateQuery($source);
+
+            $totals = (clone $paymentsQuery)
+                ->select('payments.payment_type', DB::raw('SUM(payments.amount) as total'))
+                ->groupBy('payments.payment_type')
+                ->pluck('total', 'payment_type')
+                ->toArray();
+        }
 
         return [
             'total_sales' => (float) array_sum($totals),
@@ -84,8 +105,9 @@ class SalesService
 
     public function getFinanceSummary(array $filters): array
     {
-        $revenue = Transaction::query()->filtered($filters)->sum('amount_paid');
-        $expenses = Expense::query()->filtered($filters)
+        $revenue = (float) $this->buildPaymentDateQuery($filters)->sum('payments.amount');
+
+        $expenses = (float) Expense::query()->filtered($filters)
             ->when($filters['payment_type'] ?? null, function ($q) use ($filters) {
                 $q->where('payment_type', $filters['payment_type']);
             })
@@ -93,8 +115,8 @@ class SalesService
             ->sum('amount');
 
         return [
-            'total_expenses' => (float) $expenses,
-            'net_income' => (float) ($revenue - $expenses),
+            'total_expenses' => $expenses,
+            'net_income' => $revenue - $expenses,
         ];
     }
 
@@ -108,5 +130,63 @@ class SalesService
     public function createTransaction($data)
     {
         return Transaction::create($data);
+    }
+
+    /**
+     * Sum of only positive payment amounts (excludes refunds) for the period.
+     */
+    public function getGrossRevenue(array $filters): float
+    {
+        return (float) $this->buildPaymentDateQuery($filters)
+            ->where('payments.amount', '>', 0)
+            ->sum('payments.amount');
+    }
+
+    /**
+     * Build a base payment query filtered by payment date and branch.
+     */
+    private function buildPaymentDateQuery(array $filters): Builder
+    {
+        $user = auth()->user();
+
+        return Payment::query()
+            ->join('transactions', 'payments.transaction_id', '=', 'transactions.id')
+            ->whereNull('transactions.deleted_at')
+            ->tap(function (Builder $q) use ($filters) {
+                $this->applyDateFilter($q, 'payments.created_at', $filters);
+            })
+            ->where(function (Builder $q) use ($filters, $user) {
+                $filterId = $filters['branch_id'] ?? null;
+
+                if ($user->role !== 'superadmin') {
+                    $q->where('transactions.branch_id', $user->branch_id);
+                } elseif ($filterId && $filterId !== 'all') {
+                    $q->where('transactions.branch_id', $filterId);
+                }
+            })
+            ->when($user->role === UserRole::STAFF->value, function (Builder $q) use ($user) {
+                $q->where('transactions.staff_id', $user->id);
+            });
+    }
+
+    /**
+     * Apply a date range filter to a given column on a query.
+     */
+    private function applyDateFilter(Builder $query, string $column, array $filters): void
+    {
+        $date = $filters['date'] ?? now()->toDateString();
+
+        match ($filters['mode'] ?? 'daily') {
+            'daily' => $query->whereDate($column, $date),
+            'weekly' => (function () use ($query, $column, $date) {
+                $start = Carbon::parse($date)->startOfWeek();
+                $end = Carbon::parse($date)->endOfWeek();
+                $query->whereBetween($column, [$start, $end]);
+            })(),
+            'monthly' => $query->whereMonth($column, Carbon::parse($date)->month)
+                ->whereYear($column, Carbon::parse($date)->year),
+            'yearly' => $query->whereYear($column, $date),
+            default => $query->whereDate($column, now()->toDateString()),
+        };
     }
 }

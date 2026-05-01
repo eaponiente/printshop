@@ -3,6 +3,7 @@
 use App\Http\Controllers\Home\DashboardController;
 use App\Http\Controllers\PurchaseOrders\PurchaseOrderController;
 use App\Http\Controllers\Sales\ExpenseController;
+use App\Http\Controllers\Sales\ReportController;
 use App\Http\Controllers\Sales\SaleController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
@@ -70,6 +71,8 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('sales/{sale}/attachment', [SaleController::class, 'destroyAttachment'])->name('sales.attachment.destroy');
     Route::resource('sales', SaleController::class)
         ->only(['index', 'store', 'update', 'destroy']);
+
+    Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
 
     Route::patch('purchase-orders/{purchaseOrder}/status', [PurchaseOrderController::class, 'updateStatus'])->name('purchase-orders.status.update');
     Route::post('purchase-orders/{purchaseOrder}/transactions', [PurchaseOrderController::class, 'createTransaction'])->name('purchase-orders.transactions.store');

@@ -1,6 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import {
     BadgeDollarSign,
+    BarChart3,
     Cog,
     LayoutGrid,
     Newspaper,
@@ -58,7 +59,7 @@ export function AppSidebar() {
 
         // 2. Sales: Everyone
         {
-            title: 'Sales',
+            title: 'Projects',
             href: sales.index(),
             icon: BadgeDollarSign,
         },
@@ -91,7 +92,14 @@ export function AppSidebar() {
             icon: Newspaper,
         }] : []),
 
-        // 6. Settings: Filter specific sub-items
+        // 6. Reports: Admin/SuperAdmin only
+        ...(isAdmin ? [{
+            title: 'Reports',
+            href: '/reports',
+            icon: BarChart3,
+        }] : []),
+
+        // 7. Settings: Filter specific sub-items
         ...(isAdmin ? [{
             title: 'Settings',
             href: '#',
