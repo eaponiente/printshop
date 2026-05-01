@@ -72,6 +72,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { EditableDateCell } from './components/editable-date-cell';
 import { Badge } from '@/components/ui/badge';
 import { getCustomerDisplayName } from '@/utils/formatters';
+import { TagCell } from './tag-cell';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -93,6 +94,7 @@ export default function SublimationIndex({
     filters,
     statuses,
     users,
+    availableTags
 }: SublimationIndexProps) {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [selectedSublimation, setSelectedSublimation] = useState<Sublimation | null>(null);
@@ -174,8 +176,17 @@ export default function SublimationIndex({
             }
         },
         {
+            accessorKey: 'tags',
+            header: 'Category',
+            cell: ({ row }: CellContext<any, any>) => {
+                return (
+                    <TagCell sublimation={row.original} allTags={availableTags} />
+                );
+            }
+        },
+        {
             accessorKey: 'description',
-            header: 'Description',
+            header: 'Category',
             cell: ({ row }: CellContext<any, any>) => {
                 const description = row.original.description;
                 return (

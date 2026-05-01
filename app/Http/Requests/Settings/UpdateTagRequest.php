@@ -23,6 +23,11 @@ class UpdateTagRequest extends FormRequest
                 'max:255',
                 Rule::unique('tags', 'name')->ignore($tagId),
             ],
+            'color' => [
+                'required',
+                'string',
+                'max:7',
+            ],
         ];
     }
 }

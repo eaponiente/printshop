@@ -32,7 +32,7 @@ class SublimationController extends Controller
 
     public function index(IndexSublimationRequest $request): Response
     {
-        $query = Sublimation::with('tags', 'branch', 'user', 'customer', 'transaction');
+        $query = Sublimation::with(['tags', 'branch', 'user', 'customer', 'transaction']);
 
         $filters = $request->all();
 
@@ -113,7 +113,6 @@ class SublimationController extends Controller
                 ->whereIn('role', ['admin', 'staff'])
                 ->get();
         }
-
 
 
 
