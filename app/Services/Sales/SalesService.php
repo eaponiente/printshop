@@ -9,6 +9,7 @@ use App\Models\Customer;
 use App\Models\Expense;
 use App\Models\Payment;
 use App\Models\Transaction;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
@@ -33,10 +34,10 @@ class SalesService
                     });
                 }
             })
-            ->when($filters['status'] ?? null, fn ($q, $s) => $s !== 'all' ? $q->where('status', $s) : $q)
+            ->when($filters['status'] ?? null, fn($q, $s) => $s !== 'all' ? $q->where('status', $s) : $q)
             ->when($filters['payment_type'] ?? null, function ($q, $s) {
                 if ($s !== 'all') {
-                    $q->whereHas('payments', fn ($sq) => $sq->where('payment_type', $s));
+                    $q->whereHas('payments', fn($sq) => $sq->where('payment_type', $s));
                 }
             });
 
@@ -52,6 +53,104 @@ class SalesService
         }
 
         return $query;
+    }
+
+    /**
+     * Query payments with their parent transaction data,
+     * filtered by payment created_at date range.
+     * Excludes negative (refund) payment entries.
+     */
+    public function getPaymentQuery(array $filters): Builder
+    {
+        $user = auth()->user();
+
+        $query = Payment::query()
+            ->with([
+                'transaction' => function ($q) {
+                    $q->with(['user:id,first_name,last_name', 'branch:id,name', 'customer', 'payments', 'sublimation']);
+                },
+                'staff:id,first_name,last_name',
+            ])
+            ->where('payments.amount', '>', 0)
+            ->whereHas('transaction', function ($q) use ($user, $filters) {
+                $filterId = $filters['branch_id'] ?? null;
+
+                // Exclude fully-refunded transactions (amount_paid back to 0)
+                $q->where('amount_paid', '>', 0);
+
+                if ($user->role !== 'superadmin') {
+                    $q->where('branch_id', $user->branch_id);
+                } elseif ($filterId && $filterId !== 'all') {
+                    $q->where('branch_id', $filterId);
+                }
+            })
+            ->when($filters['status'] ?? null, function ($q, $s) {
+                if ($s !== 'all') {
+                    $q->whereHas('transaction', fn($sq) => $sq->where('status', $s));
+                }
+            })
+            ->when($filters['payment_type'] ?? null, function ($q, $s) {
+                if ($s !== 'all') {
+                    $q->where('payment_type', $s);
+                }
+            })
+            ->when($filters['search'] ?? null, function ($q, $s) {
+                $q->whereHas('transaction', function ($sq) use ($s) {
+                    $sq->where('invoice_number', 'like', "%{$s}%")
+                        ->orWhereHas('customer', function ($sq2) use ($s) {
+                            $sq2->where('first_name', 'like', "%{$s}%")
+                                ->orWhere('last_name', 'like', "%{$s}%");
+                        });
+                });
+            });
+
+        // Apply date filter on payments.created_at
+        $date = $filters['date'] ?? now()->toDateString();
+
+        match ($filters['mode'] ?? 'daily') {
+            'daily' => $query->whereDate('payments.created_at', $date),
+            'weekly' => $query->whereBetween('payments.created_at', [
+                Carbon::parse($date)->startOfWeek(),
+                Carbon::parse($date)->endOfWeek(),
+            ]),
+            'monthly' => $query->whereMonth('payments.created_at', Carbon::parse($date)->month)
+                ->whereYear('payments.created_at', Carbon::parse($date)->year),
+            'yearly' => $query->whereYear('payments.created_at', $date),
+            default => $query->whereDate('payments.created_at', now()->toDateString()),
+        };
+
+        // Staff restriction
+        if ($user->role === UserRole::STAFF->value) {
+            $query->where('payments.staff_id', $user->id);
+        }
+
+        // Sorting
+        $sortField = $filters['sort_field'] ?? 'created_at';
+        $sortDirection = $filters['sort_direction'] ?? 'desc';
+        $sortColumn = $sortField === 'transaction_date' ? 'payments.created_at' : 'payments.created_at';
+        $query->orderBy($sortColumn, $sortDirection === 'asc' ? 'asc' : 'desc');
+
+        return $query;
+    }
+
+    public function getPaymentAggregatesFromPayments(Builder $paymentQuery): array
+    {
+        $totals = (clone $paymentQuery)
+            ->reorder()
+            ->select('payments.payment_type', DB::raw('SUM(payments.amount) as total'))
+            ->groupBy('payments.payment_type')
+            ->pluck('total', 'payment_type')
+            ->toArray();
+
+        return [
+            'total_sales' => (float) array_sum($totals),
+            'gcash_amount' => (float) ($totals['gcash'] ?? 0),
+            'card_amount' => (float) ($totals['card'] ?? 0),
+            'check_amount' => (float) ($totals['check'] ?? 0),
+            'bank_transfer_amount' => (float) ($totals['bank_transfer'] ?? 0),
+            'cash_amount' => (float) ($totals['cash'] ?? 0),
+            'debit_amount' => (float) ($totals['debit'] ?? 0),
+        ];
     }
 
     public function getPaymentAggregates(Builder $query): array
@@ -78,8 +177,29 @@ class SalesService
     public function getCashOnHandTotal(?string $branchId): float
     {
         return (float) CashOnHand::query()
-            ->when($branchId && $branchId !== 'all', fn ($q) => $q->where('branch_id', $branchId))
+            ->when($branchId && $branchId !== 'all', fn($q) => $q->where('branch_id', $branchId))
             ->sum('amount');
+    }
+
+    /**
+     * Calculate finance summary based on actual payments within the date range,
+     * not the full transaction amounts.
+     */
+    public function getFinanceSummaryFromPayments(Builder $paymentQuery, array $filters): array
+    {
+        $revenue = (float) (clone $paymentQuery)->reorder()->sum('payments.amount');
+
+        $expenses = Expense::query()->filtered($filters)
+            ->when($filters['payment_type'] ?? null, function ($q) use ($filters) {
+                $q->where('payment_type', $filters['payment_type']);
+            })
+            ->where('status', ExpenseStatus::PAID->value)
+            ->sum('amount');
+
+        return [
+            'total_expenses' => (float) $expenses,
+            'net_income' => (float) ($revenue - $expenses),
+        ];
     }
 
     public function getFinanceSummary(array $filters): array
@@ -101,7 +221,7 @@ class SalesService
     public function searchCustomers(?string $search)
     {
         return Customer::query()
-            ->when($search, fn ($q, $t) => $q->whereAny(['first_name', 'last_name', 'company'], 'like', "%{$t}%"))
+            ->when($search, fn($q, $t) => $q->whereAny(['first_name', 'last_name', 'company'], 'like', "%{$t}%"))
             ->limit(10)->get();
     }
 

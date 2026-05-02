@@ -15,6 +15,12 @@ export type Payment = {
     payment_type: string;
     staff_id: number;
     created_at: string;
+    transaction?: Transaction;
+    staff?: {
+        id: number;
+        first_name: string;
+        last_name: string;
+    };
 }
 
 export type Transaction = {
@@ -28,6 +34,7 @@ export type Transaction = {
         id: number;
         first_name: string;
         last_name: string;
+        full_name?: string;
     };
 
     // Financials
@@ -53,6 +60,13 @@ export type Transaction = {
 
     sublimation?: Sublimation;
 
+    user?: {
+        id: number;
+        first_name: string;
+        last_name: string;
+        fullname?: string;
+    };
+
     /** Public URL when an attachment exists (from Laravel accessor). */
     attachment_url?: string | null;
 
@@ -60,6 +74,7 @@ export type Transaction = {
     transaction_date: string; // ISO string from Laravel
     fulfilled_at: string | null;
     change_reason: string | null;
+    payments_count?: number;
     created_at: string;
     updated_at: string;
 }
