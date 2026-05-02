@@ -186,7 +186,7 @@ export default function SublimationIndex({
         },
         {
             accessorKey: 'description',
-            header: 'Category',
+            header: 'Team / Subject',
             cell: ({ row }: CellContext<any, any>) => {
                 const description = row.original.description;
                 return (
