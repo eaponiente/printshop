@@ -42,7 +42,8 @@ export default function TagIndex({ tags }: TagsList) {
 
     const deleteTag = (tag: Tag) => {
         router.delete(`/tags/${tag.id}`, {
-            onSuccess: () => toast.success('Tag deleted', { position: 'top-center'}),
+            onSuccess: () => toast.success('Tag deleted', { position: 'top-center' }),
+            onError: (error: any) => toast.error(error.message || 'Tag is already used', { position: 'top-center' }),
         });
     }
 
