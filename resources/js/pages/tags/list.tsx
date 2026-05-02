@@ -68,13 +68,22 @@ export default function TagIndex({ tags }: TagsList) {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Name</TableHead>
+                                <TableHead>Color</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {tags.map((tag) => (
                                 <TableRow key={tag.id}>
-                                    <TableCell>{tag.name}</TableCell>
+                                    <TableCell className="font-medium">{tag.name}</TableCell>
+                                    <TableCell>
+                                        <span
+                                            className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium"
+                                            style={{ backgroundColor: tag.color, color: '#fff' }}
+                                        >
+                                            {tag.color}
+                                        </span>
+                                    </TableCell>
                                     <TableCell className="text-right">
                                         <Button variant="ghost" size="sm" onClick={() => openEditForm(tag)}><Pencil /></Button>
                                         <AlertDialog>
