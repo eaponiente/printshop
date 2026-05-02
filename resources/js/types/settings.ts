@@ -5,6 +5,7 @@ export type TagsList = {
 export type Tag = {
     id: number;
     name: string;
+    color: string;
 }
 
     export type TypeOfPayment = {
