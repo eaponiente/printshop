@@ -59,7 +59,6 @@ import { formatCurrency, getCustomerDisplayName } from '@/utils/formatters';
 import { sortBy } from '@/utils/helpers';
 import { toast } from 'sonner';
 import SaleSummarySection from './components/sale-summary-section';
-import { USER_ROLE } from '@/utils/constants';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -331,7 +330,7 @@ export default function SaleIndex({
                             </Button>
                         )}
                         {status === 'partial' &&
-                            auth.user.role === USER_ROLE.SUPERADMIN && (
+                            auth.user.role === 'superadmin' && (
                                 <Button
                                     size="sm"
                                     variant="outline"

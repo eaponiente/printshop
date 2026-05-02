@@ -186,7 +186,7 @@ export default function SublimationIndex({
         },
         {
             accessorKey: 'description',
-            header: 'Description',
+            header: 'Category',
             cell: ({ row }: CellContext<any, any>) => {
                 const description = row.original.description;
                 return (
@@ -383,15 +383,16 @@ export default function SublimationIndex({
                             href={route('sales.index', {
                                 search: sublimation.transaction.invoice_number,
                                 mode: 'daily',
+                                // change to Y-m-d format
                                 date: format(sublimation.transaction.transaction_date, 'yyyy-MM-dd'),
                             })}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-indigo-600 border border-indigo-100 hover:bg-indigo-600 hover:text-white transition-colors"
-                            title={`Invoice: ${sublimation.transaction.invoice_number}`}
+                            className="inline-flex items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 transition-all hover:bg-indigo-100 hover:border-indigo-300 hover:shadow-sm"
+                            title={`View Invoice: ${sublimation.transaction.invoice_number}`}
                         >
-                            <span>View</span>
-                            <ExternalLink size={10} strokeWidth={3} />
+                            <span>View Transaction</span>
+                            <ExternalLink size={14} className="opacity-70" />
                         </a>
                     );
                 }

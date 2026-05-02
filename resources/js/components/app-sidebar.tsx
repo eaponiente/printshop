@@ -29,7 +29,6 @@ import purchaseOrders from '@/routes/purchase-orders';
 import sales from '@/routes/sales';
 import sublimations from '@/routes/sublimations';
 import type { NavItem } from '@/types';
-import { USER_ROLE } from '@/utils/constants';
 const footerNavItems: NavItem[] = [];
 
 export function AppSidebar() {
@@ -38,7 +37,7 @@ export function AppSidebar() {
     // Define the full array inside the component or as a function
     const userRole = auth.user.role; // 'staff', 'admin', or 'superadmin'
 
-    const isAdmin = userRole === USER_ROLE.ADMIN || userRole === USER_ROLE.SUPERADMIN;
+    const isAdmin = userRole === 'admin' || userRole === 'superadmin';
 
     const mainNavItems: NavItem[] = [
         {
@@ -98,9 +97,9 @@ export function AppSidebar() {
             href: '#',
             icon: Cog,
             items: [
-                ...([USER_ROLE.SUPERADMIN, USER_ROLE.ADMIN].includes(userRole) ? [{ title: 'Sublimation Category', url: '/tags' }] : []),
+                { title: 'Tags', url: '/tags' },
                 // Only SuperAdmin sees Branches
-                ...(userRole === USER_ROLE.SUPERADMIN ? [{ title: 'Branches', url: '/branches' }] : [])
+                ...(userRole === 'superadmin' ? [{ title: 'Branches', url: '/branches' }] : [])
             ],
         }] : []),
     ];

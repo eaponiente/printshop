@@ -56,12 +56,9 @@ class TagController extends Controller
 
     public function destroy(Tag $tag): RedirectResponse
     {
+        $this->authorize('delete', auth()->user());
+
         try {
-
-            if ($tag->sublimations()->exists()) {
-                return redirect()->back()->withErrors(['message' => 'Tag is already used in sublimations.']);
-            }
-
             $tag->delete();
             return redirect()->back()->with('success', 'Tag deleted successfully.');
         } catch (\Exception $e) {
