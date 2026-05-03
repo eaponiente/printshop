@@ -367,35 +367,63 @@ export default function SublimationIndex({
             }
         },
         {
-            id: 'transaction',
-            header: 'Transaction',
-            cell: ({ row }) => {
-                const sublimation = row.original as Sublimation;
+            id: 'transaction_lean_widget',
+            header: 'Transaction & Status',
+            cell: ({ row }: CellContext<any, any>) => {
+                const po = row.original;
+                const transaction = po.transaction;
+                const status = transaction?.status;
+                console.log('tt', transaction?.payments_count || 0);
 
-                // Auth check
-                if (auth.user.role === 'staff' && +sublimation.user_id !== +auth.user.id) {
-                    return <span className="text-gray-400 text-xs">-</span>;
-                }
+                const colors = {
+                    paid: "bg-emerald-500 text-emerald-600 border-emerald-100",
+                    pending: "bg-amber-500 text-amber-600 border-amber-100",
+                    partial: "bg-blue-500 text-blue-600 border-blue-100",
+                    none: "bg-slate-300 text-slate-400 border-slate-100",
+                };
 
-                if (sublimation.transaction) {
-                    return (
-                        <a
-                            href={route('sales.index', {
-                                search: sublimation.transaction.invoice_number,
-                                mode: 'daily',
-                                // change to Y-m-d format
-                                date: format(sublimation.transaction.transaction_date, 'yyyy-MM-dd'),
-                            })}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 transition-all hover:bg-indigo-100 hover:border-indigo-300 hover:shadow-sm"
-                            title={`View Invoice: ${sublimation.transaction.invoice_number}`}
-                        >
-                            <span>View Transaction</span>
-                            <ExternalLink size={14} className="opacity-70" />
-                        </a>
-                    );
-                }
+                const theme = colors[status as keyof typeof colors] || colors.none;
+
+                return (
+                    <div className="flex items-center gap-3 min-w-[200px]">
+                        {/* 1. Slim Status Indicator */}
+                        <div className="flex flex-col items-center gap-1 shrink-0">
+                            <div className={`h-8 w-1 rounded-full ${theme.split(' ')[0]}`} />
+                        </div>
+
+                        <div className="flex flex-1 items-center justify-between">
+                            {/* 2. Info Block */}
+                            <div className="flex flex-col">
+                                <span className={`text-[10px] font-bold uppercase tracking-widest ${theme.split(' ')[1]}`}>
+                                    {status || 'No Sale'}
+                                </span>
+                                {transaction ? (
+                                    <span className="text-sm font-semibold text-slate-700 tracking-tight">
+                                        {transaction.invoice_number}
+                                    </span>
+                                ) : (
+                                    <span className="text-xs text-slate-400 italic">Pending Entry</span>
+                                )}
+                            </div>
+
+                            <div className="flex items-center pl-4">
+                                {transaction && (
+                                    <a
+                                        href={route('sales.index', {
+                                            search: transaction.invoice_number,
+                                            tab: transaction?.amount_paid > 0 ? 'payments' : 'unpaid',
+                                        })}
+                                        target="_blank"
+                                        className="group flex h-8 items-center gap-2 rounded-md px-2 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-all"
+                                    >
+                                        <span>VIEW</span>
+                                        <ExternalLink size={12} className="opacity-0 group-hover:opacity-100 transition-all -translate-x-1 group-hover:translate-x-0" />
+                                    </a>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
             },
         },
         {

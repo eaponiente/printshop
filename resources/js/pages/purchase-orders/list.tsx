@@ -300,8 +300,7 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                                     <a
                                         href={route('sales.index', {
                                             search: transaction.invoice_number,
-                                            date: format(transaction.transaction_date, 'yyyy-MM-dd'),
-                                            mode: 'daily',
+                                            tab: transaction?.payments_count || 0 > 0 ? 'payments' : 'unpaid',
                                         })}
                                         target="_blank"
                                         className="group flex h-8 items-center gap-2 rounded-md px-2 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-all"
