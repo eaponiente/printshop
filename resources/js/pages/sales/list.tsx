@@ -370,7 +370,7 @@ export default function SaleIndex({
                 if (status === 'paid') return null;
 
                 return (
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 whitespace-nowrap">
                         {status !== 'paid' && (
                             <Button
                                 size="sm"
@@ -403,7 +403,7 @@ export default function SaleIndex({
             cell: ({ row }: CellContext<any, any>) => {
                 const tx = getTx(row.original);
                 return (
-                    <div className="flex flex-wrap items-center gap-0.5">
+                    <div className="flex items-center gap-0.5 whitespace-nowrap">
                         <Button
                             variant="ghost"
                             size="sm"

@@ -58,7 +58,7 @@ export function DataTable<TData>({ columns, pagination }: DataTableProps<TData>)
 
     return (
         <div className="space-y-4">
-            <div className="rounded-md">
+            <div className="overflow-x-auto rounded-md">
                 <Table>
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
