@@ -31,20 +31,35 @@ class SaleController extends Controller
         $filters = array_merge([
             'date' => now()->toDateString(),
             'mode' => 'daily',
+            'tab' => 'payments',
         ], $request->validated());
 
-        $query = $this->salesService->getTransactionQuery($filters);
+        $isUnpaidTab = ($filters['tab'] ?? 'payments') === 'unpaid';
 
-        $aggregates = $this->salesService->getPaymentAggregates($query);
+        if ($isUnpaidTab) {
+            // Transaction-based view: show pending transactions (no payments yet)
+            $query = $this->salesService->getTransactionQuery(array_merge($filters, ['status' => 'pending']));
+            $aggregates = $this->salesService->getPaymentAggregates($query);
+            $financeSummary = $this->salesService->getFinanceSummary(array_merge($filters, ['status' => null]));
+            $paginated = $query->paginate(100)->withQueryString();
+        } else {
+            // Payment-based view: one row per payment, filtered by payment date
+            $paymentQuery = $this->salesService->getPaymentQuery($filters);
+            $aggregates = $this->salesService->getPaymentAggregatesFromPayments($paymentQuery);
+            $financeSummary = $this->salesService->getFinanceSummaryFromPayments($paymentQuery, $filters);
+            $paginated = $paymentQuery->paginate(100)->withQueryString();
+        }
+
         $cashOnHand = $this->salesService->getCashOnHandTotal($request->input('branch_id', auth()->user()->branch_id));
 
         return Inertia::render('sales/list', array_merge([
             'filters' => $filters,
             'branches' => Branch::accessibleBy(auth()->user())->get(['id', 'name']),
-            'transactions' => $query->paginate(100)->withQueryString(),
+            'transactions' => $paginated,
             'types_of_payment' => TransactionTypeOfPaymentEnum::map(),
             'cash_on_hand_amount' => $cashOnHand,
-        ], $aggregates, $this->salesService->getFinanceSummary($filters)));
+            'is_payment_view' => ! $isUnpaidTab,
+        ], $aggregates, $financeSummary));
     }
 
     public function store(StoreTransactionRequest $request): RedirectResponse
