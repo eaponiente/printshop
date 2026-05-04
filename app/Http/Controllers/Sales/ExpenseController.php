@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Sales;
 
 use App\Enums\Expenses\ExpenseStatus;
 use App\Enums\Expenses\ExpenseTypeOfPaymentEnum;
+use App\Enums\Users\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Sales\StoreExpenseRequest;
 use App\Http\Requests\Sales\UpdateExpenseRequest;
@@ -29,17 +30,14 @@ class ExpenseController extends Controller
             'mode' => 'monthly',
         ]);
 
+        $user = auth()->user();
         $query = Expense::query()->with(['user', 'branch'])
             ->dateFiltered($request->all())
-            ->where(function ($query) use ($request) {
-                $user = auth()->user();
-                $filterId = $request['branch_id'] ?? null;
-
-                if ($filterId) {
-                    // Superadmins only get a WHERE clause if they picked a specific branch
-                    $query->where('branch_id', $filterId);
-                }
-            })
+            ->when(
+                $user->role === UserRole::SUPERADMIN->value,
+                fn($q) => $q->when($request->filled('branch_id'), fn($sq) => $sq->where('branch_id', $request->branch_id)),
+                fn($q) => $q->where('branch_id', $user->branch_id)
+            )
             ->when($request->filled('payment_type'), function ($q) use ($request) {
                 $q->where('payment_type', $request->payment_type);
             })
