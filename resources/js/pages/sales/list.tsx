@@ -322,7 +322,7 @@ export default function SaleIndex({
             header: 'Staff',
             cell: ({ row }: CellContext<any, any>) => {
                 const tx = getTx(row.original);
-                const staff = is_payment_view ? row.original.staff : tx.user;
+                const staff = is_payment_view ? row.original?.transaction?.user : tx.user;
                 const staffName = staff
                     ? `${staff.first_name} ${staff.last_name}`
                     : getTx(row.original).user?.fullname ?? '';
