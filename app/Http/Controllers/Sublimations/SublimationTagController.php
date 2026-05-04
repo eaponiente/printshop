@@ -29,8 +29,6 @@ class SublimationTagController extends Controller
 
     public function removeTag(Sublimation $sublimation, Tag $tag): RedirectResponse
     {
-        $this->authorize('update', auth()->user());
-
         try {
             $sublimation->tags()->detach($tag->id);
             return back()->with('success', 'Tag removed successfully.');

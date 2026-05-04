@@ -8,7 +8,7 @@ class AddSublimationTagRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()->can('update', $this->user());
+        return true;
     }
 
     public function rules(): array
