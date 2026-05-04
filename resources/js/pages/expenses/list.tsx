@@ -1,6 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
-import { Banknote, Plus, XCircle } from 'lucide-react';
+import { Banknote, Plus, Printer, XCircle } from 'lucide-react';
 import React, { useState } from 'react';
 import { route } from 'ziggy-js';
 import { DataTable } from '@/components/data-table';
@@ -22,6 +22,7 @@ import type { BreadcrumbItem } from '@/types';
 import type { Expense, ExpensesList } from '@/types/expenses';
 import { toManilaTime } from '@/utils/dateHelper';
 import { formatCurrency } from '@/utils/formatters';
+import { printTableData } from '@/utils/printTable';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -450,9 +451,19 @@ export default function ExpenseIndex({
                             <XCircle className="mr-2 h-4 w-4" />
                             Clear
                         </Button>
+
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => printTableData('#expenses-table', 'Expenses Report')}
+                            className="ml-auto h-10"
+                        >
+                            <Printer className="mr-1.5 h-3.5 w-3.5" />
+                            Print
+                        </Button>
                     </div>
 
-                    <DataTable columns={columns} pagination={expenses} />
+                    <DataTable columns={columns} tableId="expenses-table" pagination={expenses} />
                 </div>
             </div>
             {isDialogOpen && (

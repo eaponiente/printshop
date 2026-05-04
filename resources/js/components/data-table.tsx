@@ -25,6 +25,7 @@ import {
 
 interface DataTableProps<TData> {
     columns: ColumnDef<TData, any>[]
+    tableId?: string
     // 'pagination' represents the object returned by Laravel ->paginate()
     pagination: {
         data: TData[]
@@ -36,7 +37,7 @@ interface DataTableProps<TData> {
     }
 }
 
-export function DataTable<TData>({ columns, pagination }: DataTableProps<TData>) {
+export function DataTable<TData>({ columns, tableId, pagination }: DataTableProps<TData>) {
     const [sorting, setSorting] = useState<SortingState>([])
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(
         []
@@ -59,7 +60,7 @@ export function DataTable<TData>({ columns, pagination }: DataTableProps<TData>)
     return (
         <div className="space-y-4">
             <div className="overflow-x-auto rounded-md">
-                <Table>
+                <Table id={tableId}>
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
                             <TableRow key={headerGroup.id}>

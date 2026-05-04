@@ -14,6 +14,7 @@ import {
     Paperclip,
     Receipt,
     AlertCircle,
+    Printer,
 } from 'lucide-react';
 import { useState, useCallback, useMemo, Suspense, lazy } from 'react';
 import { route } from 'ziggy-js';
@@ -59,6 +60,7 @@ import type { Customer, User } from '@/types/user';
 import { toManilaTime } from '@/utils/dateHelper';
 import { formatCurrency, getCustomerDisplayName } from '@/utils/formatters';
 import { sortBy } from '@/utils/helpers';
+import { printTableData } from '@/utils/printTable';
 import { toast } from 'sonner';
 import SaleSummarySection from './components/sale-summary-section';
 
@@ -559,9 +561,19 @@ export default function SaleIndex({
                             <AlertCircle className="mr-1.5 h-3.5 w-3.5" />
                             Unpaid
                         </Button>
+                        <div className="ml-auto">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => printTableData('#sales-table', 'Sales Report')}
+                            >
+                                <Printer className="mr-1.5 h-3.5 w-3.5" />
+                                Print
+                            </Button>
+                        </div>
                     </div>
 
-                    <DataTable columns={columns} pagination={transactions} />
+                    <DataTable columns={columns} tableId="sales-table" pagination={transactions} />
                 </div>
             </div>
 
