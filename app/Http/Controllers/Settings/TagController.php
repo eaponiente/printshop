@@ -30,6 +30,7 @@ class TagController extends Controller
         try {
             Tag::create([
                 'name' => $request->name,
+                'color' => $request->color,
             ]);
 
             return redirect()->back()->with('success', 'Tag created successfully.');

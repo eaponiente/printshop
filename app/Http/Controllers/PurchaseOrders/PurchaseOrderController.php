@@ -38,7 +38,9 @@ class PurchaseOrderController extends Controller
             ->withSum(['details as total_price' => function ($query) {
                 $query->select(DB::raw('sum(quantity * unit_price)'));
             }], 'id')
-            ->with(['details', 'branch', 'user', 'customer', 'transaction'])
+            ->with(['details', 'branch', 'user', 'customer', 'transaction' => function ($query) {
+                $query->withCount('payments');
+            }])
             ->where(function ($query) use ($filters) {
                 $user = auth()->user();
                 $filterId = $filters['branch_id'] ?? null;

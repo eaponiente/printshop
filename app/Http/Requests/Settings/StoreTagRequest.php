@@ -20,6 +20,11 @@ class StoreTagRequest extends FormRequest
                 'max:255',
                 'unique:tags,name',
             ],
+            'color' => [
+                'required',
+                'string',
+                'max:7',
+            ],
         ];
     }
 }

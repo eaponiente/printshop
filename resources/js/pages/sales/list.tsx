@@ -10,7 +10,10 @@ import {
     Eye,
     ChevronDown,
     ChevronUp,
-    BarChart3
+    BarChart3,
+    Paperclip,
+    Receipt,
+    AlertCircle,
 } from 'lucide-react';
 import { useState, useCallback, useMemo, Suspense, lazy } from 'react';
 import { route } from 'ziggy-js';
@@ -40,6 +43,7 @@ const SaleDialog = lazy(() => import('@/pages/sales/sales-dialog'));
 const CollectPaymentDialog = lazy(() => import('@/pages/sales/components/collect-payment-dialog'));
 const RefundPaymentDialog = lazy(() => import('@/pages/sales/components/refund-payment-dialog'));
 const TransactionDetailsDialog = lazy(() => import('@/pages/sales/components/transaction-details-dialog'));
+const SaleAttachmentDialog = lazy(() => import('@/pages/sales/components/sale-attachment-dialog'));
 
 const statusConfig = {
     paid: 'bg-green-100 text-green-700 border-green-200',
@@ -50,7 +54,7 @@ import type { BreadcrumbItem } from '@/types';
 import type { Branch } from '@/types/branches';
 import type { PaginatedResponse } from '@/types/pagination';
 import type { TypeOfPayment } from '@/types/settings';
-import type { Transaction } from '@/types/transaction';
+import type { Payment, Transaction } from '@/types/transaction';
 import type { Customer, User } from '@/types/user';
 import { toManilaTime } from '@/utils/dateHelper';
 import { formatCurrency, getCustomerDisplayName } from '@/utils/formatters';
@@ -60,11 +64,11 @@ import SaleSummarySection from './components/sale-summary-section';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Sales', href: '/sales' },
+    { title: 'Projects', href: '/sales' },
 ];
 
 interface SaleIndexProps {
-    transactions: PaginatedResponse<Transaction>; // Use the generic here
+    transactions: PaginatedResponse<Transaction | Payment>;
     filters: any;
     branches: any[];
     types_of_payment: TypeOfPayment[];
@@ -78,6 +82,12 @@ interface SaleIndexProps {
     debit_amount: number;
     cash_on_hand_amount: number;
     total_expenses: number;
+    is_payment_view: boolean;
+}
+
+/** Extract the parent Transaction from a row, regardless of payment or transaction view */
+function getTx(row: any): Transaction {
+    return row.transaction ?? row;
 }
 
 export default function SaleIndex({
@@ -95,6 +105,7 @@ export default function SaleIndex({
     debit_amount = 0,
     cash_on_hand_amount = 0,
     total_expenses = 0,
+    is_payment_view = false,
 }: SaleIndexProps) {
     const [getTransaction, setTransaction] = useState<Transaction | null>(null);
     const { auth } = usePage<{
@@ -109,6 +120,25 @@ export default function SaleIndex({
     const [isCollectPaymentDialogOpen, setIsCollectPaymentDialogOpen] =
         useState(false);
     const [isRefundDialogOpen, setIsRefundDialogOpen] = useState(false);
+    const [attachmentSaleId, setAttachmentSaleId] = useState<number | null>(
+        null,
+    );
+    const [isAttachmentDialogOpen, setIsAttachmentDialogOpen] =
+        useState(false);
+
+    const attachmentTransaction = useMemo(
+        () =>
+            attachmentSaleId == null
+                ? null
+                : (() => {
+                    const entry = transactions.data.find((t) => {
+                        const tx = getTx(t);
+                        return tx.id === attachmentSaleId;
+                    });
+                    return entry ? getTx(entry) : null;
+                })(),
+        [transactions.data, attachmentSaleId],
+    );
 
     const openEditForm = useCallback((transaction: Transaction | null) => {
         setTransaction(transaction);
@@ -127,18 +157,36 @@ export default function SaleIndex({
         setIsDetailsDialogOpen(true);
     }, []);
 
+    const openAttachmentDialog = useCallback((transaction: Transaction) => {
+        setAttachmentSaleId(transaction.id);
+        setIsAttachmentDialogOpen(true);
+    }, []);
+
+    const setAttachmentDialogOpen = useCallback((open: boolean) => {
+        setIsAttachmentDialogOpen(open);
+        if (!open) {
+            setAttachmentSaleId(null);
+        }
+    }, []);
+
     const selectedBranch = useMemo(
         () => branches.find((b) => b.id === Number(filters.branch_id)) || null,
         [branches, filters.branch_id],
     );
 
     const [mode, setMode] = useState(filters.mode || 'daily');
+    const [activeTab, setActiveTab] = useState(filters.tab || 'payments');
+
+    const handleTabChange = useCallback((tab: string) => {
+        setActiveTab(tab);
+        router.get('/sales', { ...filters, tab, page: 1 }, { preserveState: true, replace: true });
+    }, [filters]);
 
     const handleFilterChange = useCallback((
         value: string,
         type: 'mode' | 'date' | 'status' | 'branch_id' | 'payment_type' | 'search',
     ) => {
-        const params = { ...filters };
+        const params = { ...filters, tab: activeTab };
 
         if (type === 'search') {
             params.search = value;
@@ -161,7 +209,7 @@ export default function SaleIndex({
         } else {
             router.get(`/sales`, params, { preserveState: true, replace: true });
         }
-    }, [filters]);
+    }, [filters, activeTab]);
 
     const clearFilters = useCallback(() => {
         setMode('daily');
@@ -180,49 +228,81 @@ export default function SaleIndex({
 
     const columns: ColumnDef<unknown, any>[] = useMemo(() => [
         {
-            accessorKey: 'invoice_number',
-            header: ({ column }) => {
-                return (
-                    <Button
-                        variant="ghost"
-                        onClick={() =>
-                            column.toggleSorting(column.getIsSorted() === 'asc')
-                        }
-                    >
-                        Invoice #
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                );
-            },
-        },
-        {
-            accessorKey: 'customer.full_name',
+            accessorKey: 'customer',
             header: 'Customer Name',
             cell: ({ row }: CellContext<any, any>) => {
-                return getCustomerDisplayName(row.original.customer);
+                const tx = getTx(row.original);
+                const name = getCustomerDisplayName(tx.customer);
+                return (
+                    <div className="max-w-[120px] truncate" title={name}>
+                        {name}
+                    </div>
+                );
             }
         },
         {
             accessorKey: 'particular',
             header: 'Particular',
+            cell: ({ row }: CellContext<any, any>) => {
+                const tx = getTx(row.original);
+                return (
+                    <div className="max-w-[110px] truncate" title={tx.particular}>
+                        {tx.particular}
+                    </div>
+                );
+            }
         },
         {
-            accessorKey: 'branch.name',
+            accessorKey: 'branch',
             header: 'Branch',
+            cell: ({ row }: CellContext<any, any>) => {
+                const tx = getTx(row.original);
+                const branchName = tx.branch?.name;
+                return (
+                    <div className="max-w-[150px] truncate" title={branchName}>
+                        {branchName}
+                    </div>
+                );
+            }
         },
         {
             accessorKey: 'amount_total',
             header: 'Total',
+            cell: ({ row }: CellContext<any, any>) => {
+                const tx = getTx(row.original);
+                return formatCurrency(tx.amount_total);
+            }
         },
+        ...(is_payment_view ? [
+            {
+                accessorKey: 'amount',
+                header: 'Payment',
+                cell: ({ row }: any) => formatCurrency(row.original.amount),
+            },
+            {
+                accessorKey: 'payment_type',
+                header: 'Type',
+                cell: ({ row }: any) => (
+                    <Badge className="capitalize bg-slate-100 text-slate-700 border-slate-200 shadow-none">
+                        {row.original.payment_type}
+                    </Badge>
+                ),
+            },
+        ] : []),
         {
             accessorKey: 'balance',
             header: 'Balance',
+            cell: ({ row }: CellContext<any, any>) => {
+                const tx = getTx(row.original);
+                return formatCurrency(tx.balance);
+            }
         },
         {
             accessorKey: 'status',
             header: 'Status',
             cell: ({ row }: any) => {
-                const status = row.original.status.toLowerCase();
+                const tx = getTx(row.original);
+                const status = tx.status.toLowerCase();
 
                 const badgeStyle =
                     statusConfig[status as keyof typeof statusConfig] ||
@@ -238,26 +318,38 @@ export default function SaleIndex({
             },
         },
         {
-            accessorKey: 'user.fullname',
+            accessorKey: 'staff',
             header: 'Staff',
+            cell: ({ row }: CellContext<any, any>) => {
+                const tx = getTx(row.original);
+                const staff = is_payment_view ? row.original.staff : tx.user;
+                const staffName = staff
+                    ? `${staff.first_name} ${staff.last_name}`
+                    : getTx(row.original).user?.fullname ?? '';
+                return (
+                    <div className="max-w-[120px] truncate" title={staffName}>
+                        {staffName}
+                    </div>
+                );
+            }
         },
         {
-            accessorKey: 'transaction_date',
+            accessorKey: is_payment_view ? 'created_at' : 'transaction_date',
             cell: ({ row }: any) => {
-                return toManilaTime(
-                    row.original.transaction_date,
-                    'MMM DD, YYYY',
-                );
+                const dateSource = is_payment_view
+                    ? row.original.created_at
+                    : row.original.transaction_date;
+                return toManilaTime(dateSource, 'MMM DD, YYYY');
             },
             header: () => {
-                const isSorted = filters.sort_field === 'transaction_date';
+                const sortField = is_payment_view ? 'created_at' : 'transaction_date';
+                const isSorted = filters.sort_field === sortField;
 
                 return (
                     <Button
                         variant="ghost"
-                        // Pass the field, the current filters object, and the route
                         onClick={() =>
-                            sortBy('transaction_date', filters, 'sales.index')
+                            sortBy(sortField, filters, 'sales.index')
                         }
                         className="p-0 hover:bg-transparent"
                     >
@@ -273,20 +365,21 @@ export default function SaleIndex({
             id: 'payment',
             header: 'Collection',
             cell: ({ row }: any) => {
-                const status = row.original.status.toLowerCase();
+                const tx = getTx(row.original);
+                const status = tx.status.toLowerCase();
                 if (status === 'paid') return null;
 
                 return (
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 whitespace-nowrap">
                         {status !== 'paid' && (
                             <Button
                                 size="sm"
                                 variant="default"
                                 className="h-8 bg-indigo-600 text-white shadow-sm hover:bg-indigo-700"
-                                onClick={() => handleReceivePayment(row.original)}
+                                onClick={() => handleReceivePayment(tx)}
                             >
                                 <CreditCard className="mr-2 h-3.5 w-3.5" />
-                                Collect Pay
+                                Collect
                             </Button>
                         )}
                         {status === 'partial' &&
@@ -295,7 +388,7 @@ export default function SaleIndex({
                                     size="sm"
                                     variant="outline"
                                     className="h-8 border-amber-300 text-amber-700 hover:bg-amber-50"
-                                    onClick={() => handleRefundPayment(row.original)}
+                                    onClick={() => handleRefundPayment(tx)}
                                 >
                                     <RotateCcw className="mr-2 h-3.5 w-3.5" />
                                     Refund
@@ -303,30 +396,38 @@ export default function SaleIndex({
                             )}
                     </div>
                 );
-
-
             },
         }] : []),
         {
             header: 'Actions',
             cell: ({ row }: CellContext<any, any>) => {
+                const tx = getTx(row.original);
                 return (
-                    <>
+                    <div className="flex items-center gap-0.5 whitespace-nowrap">
                         <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => openDetailsForm(row.original)}
+                            onClick={() => openDetailsForm(tx)}
                         >
                             <Eye className="h-4 w-4 text-muted-foreground" />
                         </Button>
+                        {auth.user.role !== 'staff' && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Upload attachment"
+                                onClick={() => openAttachmentDialog(tx)}
+                            >
+                                <Paperclip className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                        )}
                         <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => openEditForm(row.original)}
+                            onClick={() => openEditForm(tx)}
                         >
                             <Pencil />
                         </Button>
-                        {/* only superadmin */}
                         {auth.user.role === 'superadmin' && (
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
@@ -347,9 +448,7 @@ export default function SaleIndex({
                                     <AlertDialogFooter>
                                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                                         <AlertDialogAction
-                                            onClick={() =>
-                                                deleteSale(row.original)
-                                            }
+                                            onClick={() => deleteSale(tx)}
                                         >
                                             Continue
                                         </AlertDialogAction>
@@ -357,31 +456,31 @@ export default function SaleIndex({
                                 </AlertDialogContent>
                             </AlertDialog>
                         )}
-                    </>
+                    </div>
                 );
             },
         },
-    ], [filters, handleReceivePayment, handleRefundPayment, openDetailsForm, openEditForm]);
+    ], [auth.user.role, is_payment_view, filters, handleReceivePayment, handleRefundPayment, openAttachmentDialog, openDetailsForm, openEditForm, deleteSale]);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Sales" />
+            <Head title="Projects" />
 
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-xl font-semibold">
-                            Sale Management
+                            Projects
                         </h1>
                         <p className="text-sm text-muted-foreground">
-                            Manage your sale.
+                            Manage your projects.
                         </p>
                     </div>
 
                     {/* Create Staff Button */}
                     <Button onClick={() => openEditForm(null)}>
                         <Plus className="mr-2 h-4 w-4" />
-                        Add Transaction
+                        Add Project
                     </Button>
                 </div>
 
@@ -396,7 +495,7 @@ export default function SaleIndex({
                                 <div className="flex items-center gap-2">
                                     <BarChart3 className="h-5 w-5 text-muted-foreground" />
                                     <h4 className="text-sm font-semibold">
-                                        Sales Summary Overview
+                                        Projects Summary Overview
                                     </h4>
                                 </div>
                                 <CollapsibleTrigger asChild>
@@ -441,6 +540,27 @@ export default function SaleIndex({
                         branches={branches}
                     />
 
+                    <div className="flex gap-1 px-4 pb-2">
+                        <Button
+                            variant={activeTab === 'payments' ? 'default' : 'ghost'}
+                            size="sm"
+                            onClick={() => handleTabChange('payments')}
+                            className={activeTab === 'payments' ? 'bg-indigo-600 hover:bg-indigo-700' : ''}
+                        >
+                            <Receipt className="mr-1.5 h-3.5 w-3.5" />
+                            Payments
+                        </Button>
+                        <Button
+                            variant={activeTab === 'unpaid' ? 'default' : 'ghost'}
+                            size="sm"
+                            onClick={() => handleTabChange('unpaid')}
+                            className={activeTab === 'unpaid' ? 'bg-amber-500 hover:bg-amber-600' : ''}
+                        >
+                            <AlertCircle className="mr-1.5 h-3.5 w-3.5" />
+                            Unpaid
+                        </Button>
+                    </div>
+
                     <DataTable columns={columns} pagination={transactions} />
                 </div>
             </div>
@@ -478,6 +598,14 @@ export default function SaleIndex({
                         transaction={getTransaction}
                         open={isDetailsDialogOpen}
                         setOpen={setIsDetailsDialogOpen}
+                    />
+                )}
+
+                {isAttachmentDialogOpen && attachmentTransaction && (
+                    <SaleAttachmentDialog
+                        transaction={attachmentTransaction}
+                        open={isAttachmentDialogOpen}
+                        setOpen={setAttachmentDialogOpen}
                     />
                 )}
             </Suspense>

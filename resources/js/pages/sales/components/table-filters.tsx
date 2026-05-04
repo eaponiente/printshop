@@ -67,7 +67,7 @@ const SalesTableFilters = React.memo(({
                 <div className="relative">
                     <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                        placeholder="Search invoice or guest..."
+                        placeholder="Search guest..."
                         value={localSearch}
                         onChange={(e) => setLocalSearch(e.target.value)}
                         className="bg-white pl-9"

@@ -101,7 +101,7 @@ export default function SublimationDialog({
                     >
                         {/* Description */}
                         <div className="grid gap-2">
-                            <Label htmlFor="description">Description</Label>
+                            <Label htmlFor="description">Team / Subject</Label>
                             <Textarea
                                 id="description"
                                 className="min-h-[80px] resize-none"

@@ -25,11 +25,12 @@ class GetTransactionsRequest extends FormRequest
         return [
             'date' => 'nullable|string',
             'mode' => 'nullable|in:daily,weekly,monthly,yearly',
+            'tab' => 'nullable|in:payments,unpaid',
             'status' => 'nullable|string',
             'search' => 'nullable|string',
             'branch_id' => 'nullable',
             'customer' => 'nullable|string',
-            'sort_field' => 'nullable|string|in:transaction_date',
+            'sort_field' => 'nullable|string|in:transaction_date,created_at',
             'sort_direction' => 'nullable|string|in:asc,desc',
         ];
     }
