@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Sales;
 
 use App\Enums\Expenses\ExpenseStatus;
 use App\Enums\Expenses\ExpenseTypeOfPaymentEnum;
+use App\Enums\Users\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Sales\StoreExpenseRequest;
 use App\Http\Requests\Sales\UpdateExpenseRequest;
@@ -38,6 +39,10 @@ class ExpenseController extends Controller
                 if ($filterId) {
                     // Superadmins only get a WHERE clause if they picked a specific branch
                     $query->where('branch_id', $filterId);
+                }
+
+                if ($user->role !== UserRole::SUPERADMIN->value) {
+                    $query->where('branch_id', $user->branch_id);
                 }
             })
             ->when($request->filled('payment_type'), function ($q) use ($request) {
