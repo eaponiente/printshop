@@ -2,8 +2,13 @@
 
 namespace Database\Seeders;
 
+use App\Enums\Sales\TransactionTypeOfPaymentEnum;
+use App\Models\Customer;
 use App\Models\PurchaseOrder;
+use App\Models\Transaction;
 use App\Models\User;
+use App\Services\Sales\CashOnHandService;
+use App\Services\Sales\SalesService;
 use Carbon\Carbon;
 use Faker\Factory;
 use Illuminate\Database\Seeder;
@@ -15,16 +20,13 @@ class PurchaseOrderSeeder extends Seeder
     {
         $faker = Factory::create();
 
-        // 1. Get valid staff/admins for assignment
         $users = User::whereIn('role', ['admin', 'staff'])->get();
 
         if ($users->isEmpty()) {
             $this->command->error('No users found to assign Purchase Orders. Seed users first.');
-
             return;
         }
 
-        // 2. Define realistic items for the Details table
         $inventoryItems = [
             ['name' => 'Drifit Fabric - White', 'unit' => 'Roll', 'price' => 4500],
             ['name' => 'Sublimation Ink - Cyan (1L)', 'unit' => 'Bottle', 'price' => 1200],
@@ -36,46 +38,44 @@ class PurchaseOrderSeeder extends Seeder
             ['name' => 'Sewing Thread - Black', 'unit' => 'Box', 'price' => 180],
         ];
 
-        // 3. Create 30-50 realistic orders
-        foreach (range(1, rand(30, 50)) as $index) {
+        $paymentMethods = TransactionTypeOfPaymentEnum::cases();
 
+        foreach (range(1, rand(30, 50)) as $index) {
             $user = $users->random();
+            auth()->login($user);
+
             $orderedAt = Carbon::now()->subDays(rand(0, 30));
-            $dueAt = Carbon::parse($orderedAt)->addDays(rand(4,8));
+            $dueAt = Carbon::parse($orderedAt)->addDays(rand(4, 8));
             $status = $faker->randomElement(['pending', 'active', 'finished', 'released']);
 
-            // Create the Parent PO
+            // CREATE PO — matches PurchaseOrderController@store
             $po = PurchaseOrder::create([
-                'po_number' => 'PO-'.$faker->unique()->numerify('#####'),
+                'po_number' => 'PO-' . $faker->unique()->numerify('#####'),
                 'description' => $faker->sentence(10),
                 'status' => $status,
-                'grand_total' => 0, // Placeholder
+                'grand_total' => 0,
                 'received_at' => $orderedAt,
                 'due_at' => $dueAt,
                 'user_id' => $user->id,
                 'branch_id' => $user->branch_id,
-                'customer_id' => \App\Models\Customer::inRandomOrder()->first()->id,
-                'transaction_id' => null, // Will update below if needed
+                'customer_id' => Customer::inRandomOrder()->first()->id,
+                'transaction_id' => null,
                 'created_at' => $orderedAt,
                 'updated_at' => $orderedAt,
             ]);
 
             $runningTotal = 0;
-
-            // 4. Create 2-6 Details for each PO
             $selectedItems = $faker->randomElements($inventoryItems, rand(2, 6));
 
             foreach ($selectedItems as $item) {
                 $qty = rand(1, 10);
-                $unitPrice = $item['price'];
-                $subTotal = $qty * $unitPrice;
+                $subTotal = $qty * $item['price'];
 
-                // Create the Detail row manually
                 DB::table('purchase_order_details')->insert([
                     'purchase_order_id' => $po->id,
                     'item_name' => $item['name'],
                     'quantity' => $qty,
-                    'unit_price' => $unitPrice,
+                    'unit_price' => $item['price'],
                     'created_at' => $orderedAt,
                     'updated_at' => $orderedAt,
                 ]);
@@ -83,16 +83,16 @@ class PurchaseOrderSeeder extends Seeder
                 $runningTotal += $subTotal;
             }
 
-            // 5. Finalize the Parent Total
             $po->update(['grand_total' => $runningTotal]);
 
-            // Create Transaction conditionally (e.g. if active, finished, released)
+            // CREATE LINKED TRANSACTION — matches PurchaseOrderController@createTransaction
+            // Only for POs that have moved past "pending" status
             if (in_array($status, ['active', 'finished', 'released'])) {
-                $transaction = app(\App\Services\Sales\SalesService::class)->createTransaction([
+                $transaction = app(SalesService::class)->createTransaction([
                     'description' => 'Purchase Order: ' . $po->po_number,
                     'branch_id' => $po->branch_id,
                     'customer_id' => $po->customer_id,
-                    'invoice_number' => \App\Models\Transaction::generateNumber(),
+                    'invoice_number' => Transaction::generateNumber(),
                     'amount_total' => $runningTotal,
                     'particular' => 'Purchase Order',
                     'staff_id' => $po->user_id,
@@ -102,6 +102,36 @@ class PurchaseOrderSeeder extends Seeder
                 ]);
 
                 $po->update(['transaction_id' => $transaction->id]);
+
+                // RECORD PAYMENTS — matches SaleController@updatePayment flow
+                // Finished/released: pay in full. Active: pay partial.
+                if ($status === 'finished' || $status === 'released') {
+                    $paymentType = collect($paymentMethods)->random()->value;
+
+                    $transaction->recordPayment($runningTotal, $paymentType);
+
+                    if ($paymentType === TransactionTypeOfPaymentEnum::CASH->value) {
+                        app(CashOnHandService::class)->adjustBalance(
+                            $transaction->branch_id,
+                            $runningTotal,
+                            'revenue'
+                        );
+                    }
+                } elseif ($status === 'active') {
+                    // Partial payment (30-70% of total)
+                    $partialAmount = round($runningTotal * (rand(30, 70) / 100), 2);
+                    $paymentType = collect($paymentMethods)->random()->value;
+
+                    $transaction->recordPayment($partialAmount, $paymentType);
+
+                    if ($paymentType === TransactionTypeOfPaymentEnum::CASH->value) {
+                        app(CashOnHandService::class)->adjustBalance(
+                            $transaction->branch_id,
+                            $partialAmount,
+                            'revenue'
+                        );
+                    }
+                }
             }
         }
 

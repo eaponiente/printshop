@@ -22,7 +22,6 @@ class TransactionSeeder extends Seeder
         $customerIds = Customer::pluck('id');
         $staffMembers = User::whereIn('role', ['staff', 'admin'])->get();
 
-        // Data for Standard Transactions
         $standardServices = [
             ['name' => 'Room Accommodation', 'desc' => 'Deluxe Suite - 2 Nights Stay'],
             ['name' => 'Event Hall Rental', 'desc' => 'Function Room B - Half Day Seminar'],
@@ -30,49 +29,47 @@ class TransactionSeeder extends Seeder
             ['name' => 'Restaurant Bill', 'desc' => 'Dinner Service - Table 12'],
         ];
 
-        // Data for Sublimation
         $sublimationProducts = [
             'Full Sublimation Jersey' => ['Basketball set', 'Volleyball uniform'],
             'Corporate Lanyard' => ['1-inch nylon', 'Digital print'],
             'Custom Hoodie' => ['Pullover with back print'],
         ];
 
-        // Total records to create (e.g., 400 standard + 40 sublimation)
-        $iterations = range(1, 450);
+        $paymentMethods = TransactionTypeOfPaymentEnum::cases();
 
         $currentDate = Carbon::now()->subDays(30);
+        $iterations = range(1, 450);
 
         foreach ($iterations as $i) {
             $staff = $staffMembers->random();
-            auth()->login($staff); // Ensure service logic has a user context
+            auth()->login($staff);
 
-            // Increment date by random hours/minutes so transactions are chronologically ordered
             $currentDate->addHours(rand(0, 4))->addMinutes(rand(0, 59));
             $date = $currentDate->clone();
 
-            // Randomly decide: 90% chance for Standard, 10% chance for Sublimation
             if ($faker->boolean(10)) {
                 $this->seedSublimation($faker, $customerIds, $staff, $sublimationProducts, $date);
             } else {
-                $this->seedStandardTransaction($faker, $customerIds, $staff, $standardServices, $date);
+                $this->seedStandardTransaction($faker, $customerIds, $staff, $standardServices, $date, $paymentMethods);
             }
         }
     }
 
-    private function seedStandardTransaction($faker, $customerIds, $staff, $services, $date)
+    /**
+     * Seed a standard transaction with one or more partial payments spread across days,
+     * matching the controller flow: create pending → recordPayment → adjust cash.
+     */
+    private function seedStandardTransaction($faker, $customerIds, $staff, $services, $date, $paymentMethods)
     {
         $service = $faker->randomElement($services);
-        $amountTotal = ($service['name'] === 'Event Hall Rental') ? rand(2000, 8000) : rand(50, 500);
+        $amountTotal = $service['name'] === 'Event Hall Rental' ? rand(2000, 8000) : rand(50, 500);
 
-        $roll = rand(1, 100);
-        $amountPaid = $roll <= 60 ? $amountTotal : ($roll <= 90 ? round($amountTotal * (rand(20, 80) / 100)) : 0);
-        $status = $amountPaid >= $amountTotal ? 'paid' : ($amountPaid > 0 ? 'partial' : 'pending');
-        $paymentType = in_array($status, ['partial', 'paid']) ? $faker->randomElement(['cash', 'card', 'gcash', 'debit', 'bank_transfer', 'check']) : null;
+        // CREATE — matches SaleController@store: creates pending with amount_paid=0
         $transaction = Transaction::create([
             'invoice_number' => Transaction::generateNumber(),
             'customer_id' => $customerIds->random(),
             'particular' => $service['name'],
-            'description' => rand(0, 1) ? $service['desc'] : null, // Optional description
+            'description' => rand(0, 1) ? $service['desc'] : null,
             'amount_total' => $amountTotal,
             'amount_paid' => 0,
             'status' => 'pending',
@@ -83,11 +80,65 @@ class TransactionSeeder extends Seeder
             'updated_at' => $date,
         ]);
 
-        if ($amountPaid > 0) {
-            $transaction->recordPayment($amountPaid, $paymentType);
-            if ($paymentType === TransactionTypeOfPaymentEnum::CASH->value) {
-                app(CashOnHandService::class)->adjustBalance($transaction->branch_id, $amountPaid, 'revenue');
+        // Decide how many payments this transaction gets (0-4 payments)
+        $roll = rand(1, 100);
+
+        if ($roll <= 15) {
+            // No payment: stays pending
+            return;
+        }
+
+        if ($roll <= 60) {
+            // Full payment in one go
+            $this->recordPayment($transaction, $amountTotal, $paymentMethods);
+            return;
+        }
+
+        // Partial: 2-4 payments spread across consecutive days
+        $numPayments = rand(2, 4);
+        $remaining = $amountTotal;
+        $paymentDate = $date->clone();
+
+        for ($p = 0; $p < $numPayments; $p++) {
+            // Guard: nothing left to pay
+            if ($remaining <= 0) break;
+
+            $isLast = $p === $numPayments - 1;
+
+            if ($isLast) {
+                $payAmount = $remaining;
+            } else {
+                $chunk = round($remaining * (rand(20, 60) / 100), 2);
+                $payAmount = max(0.01, min($chunk, $remaining - 0.01));
             }
+
+            // Final clamp: never exceed remaining balance
+            $payAmount = round(min($payAmount, $remaining), 2);
+
+            if ($payAmount <= 0) break;
+
+            $paymentDate->addDays(rand(0, 2));
+            auth()->login($staff);
+
+            $this->recordPayment($transaction, $payAmount, $paymentMethods);
+
+            $remaining = round($remaining - $payAmount, 2);
+        }
+    }
+
+    private function recordPayment(Transaction $transaction, float $amount, array $paymentMethods): void
+    {
+        $paymentType = collect($paymentMethods)->random()->value;
+
+        // Matches SaleController@updatePayment flow
+        $transaction->recordPayment($amount, $paymentType);
+
+        if ($paymentType === TransactionTypeOfPaymentEnum::CASH->value) {
+            app(CashOnHandService::class)->adjustBalance(
+                $transaction->branch_id,
+                $amount,
+                'revenue'
+            );
         }
     }
 
@@ -104,7 +155,7 @@ class TransactionSeeder extends Seeder
             'user_id' => $staff->id,
             'status' => $status,
             'transaction_type' => $transactionType,
-            'production_authorized' => ($transactionType === 'retail') ? $faker->boolean(15) : false,
+            'production_authorized' => $transactionType === 'retail' ? $faker->boolean(15) : false,
             'amount_total' => $faker->randomFloat(2, 1000, 5000),
             'description' => "Order: $subDesc",
             'quantity' => rand(10, 50),
@@ -117,8 +168,8 @@ class TransactionSeeder extends Seeder
 
         if (
             $sublimationStatus->isProductionPhase() ||
-            $sublimationStatus === SublimationStatus::COMPLETED->value ||
-            $sublimationStatus === SublimationStatus::DOWNPAYMENT_COMPLETE->value
+            $sublimationStatus === SublimationStatus::COMPLETED ||
+            $sublimationStatus === SublimationStatus::DOWNPAYMENT_COMPLETE
         ) {
             $transaction = app(SalesService::class)->createTransaction([
                 'description' => $sublimation->description,
