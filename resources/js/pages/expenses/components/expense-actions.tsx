@@ -30,7 +30,12 @@ export default function ExpenseActions({
     const [reason, setReason] = useState('');
     const [isOpen, setIsOpen] = useState(false);
 
-    const canApprove = (auth.user.role === 'admin' || auth.user.role === 'superadmin') && expense.status === 'pending';
+    let canApprove = auth.user.role === 'superadmin';
+
+    if (auth.user.role === 'admin') {
+        canApprove = expense.status === 'pending' && +expense.branch_id === +auth.user.branch_id;
+    }
+
     const isPending = expense.status === 'pending';
 
     const handleApprove = () => {

@@ -2,6 +2,9 @@
 
 namespace App\Http\Requests\Sales;
 
+use App\Enums\Expenses\ExpenseStatus;
+use App\Enums\Expenses\ExpenseTypeOfPaymentEnum;
+use App\Models\Expense;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -9,17 +12,29 @@ class UpdateExpenseRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true; // $this->user()->can('update', $this->route('expense'));
+        return true;
     }
 
     public function rules(): array
     {
+        /** @var Expense $expense */
+        $expense = $this->route('expense');
+        $isEditableCredit = $expense
+            && $expense->payment_type === ExpenseTypeOfPaymentEnum::CREDIT->value
+            && $expense->status === ExpenseStatus::PENDING->value;
+
         return [
             'notes' => ['nullable', 'string'],
             'description' => ['required', 'string', 'max:1000'],
             'vendor_name' => ['nullable', 'string', 'max:255'],
             'expense_date' => ['required', 'date'],
             'receipt' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:2048'],
+            'creditor_branch_id' => $isEditableCredit
+                ? ['required', 'exists:branches,id', 'different:debtor_branch_id']
+                : ['nullable'],
+            'debtor_branch_id' => $isEditableCredit
+                ? ['required', 'exists:branches,id', 'different:creditor_branch_id']
+                : ['nullable'],
         ];
     }
 }

@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/native-select';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
-import type { TypeOfPayment } from '@/types/settings'; // Assuming you have this Shadcn component
+import type { TypeOfPayment } from '@/types/settings';
 
 interface ExpenseDialogProps {
     branches: { id: number; name: string }[];
@@ -46,11 +46,16 @@ export default function ExpenseDialog({
             payment_type: expense?.payment_type ?? '',
             user_id: expense?.user_id ?? auth.user?.id,
             branch_id: expense?.branch_id ?? auth.user?.branch_id ?? '',
+            creditor_branch_id: expense?.creditor_branch_id ?? '',
+            debtor_branch_id: expense?.debtor_branch_id ?? '',
             status: expense?.status ?? 'pending',
             expense_date: expense?.expense_date
                 ? new Date(expense.expense_date).toISOString().split('T')[0]
                 : new Date().toISOString().split('T')[0],
         });
+
+    const isCredit = data.payment_type === 'credit';
+    const isEditableCredit = isCredit && (!isEdit || expense?.status === 'pending');
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -165,6 +170,7 @@ export default function ExpenseDialog({
                         <div className="grid gap-2">
                             <Label htmlFor="branch_id">Branch</Label>
                             <NativeSelect
+                                id="branch_id"
                                 value={data.branch_id}
                                 onChange={(e) =>
                                     setData('branch_id', e.target.value)
@@ -179,7 +185,56 @@ export default function ExpenseDialog({
                                     </NativeSelectOption>
                                 ))}
                             </NativeSelect>
+                            <InputError message={errors.branch_id} />
                         </div>
+
+                        {isEditableCredit && (
+                            <>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="creditor_branch_id">Creditor Branch</Label>
+                                    <NativeSelect
+                                        id="creditor_branch_id"
+                                        value={data.creditor_branch_id}
+                                        onChange={(e) =>
+                                            setData('creditor_branch_id', e.target.value)
+                                        }
+                                    >
+                                        <NativeSelectOption value={''}>
+                                            Select creditor
+                                        </NativeSelectOption>
+                                        {branches.map((b) => (
+                                            <NativeSelectOption key={b.id} value={b.id}>
+                                                {b.name}
+                                            </NativeSelectOption>
+                                        ))}
+                                    </NativeSelect>
+                                    <InputError message={errors.creditor_branch_id} />
+                                </div>
+
+                                <div className="grid gap-2">
+                                    <Label htmlFor="debtor_branch_id">Debtor Branch</Label>
+                                    <NativeSelect
+                                        id="debtor_branch_id"
+                                        value={data.debtor_branch_id}
+                                        onChange={(e) =>
+                                            setData('debtor_branch_id', e.target.value)
+                                        }
+                                    >
+                                        <NativeSelectOption value={''}>
+                                            Select debtor
+                                        </NativeSelectOption>
+                                        {branches
+                                            .filter((b) => b.id !== Number(data.creditor_branch_id))
+                                            .map((b) => (
+                                                <NativeSelectOption key={b.id} value={b.id}>
+                                                    {b.name}
+                                                </NativeSelectOption>
+                                            ))}
+                                    </NativeSelect>
+                                    <InputError message={errors.debtor_branch_id} />
+                                </div>
+                            </>
+                        )}
 
                         <div className="grid gap-2">
                             <Label htmlFor="expense_date">Date Purchased</Label>
