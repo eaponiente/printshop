@@ -133,6 +133,10 @@ class SublimationController extends Controller
         try {
             $sublimation = Sublimation::query()->create($request->validated());
 
+            if ($request->has('tag_ids')) {
+                $sublimation->tags()->sync($request->tag_ids);
+            }
+
             return redirect()->back()->with('success', 'Sublimation created successfully.');
         } catch (\Exception $e) {
             Log::error('Failed to create sublimation: ' . $e->getMessage());
@@ -161,6 +165,10 @@ class SublimationController extends Controller
             }
 
             $sublimation->save();
+
+            if ($request->has('tag_ids')) {
+                $sublimation->tags()->sync($request->tag_ids);
+            }
 
             return redirect()->back()->with('success', 'Sublimation updated successfully.');
         } catch (\Exception $e) {

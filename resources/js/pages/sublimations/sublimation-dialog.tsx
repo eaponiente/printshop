@@ -1,10 +1,11 @@
 import { useForm, usePage } from '@inertiajs/react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { route } from 'ziggy-js';
 import InputError from '@/components/input-error';
 import SearchCustomersField from '@/components/shared/search-customers-field';
 import { submitFormOptions } from '@/components/shared/submit-form-options';
+import TagSelector from '@/components/shared/tag-selector';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -19,6 +20,7 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import type { Branch } from '@/types/branches';
+import type { Tag } from '@/types/settings';
 import type { Sublimation, SublimationStatus } from '@/types/sublimations';
 import type { User } from '@/types/user';
 
@@ -28,6 +30,7 @@ interface SublimationDialogProps {
     branches: Branch[];
     users: User[];
     statuses: SublimationStatus[];
+    availableTags: Tag[];
     sublimation?: Sublimation | null;
 }
 
@@ -36,6 +39,7 @@ export default function SublimationDialog({
     setOpen,
     branches,
     users,
+    availableTags,
     sublimation,
 }: SublimationDialogProps) {
     const isEdit = !!sublimation;
@@ -52,6 +56,7 @@ export default function SublimationDialog({
         notes: sublimation?.notes ?? '',
         branch_id: sublimation?.branch_id ?? (auth.user as any).branch_id ?? '',
         customer_id: sublimation?.customer_id ?? '',
+        tag_ids: (sublimation?.tags?.map((t) => t.id) ?? []) as number[],
     });
 
     // Automatically uncheck/reset if the transaction type changes to PO
@@ -62,6 +67,18 @@ export default function SublimationDialog({
     }, [data.transaction_type, setData]);
 
     const prePaymentKeys = ['for_approval', 'done_layout', 'waiting_for_dp'];
+
+    const [availableTagsState, setAvailableTagsState] = useState<Tag[]>(availableTags);
+
+    const addTag = (tagId: number) => {
+        if (!data.tag_ids.includes(tagId)) {
+            setData('tag_ids', [...data.tag_ids, tagId]);
+        }
+    };
+
+    const removeTag = (tagId: number) => {
+        setData('tag_ids', data.tag_ids.filter((id) => id !== tagId));
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -255,6 +272,24 @@ export default function SublimationDialog({
                                 />
                                 <InputError message={errors.amount_total} />
                             </div>
+                        </div>
+
+                        {/* Tags */}
+                        <div className="grid gap-2">
+                            <Label>Tags</Label>
+                            <div className="rounded-md border p-3">
+                                <TagSelector
+                                    selectedTagIds={data.tag_ids}
+                                    availableTags={availableTagsState}
+                                    onAdd={addTag}
+                                    onRemove={removeTag}
+                                    layout="row"
+                                    onTagCreated={(tag) =>
+                                        setAvailableTagsState((prev) => [...prev, tag])
+                                    }
+                                />
+                            </div>
+                            <InputError message={errors.tag_ids} />
                         </div>
 
                         <Button

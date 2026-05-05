@@ -44,13 +44,14 @@ class ExpenseController extends Controller
             ->when($request->filled('branch_id'), fn($sq) => $sq->where('branch_id', $request->branch_id))
             ->when($request->filled('payment_type'), function ($q) use ($request) {
                 $q->where('payment_type', $request->payment_type);
-            })
-            ->latest('expense_date');
+            });
+
+        $expenseAmount = clone $query;
 
         return Inertia::render('expenses/list', [
             'filters' => $request->all(),
-            'expenses_amount' => $query->sum('amount'),
-            'expenses' => $query->paginate(30)->withQueryString(),
+            'expenses_amount' => $expenseAmount->where('status', ExpenseStatus::PAID->value)->sum('amount'),
+            'expenses' => $query->latest('expense_date')->paginate(30)->withQueryString(),
             'branches' => Branch::get(['id', 'name']),
             'payment_methods' => ExpenseTypeOfPaymentEnum::map(),
         ]);
