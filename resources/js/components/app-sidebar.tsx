@@ -4,6 +4,7 @@ import {
     Cog,
     Folder,
     LayoutGrid,
+    Monitor,
     Newspaper,
     NotebookPen,
     Shirt,
@@ -100,7 +101,10 @@ export function AppSidebar() {
             items: [
                 { title: 'Tags', url: '/tags' },
                 // Only SuperAdmin sees Branches
-                ...(userRole === 'superadmin' ? [{ title: 'Branches', url: '/branches' }] : [])
+                ...(userRole === 'superadmin' ? [
+                    { title: 'Branches', url: '/branches' },
+                    { title: 'Devices', url: '/devices' },
+                ] : [])
             ],
         }] : []),
     ];

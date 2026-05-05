@@ -96,4 +96,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(Sublimation::class, 'user_id');
     }
+
+    public function registeredDevices()
+    {
+        return $this->hasMany(RegisteredDevice::class);
+    }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\DeviceAuthController;
 use App\Http\Controllers\Home\DashboardController;
 use App\Http\Controllers\PurchaseOrders\PurchaseOrderController;
 use App\Http\Controllers\Sales\ExpenseController;
@@ -12,6 +13,7 @@ use App\Http\Controllers\Sublimations\SublimationImageController;
 use App\Http\Controllers\Sublimations\SublimationTagController;
 use App\Http\Controllers\Users\BranchController;
 use App\Http\Controllers\Users\CustomerController;
+use App\Http\Controllers\Users\DeviceManagementController;
 use App\Http\Controllers\Users\EndorsementController;
 use App\Http\Controllers\Users\UserController;
 use App\Models\User;
@@ -33,8 +35,19 @@ Route::get('/add-user', function () {
 
     Artisan::call('db:seed', ['--class' => 'BranchSeeder']);
 });
+
+Route::get('force-logout', function () {
+    auth()->logout();
+    request()->session()->invalidate();
+    request()->session()->regenerateToken();
+    return redirect()->route('login');
+})->name('force-logout');
+
+
 Route::middleware(['auth'])->group(function () {
     Route::redirect('settings', '/settings/profile');
+
+    Route::post('device-auth/register', [DeviceAuthController::class, 'register'])->name('device-auth.register');
 
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('settings/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -49,6 +62,11 @@ Route::middleware(['auth'])->group(function () {
 
     Route::resource('branches', BranchController::class);
     Route::resource('tags', TagController::class);
+
+    Route::get('devices', [DeviceManagementController::class, 'index'])->name('devices.index');
+    Route::post('devices/{device}/approve', [DeviceManagementController::class, 'approve'])->name('devices.approve');
+    Route::delete('devices/{device}/reject', [DeviceManagementController::class, 'reject'])->name('devices.reject');
+    Route::post('devices/{device}/deactivate', [DeviceManagementController::class, 'deactivate'])->name('devices.deactivate');
 
     Route::get('/sublimation-tags', [SublimationTagController::class, 'index']);
     Route::patch('/sublimation/{sublimation}/update-status', [SublimationController::class, 'updateStatus'])->name('sublimations.update-status');
