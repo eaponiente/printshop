@@ -653,6 +653,7 @@ export default function SublimationIndex({
                     setOpen={setIsDialogOpen}
                     branches={branches}
                     users={users}
+                    availableTags={availableTags}
                     sublimation={selectedSublimation}
                 />
             )}

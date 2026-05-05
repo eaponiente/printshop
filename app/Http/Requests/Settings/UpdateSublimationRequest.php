@@ -24,7 +24,8 @@ class UpdateSublimationRequest extends FormRequest
             'amount_total' => 'required|numeric|min:0|max:99999999.99',
             'transaction_type' => 'required|in:retail,purchase_order',
             'production_authorized' => 'required|boolean',
-            // amount_paid must not be greater than amount_total
+            'tag_ids' => ['required', 'array'],
+            'tag_ids.*' => ['exists:tags,id'],
         ];
     }
 }
