@@ -31,8 +31,8 @@ it('rejects a pending expense assigned to a different branch', function () {
 
 // ─── Scenario 2: Debtor branch rejects a credit expense they didn't create ───
 it('rejects a pending credit expense when rejector is the debtor branch', function () {
-    $branchA = Branch::factory()->create(['name' => 'Branch A']);
-    $branchB = Branch::factory()->create(['name' => 'Branch B']);
+    $branchA = Branch::factory()->create(['name' => 'Branch A (creditor)']);
+    $branchB = Branch::factory()->create(['name' => 'Branch B (debtor)']);
 
     $creator = User::factory()->create(['branch_id' => $branchA->id, 'role' => 'admin']);
     $rejector = User::factory()->create(['branch_id' => $branchB->id, 'role' => 'admin']);
@@ -42,7 +42,7 @@ it('rejects a pending credit expense when rejector is the debtor branch', functi
         ->credit()
         ->forBranch($branchA)
         ->createdBy($creator)
-        ->crossBranchCredit($branchA, $branchB)
+        ->crossBranchCredit($branchB)
         ->create([
             'amount' => 1500,
         ]);
@@ -54,8 +54,8 @@ it('rejects a pending credit expense when rejector is the debtor branch', functi
     expect($expense->fresh()->status)->toBe(ExpenseStatus::REJECTED->value);
 });
 
-// ─── Scenario 3: Creditor branch rejects a credit expense when they didn't create it ───
-it('rejects a pending credit expense when rejector is the creditor branch but not the creator', function () {
+// ─── Scenario 3: Creditor (assigned) branch rejects a credit expense when they didn't create it ───
+it('rejects a pending credit expense when rejector is the assigned branch but not the creator', function () {
     $branchA = Branch::factory()->create(['name' => 'Branch A (creditor)']);
     $branchB = Branch::factory()->create(['name' => 'Branch B (debtor/creator)']);
 
@@ -65,9 +65,9 @@ it('rejects a pending credit expense when rejector is the creditor branch but no
     $expense = Expense::factory()
         ->pending()
         ->credit()
-        ->forBranch($branchB)
+        ->forBranch($branchA)
         ->createdBy($creator)
-        ->crossBranchCredit($branchA, $branchB)
+        ->crossBranchCredit($branchB)
         ->create([
             'amount' => 2000,
         ]);
@@ -146,7 +146,7 @@ it('rejects rejection of an already rejected expense', function () {
 });
 
 // ─── Scenario 7: User from unrelated branch cannot reject ───
-it('rejects rejection from a branch that is not the assigned, creditor, or debtor branch', function () {
+it('rejects rejection from a branch that is not the assigned or debtor branch', function () {
     $branchA = Branch::factory()->create(['name' => 'Branch A (creator)']);
     $branchB = Branch::factory()->create(['name' => 'Branch B (assigned)']);
     $branchC = Branch::factory()->create(['name' => 'Branch C (unrelated)']);

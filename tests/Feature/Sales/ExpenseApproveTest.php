@@ -34,8 +34,8 @@ it('approves a pending expense assigned to a different branch', function () {
 
 // ─── Scenario 2: Debtor branch approves a credit expense they didn't create ───
 it('approves a pending credit expense when approver is the debtor branch', function () {
-    $branchA = Branch::factory()->create(['name' => 'Branch A']);
-    $branchB = Branch::factory()->create(['name' => 'Branch B']);
+    $branchA = Branch::factory()->create(['name' => 'Branch A (creditor)']);
+    $branchB = Branch::factory()->create(['name' => 'Branch B (debtor)']);
 
     $creator = User::factory()->create(['branch_id' => $branchA->id, 'role' => 'admin']);
     $approver = User::factory()->create(['branch_id' => $branchB->id, 'role' => 'admin']);
@@ -45,7 +45,7 @@ it('approves a pending credit expense when approver is the debtor branch', funct
         ->credit()
         ->forBranch($branchA)
         ->createdBy($creator)
-        ->crossBranchCredit($branchA, $branchB)
+        ->crossBranchCredit($branchB)
         ->create([
             'amount' => 1000,
         ]);
@@ -57,10 +57,10 @@ it('approves a pending credit expense when approver is the debtor branch', funct
     expect($expense->fresh()->status)->toBe(ExpenseStatus::PAID->value);
 });
 
-// ─── Scenario 3: Creditor branch approves a credit expense when they didn't create it ───
-it('approves a pending credit expense when approver is the creditor branch but not the creator', function () {
-    $branchA = Branch::factory()->create(['name' => 'Branch A']);
-    $branchB = Branch::factory()->create(['name' => 'Branch B']);
+// ─── Scenario 3: Creditor (assigned) branch approves a credit expense when they didn't create it ───
+it('approves a pending credit expense when approver is the assigned branch but not the creator', function () {
+    $branchA = Branch::factory()->create(['name' => 'Branch A (creditor)']);
+    $branchB = Branch::factory()->create(['name' => 'Branch B (debtor)']);
 
     $creator = User::factory()->create(['branch_id' => $branchB->id, 'role' => 'admin']);
     $approver = User::factory()->create(['branch_id' => $branchA->id, 'role' => 'admin']);
@@ -70,7 +70,7 @@ it('approves a pending credit expense when approver is the creditor branch but n
         ->credit()
         ->forBranch($branchA)
         ->createdBy($creator)
-        ->crossBranchCredit($branchA, $branchB)
+        ->crossBranchCredit($branchB)
         ->create([
             'amount' => 1000,
         ]);
@@ -147,7 +147,7 @@ it('creates a debit transaction when approving a credit cross-branch expense', f
         ->credit()
         ->forBranch($branchA)
         ->createdBy($creator)
-        ->crossBranchCredit($branchA, $branchB)
+        ->crossBranchCredit($branchB)
         ->create([
             'amount' => 2500,
         ]);
@@ -193,7 +193,7 @@ it('allows superadmin to approve any pending expense', function () {
 });
 
 // ─── Scenario 8: User from another unrelated branch cannot approve ───
-it('rejects approval from a branch that is not the assigned, creditor, or debtor branch', function () {
+it('rejects approval from a branch that is not the assigned or debtor branch', function () {
     $branchA = Branch::factory()->create(['name' => 'Branch A (creator)']);
     $branchB = Branch::factory()->create(['name' => 'Branch B (assigned)']);
     $branchC = Branch::factory()->create(['name' => 'Branch C (unrelated)']);

@@ -52,9 +52,8 @@ class ExpensePolicy
             return false;
         }
 
-        // Must be the assigned branch, creditor branch, or debtor branch
+        // Must be the assigned branch (which is the creditor for credit), or the debtor branch
         return $currentBranchId === (int) $expense->branch_id
-            || ($expense->creditor_branch_id && $currentBranchId === (int) $expense->creditor_branch_id)
             || ($expense->debtor_branch_id && $currentBranchId === (int) $expense->debtor_branch_id);
     }
 

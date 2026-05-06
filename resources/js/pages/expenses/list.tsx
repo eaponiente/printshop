@@ -79,8 +79,14 @@ export default function ExpenseIndex({
             header: 'Branch',
             cell: ({ row }: CellContext<any, any>) => {
                 const branchName = row.original.branch?.name;
+                const isCredit = row.original.payment_type === 'credit';
                 return (
                     <div className="max-w-[150px] truncate" title={branchName}>
+                        {isCredit && (
+                            <span className="text-muted-foreground text-xs block">
+                                Creditor
+                            </span>
+                        )}
                         {branchName}
                     </div>
                 );

@@ -28,7 +28,6 @@ export interface Expense {
 
     user_id: number;
     branch_id: number;
-    creditor_branch_id: number | null;
     debtor_branch_id: number | null;
     receipt_path: string | null;
 

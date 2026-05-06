@@ -34,13 +34,12 @@ export default function ExpenseActions({
 
     if (auth.user.role === 'admin' && expense.status === 'pending') {
         const currentBranchId = +auth.user.branch_id;
-        const creatorBranchId = +expense.user.branch_id;
+        const creatorBranchId = +expense.user.branch.id;
         const notCreatorBranch = currentBranchId !== creatorBranchId;
         const assignedToMe = +expense.branch_id === currentBranchId;
-        const isCreditor = +expense.creditor_branch_id === currentBranchId;
         const isDebtor = +expense.debtor_branch_id === currentBranchId;
 
-        canApprove = notCreatorBranch && (assignedToMe || isCreditor || isDebtor);
+        canApprove = notCreatorBranch && (assignedToMe || isDebtor);
     }
 
     const isPending = expense.status === 'pending';

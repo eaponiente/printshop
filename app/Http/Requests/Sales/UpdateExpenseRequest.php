@@ -29,11 +29,8 @@ class UpdateExpenseRequest extends FormRequest
             'vendor_name' => ['nullable', 'string', 'max:255'],
             'expense_date' => ['required', 'date'],
             'receipt' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:2048'],
-            'creditor_branch_id' => $isEditableCredit
-                ? ['required', 'exists:branches,id', 'different:debtor_branch_id']
-                : ['nullable'],
             'debtor_branch_id' => $isEditableCredit
-                ? ['required', 'exists:branches,id', 'different:creditor_branch_id']
+                ? ['required', 'exists:branches,id', 'different:branch_id']
                 : ['nullable'],
         ];
     }

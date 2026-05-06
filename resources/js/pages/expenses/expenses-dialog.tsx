@@ -46,7 +46,6 @@ export default function ExpenseDialog({
             payment_type: expense?.payment_type ?? '',
             user_id: expense?.user_id ?? auth.user?.id,
             branch_id: expense?.branch_id ?? auth.user?.branch_id ?? '',
-            creditor_branch_id: expense?.creditor_branch_id ?? '',
             debtor_branch_id: expense?.debtor_branch_id ?? '',
             status: expense?.status ?? 'pending',
             expense_date: expense?.expense_date
@@ -168,7 +167,9 @@ export default function ExpenseDialog({
                         </div>
 
                         <div className="grid gap-2">
-                            <Label htmlFor="branch_id">Branch</Label>
+                            <Label htmlFor="branch_id">
+                                {isCredit ? 'Creditor Branch' : 'Branch'}
+                            </Label>
                             <NativeSelect
                                 id="branch_id"
                                 disabled={isEdit}
@@ -178,7 +179,7 @@ export default function ExpenseDialog({
                                 }
                             >
                                 <NativeSelectOption value={''}>
-                                    Select branch
+                                    Select {isCredit ? 'creditor' : 'branch'}
                                 </NativeSelectOption>
                                 {branches.map((b) => (
                                     <NativeSelectOption key={b.id} value={b.id}>
@@ -190,28 +191,6 @@ export default function ExpenseDialog({
                         </div>
 
                         {isEditableCredit && (
-                            <>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="creditor_branch_id">Creditor Branch</Label>
-                                    <NativeSelect
-                                        id="creditor_branch_id"
-                                        value={data.creditor_branch_id}
-                                        onChange={(e) =>
-                                            setData('creditor_branch_id', e.target.value)
-                                        }
-                                    >
-                                        <NativeSelectOption value={''}>
-                                            Select creditor
-                                        </NativeSelectOption>
-                                        {branches.map((b) => (
-                                            <NativeSelectOption key={b.id} value={b.id}>
-                                                {b.name}
-                                            </NativeSelectOption>
-                                        ))}
-                                    </NativeSelect>
-                                    <InputError message={errors.creditor_branch_id} />
-                                </div>
-
                                 <div className="grid gap-2">
                                     <Label htmlFor="debtor_branch_id">Debtor Branch</Label>
                                     <NativeSelect
@@ -225,7 +204,7 @@ export default function ExpenseDialog({
                                             Select debtor
                                         </NativeSelectOption>
                                         {branches
-                                            .filter((b) => b.id !== Number(data.creditor_branch_id))
+                                            .filter((b) => b.id !== Number(data.branch_id))
                                             .map((b) => (
                                                 <NativeSelectOption key={b.id} value={b.id}>
                                                     {b.name}
@@ -234,7 +213,6 @@ export default function ExpenseDialog({
                                     </NativeSelect>
                                     <InputError message={errors.debtor_branch_id} />
                                 </div>
-                            </>
                         )}
 
                         <div className="grid gap-2">

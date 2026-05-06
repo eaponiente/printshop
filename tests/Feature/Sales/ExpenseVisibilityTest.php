@@ -124,7 +124,7 @@ describe('Credit expense: creditor=BranchA, debtor=BranchB, created by BranchA',
             ->credit()
             ->forBranch($this->branchA)
             ->createdBy($this->creator)
-            ->crossBranchCredit($this->branchA, $this->branchB)
+            ->crossBranchCredit($this->branchB)
             ->create(['amount' => 1000]);
     });
 
@@ -148,7 +148,7 @@ describe('Credit expense: creditor=BranchA, debtor=BranchB, created by BranchA',
             ->credit()
             ->forBranch($this->branchA)
             ->createdBy($this->creator)
-            ->crossBranchCredit($this->branchA, $this->branchB)
+            ->crossBranchCredit($this->branchB)
             ->create(['amount' => 1000]);
 
         $this->actingAs($this->assignedAdmin)
@@ -167,10 +167,9 @@ describe('Credit expense: creditor=BranchA, debtor=BranchB, created by BranchA',
     });
 });
 
-// ─── SCENARIO 3: Credit expense — Branch A = creditor, Branch B = debtor, created by Branch B (the debtor) ───
+// ─── SCENARIO 3: Credit expense — creditor=BranchA, debtor=BranchB, created by Branch B ───
 describe('Credit expense: creditor=BranchA, debtor=BranchB, created by BranchB', function () {
     beforeEach(function () {
-        // Branch B user creates the expense (act as debtor)
         $debtorUser = User::factory()->create([
             'branch_id' => $this->branchB->id,
             'role' => 'admin',
@@ -179,9 +178,9 @@ describe('Credit expense: creditor=BranchA, debtor=BranchB, created by BranchB',
         $this->expense = Expense::factory()
             ->pending()
             ->credit()
-            ->forBranch($this->branchB)
+            ->forBranch($this->branchA)
             ->createdBy($debtorUser)
-            ->crossBranchCredit($this->branchA, $this->branchB)
+            ->crossBranchCredit($this->branchB)
             ->create(['amount' => 1500]);
     });
 
@@ -200,8 +199,8 @@ describe('Credit expense: creditor=BranchA, debtor=BranchB, created by BranchB',
             ->assertForbidden();
     });
 
-    it('shows approve/reject to the creditor branch when they did NOT create the expense (Branch A)', function () {
-        $this->actingAs($this->creator) // creator is from Branch A but did NOT create this expense
+    it('shows approve/reject to the assigned branch when they did NOT create the expense (Branch A)', function () {
+        $this->actingAs($this->creator) // creator is a different user from Branch A but did NOT create this expense
             ->post(route('expenses.approve', $this->expense))
             ->assertSessionHasNoErrors();
 
@@ -213,9 +212,9 @@ describe('Credit expense: creditor=BranchA, debtor=BranchB, created by BranchB',
         $expense2 = Expense::factory()
             ->pending()
             ->credit()
-            ->forBranch($this->branchB)
+            ->forBranch($this->branchA)
             ->createdBy($debtorUser)
-            ->crossBranchCredit($this->branchA, $this->branchB)
+            ->crossBranchCredit($this->branchB)
             ->create(['amount' => 1500]);
 
         $this->actingAs($this->creator)

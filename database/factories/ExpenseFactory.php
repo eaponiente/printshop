@@ -62,10 +62,9 @@ class ExpenseFactory extends Factory
         return $this->state(fn () => ['user_id' => $user->id]);
     }
 
-    public function crossBranchCredit(Branch $creditor, Branch $debtor): static
+    public function crossBranchCredit(Branch $debtor): static
     {
         return $this->state(fn () => [
-            'creditor_branch_id' => $creditor->id,
             'debtor_branch_id' => $debtor->id,
         ]);
     }

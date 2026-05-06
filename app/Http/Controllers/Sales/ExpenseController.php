@@ -73,9 +73,9 @@ class ExpenseController extends Controller
                 $validated['expense_date'] = now();
 
                 $isCreditCrossBranch = $validated['payment_type'] === ExpenseTypeOfPaymentEnum::CREDIT->value
-                    && !empty($validated['creditor_branch_id'])
+                    && !empty($validated['branch_id'])
                     && !empty($validated['debtor_branch_id'])
-                    && $validated['creditor_branch_id'] != $validated['debtor_branch_id'];
+                    && $validated['branch_id'] != $validated['debtor_branch_id'];
                 $isRegularCrossBranch = $validated['payment_type'] !== ExpenseTypeOfPaymentEnum::CREDIT->value
                     && $validated['branch_id'] != auth()->user()->branch_id;
                 $isSuperAdmin = auth()->user()->role === 'superadmin';
