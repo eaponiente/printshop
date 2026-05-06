@@ -32,6 +32,41 @@ class ExpensePolicy
     }
 
     /**
+     * Determine whether the user can approve the expense.
+     */
+    public function approve(User $user, Expense $expense): bool
+    {
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        if (! $user->isAdmin()) {
+            return false;
+        }
+
+        $currentBranchId = (int) $user->branch_id;
+        $creatorBranchId = (int) $expense->user->branch_id;
+
+        // The creator's branch cannot approve their own expense
+        if ($currentBranchId === $creatorBranchId) {
+            return false;
+        }
+
+        // Must be the assigned branch, creditor branch, or debtor branch
+        return $currentBranchId === (int) $expense->branch_id
+            || ($expense->creditor_branch_id && $currentBranchId === (int) $expense->creditor_branch_id)
+            || ($expense->debtor_branch_id && $currentBranchId === (int) $expense->debtor_branch_id);
+    }
+
+    /**
+     * Determine whether the user can reject the expense.
+     */
+    public function reject(User $user, Expense $expense): bool
+    {
+        return $this->approve($user, $expense);
+    }
+
+    /**
      * Determine whether the user can update the model.
      */
     public function update(User $user, Expense $expense): bool

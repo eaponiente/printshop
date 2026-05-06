@@ -30,7 +30,9 @@ class UsersSeeder extends Seeder
             return;
         }
         // 3. Create 4 Staff and 4 Admins (1 for each branch)
-        foreach (['babak', 'penaplata', 'malita', 'tibungco'] as $key => $name) {
+        foreach (Branch::all() as $key => $obj) {
+
+            $name = str_replace('ñ', 'n', strtolower($obj->name));
 
             User::updateOrCreate(
                 ['username' => "{$name}_staff"],
@@ -39,7 +41,7 @@ class UsersSeeder extends Seeder
                     'last_name' => 'Staff',
                     'password' => Hash::make('password'),
                     'role' => 'staff',
-                    'branch_id' => $key + 1,
+                    'branch_id' => $obj->id,
                 ]
             );
 
@@ -51,7 +53,7 @@ class UsersSeeder extends Seeder
                     'last_name' => 'Admin',
                     'password' => Hash::make('password'),
                     'role' => 'admin',
-                    'branch_id' => $key + 1,
+                    'branch_id' => $obj->id,
                 ]
             );
         }

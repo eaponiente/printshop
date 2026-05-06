@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use App\Concerns\SaleFilterTrait;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Expense extends Model
 {
+    use HasFactory;
     use SaleFilterTrait;
     protected $table = 'expenses';
 
