@@ -38,10 +38,12 @@ class ExpenseController extends Controller
             'mode' => 'monthly',
         ]);
 
-        $query = Expense::query()->with(['user', 'branch'])
+        $query = Expense::query()->with(['branch', 'user.branch'])
             ->dateFiltered($request->all())
 
-            ->when($request->filled('branch_id'), fn($sq) => $sq->where('branch_id', $request->branch_id))
+            ->when($request->filled('branch_id') && $request->branch_id !== 'all', function ($sq) use ($request) {
+                $sq->where('branch_id', $request->branch_id);
+            })
             ->when($request->filled('payment_type'), function ($q) use ($request) {
                 $q->where('payment_type', $request->payment_type);
             });
@@ -190,6 +192,8 @@ class ExpenseController extends Controller
 
     public function approve(Expense $expense): RedirectResponse
     {
+        $this->authorize('approve', $expense);
+
         if ($expense->status !== ExpenseStatus::PENDING->value) {
             return back()->withErrors(['message' => 'Only pending expenses can be approved.']);
         }
@@ -219,7 +223,7 @@ class ExpenseController extends Controller
                         'description' => $expense->description,
                         'amount_total' => $expense->amount,
                         'amount_paid' => 0,
-                        'status' => 'pending',
+                        'status' => TransactionStatus::PENDING->value,
                         'staff_id' => auth()->id(),
                         'branch_id' => $expense->debtor_branch_id,
                         'transaction_date' => now(),
@@ -241,6 +245,8 @@ class ExpenseController extends Controller
 
     public function reject(Expense $expense): RedirectResponse
     {
+        $this->authorize('reject', $expense);
+
         if ($expense->status !== ExpenseStatus::PENDING->value) {
             return back()->withErrors(['message' => 'Only pending expenses can be rejected.']);
         }

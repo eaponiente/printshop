@@ -171,6 +171,7 @@ export default function ExpenseDialog({
                             <Label htmlFor="branch_id">Branch</Label>
                             <NativeSelect
                                 id="branch_id"
+                                disabled={isEdit}
                                 value={data.branch_id}
                                 onChange={(e) =>
                                     setData('branch_id', e.target.value)
@@ -262,26 +263,6 @@ export default function ExpenseDialog({
                         />
                         <InputError message={errors.notes} />
                     </div>
-
-                    {/* Status & Receipt Upload */}
-                    {/* <div className="grid grid-cols-2 gap-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="receipt">Receipt (Image/PDF)</Label>
-                            <Input
-                                id="receipt"
-                                type="file"
-                                onChange={(e) =>
-                                    setData(
-                                        'receipt',
-                                        e.target.files
-                                            ? e.target.files[0]
-                                            : null,
-                                    )
-                                }
-                            />
-                            <InputError message={errors.receipt} />
-                        </div>
-                    </div> */}
 
                     <Button
                         type="submit"
