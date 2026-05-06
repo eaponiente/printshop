@@ -121,7 +121,7 @@ class SalesService
 
         // Staff restriction
         if ($user->role === UserRole::STAFF->value) {
-            $query->where('payments.staff_id', $user->id);
+            $query->whereHas('transaction', fn($q) => $q->where('staff_id', $user->id));
         }
 
         // Sorting

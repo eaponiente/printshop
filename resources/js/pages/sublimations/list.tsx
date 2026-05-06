@@ -126,7 +126,6 @@ export default function SublimationIndex({
         });
     };
 
-    // set default branch as babak, tibungco, penaplata ids as filter by branches data not static values
     const [branchOpen, setBranchOpen] = useState(false)
     const selectedValues = Array.isArray(filters.branch_id) ? filters.branch_id : []
 
@@ -573,7 +572,10 @@ export default function SublimationIndex({
                                 <Select
                                     value={filters.user_id || 'all'}
                                     onValueChange={(v) =>
-                                        handleFilterChange(v, 'user_id')
+                                        handleFilterChange(
+                                            v === 'all' ? '' : v,
+                                            'user_id',
+                                        )
                                     }
                                 >
                                     <SelectTrigger className="h-10 w-[160px] bg-white text-sm">
@@ -653,6 +655,7 @@ export default function SublimationIndex({
                     setOpen={setIsDialogOpen}
                     branches={branches}
                     users={users}
+                    availableTags={availableTags}
                     sublimation={selectedSublimation}
                 />
             )}

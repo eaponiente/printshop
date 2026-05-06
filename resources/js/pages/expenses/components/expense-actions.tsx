@@ -1,5 +1,5 @@
 import { router, usePage } from '@inertiajs/react';
-import { Pencil, Ban } from 'lucide-react';
+import { Pencil, Ban, CheckCircle, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { route } from 'ziggy-js';
 import { Button } from '@/components/ui/button';
@@ -26,9 +26,37 @@ export default function ExpenseActions({
     expense,
     onEdit,
 }: ExpenseActionsProps) {
+    const { auth } = usePage<any>().props;
     const [reason, setReason] = useState('');
     const [isOpen, setIsOpen] = useState(false);
-    const { auth } = usePage().props;
+
+    let canApprove = auth.user.role === 'superadmin';
+
+    if (auth.user.role === 'admin' && expense.status === 'pending') {
+        const currentBranchId = +auth.user.branch_id;
+        const creatorBranchId = +expense.user.branch.id;
+        const notCreatorBranch = currentBranchId !== creatorBranchId;
+        const assignedToMe = +expense.branch_id === currentBranchId;
+        const isDebtor = +expense.debtor_branch_id === currentBranchId;
+
+        canApprove = notCreatorBranch && (assignedToMe || isDebtor);
+    }
+
+    const isPending = expense.status === 'pending';
+
+    const handleApprove = () => {
+        router.post(route('expenses.approve', expense.id), {}, {
+            onSuccess: () => toast.success('Expense approved.'),
+            onError: (err) => toast.error(Object.values(err)[0] || 'Error approving expense.')
+        });
+    };
+
+    const handleReject = () => {
+        router.post(route('expenses.reject', expense.id), {}, {
+            onSuccess: () => toast.success('Expense rejected.'),
+            onError: (err) => toast.error(Object.values(err)[0] || 'Error rejecting expense.')
+        });
+    };
 
     const handleVoid = () => {
         if (!reason.trim()) {
@@ -65,6 +93,32 @@ export default function ExpenseActions({
                 <Pencil className="h-4 w-4" />
             </Button>
 
+            {/* Approve Button */}
+            {canApprove && (
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-emerald-600 hover:text-emerald-700"
+                    onClick={handleApprove}
+                    title="Approve Expense"
+                >
+                    <CheckCircle className="h-4 w-4" />
+                </Button>
+            )}
+
+            {/* Reject Button */}
+            {canApprove && (
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-amber-600 hover:text-amber-700"
+                    onClick={handleReject}
+                    title="Reject Expense"
+                >
+                    <XCircle className="h-4 w-4" />
+                </Button>
+            )}
+
             {/* Void Dialog */}
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
                 <DialogTrigger asChild>
@@ -72,7 +126,8 @@ export default function ExpenseActions({
                         variant="ghost"
                         size="sm"
                         className="text-destructive hover:text-destructive"
-                        disabled={isVoided}
+                        disabled={isVoided || isPending}
+                        title="Void Expense"
                     >
                         <Ban className="h-4 w-4" />
                     </Button>

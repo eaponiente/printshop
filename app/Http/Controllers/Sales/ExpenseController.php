@@ -4,11 +4,15 @@ namespace App\Http\Controllers\Sales;
 
 use App\Enums\Expenses\ExpenseStatus;
 use App\Enums\Expenses\ExpenseTypeOfPaymentEnum;
+use App\Enums\Sales\TransactionStatus;
+use App\Enums\Sales\TransactionTypeOfPaymentEnum;
+use App\Enums\Users\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Sales\StoreExpenseRequest;
 use App\Http\Requests\Sales\UpdateExpenseRequest;
 use App\Models\Branch;
 use App\Models\Expense;
+use App\Models\Transaction;
 use App\Services\Files\FileUploadService;
 use App\Services\Sales\CashOnHandService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -25,30 +29,31 @@ class ExpenseController extends Controller
 
     public function index(Request $request): Response
     {
+        $user = auth()->user();
+        if ($user->role === UserRole::STAFF->value) {
+            abort(403);
+        }
+
         $request->mergeIfMissing([
             'mode' => 'monthly',
         ]);
 
-        $query = Expense::query()->with(['user', 'branch'])
+        $query = Expense::query()->with(['branch', 'user.branch'])
             ->dateFiltered($request->all())
-            ->where(function ($query) use ($request) {
-                $user = auth()->user();
-                $filterId = $request['branch_id'] ?? null;
 
-                if ($filterId) {
-                    // Superadmins only get a WHERE clause if they picked a specific branch
-                    $query->where('branch_id', $filterId);
-                }
+            ->when($request->filled('branch_id') && $request->branch_id !== 'all', function ($sq) use ($request) {
+                $sq->where('branch_id', $request->branch_id);
             })
             ->when($request->filled('payment_type'), function ($q) use ($request) {
                 $q->where('payment_type', $request->payment_type);
-            })
-            ->latest('expense_date');
+            });
+
+        $expenseAmount = clone $query;
 
         return Inertia::render('expenses/list', [
             'filters' => $request->all(),
-            'expenses_amount' => $query->sum('amount'),
-            'expenses' => $query->paginate(30)->withQueryString(),
+            'expenses_amount' => $expenseAmount->where('status', ExpenseStatus::PAID->value)->sum('amount'),
+            'expenses' => $query->latest('expense_date')->paginate(30)->withQueryString(),
             'branches' => Branch::get(['id', 'name']),
             'payment_methods' => ExpenseTypeOfPaymentEnum::map(),
         ]);
@@ -67,9 +72,21 @@ class ExpenseController extends Controller
                 $validated['user_id'] = auth()->id();
                 $validated['expense_date'] = now();
 
+                $isCreditCrossBranch = $validated['payment_type'] === ExpenseTypeOfPaymentEnum::CREDIT->value
+                    && !empty($validated['branch_id'])
+                    && !empty($validated['debtor_branch_id'])
+                    && $validated['branch_id'] != $validated['debtor_branch_id'];
+                $isRegularCrossBranch = $validated['payment_type'] !== ExpenseTypeOfPaymentEnum::CREDIT->value
+                    && $validated['branch_id'] != auth()->user()->branch_id;
+                $isSuperAdmin = auth()->user()->role === 'superadmin';
+                $status = (($isCreditCrossBranch || $isRegularCrossBranch) && !$isSuperAdmin)
+                    ? ExpenseStatus::PENDING->value
+                    : ExpenseStatus::PAID->value;
+                $validated['status'] = $status;
+
                 $expense = Expense::create($validated);
 
-                if ($expense->payment_type === ExpenseTypeOfPaymentEnum::CASH->value) {
+                if ($expense->status === ExpenseStatus::PAID->value && $expense->payment_type === ExpenseTypeOfPaymentEnum::CASH->value) {
                     app(CashOnHandService::class)->adjustBalance(
                         $expense->branch_id,
                         $expense->amount,
@@ -170,6 +187,76 @@ class ExpenseController extends Controller
             return back()->withErrors([
                 'message' => 'Failed to void the expense. Please try again or contact support.',
             ]);
+        }
+    }
+
+    public function approve(Expense $expense): RedirectResponse
+    {
+        $this->authorize('approve', $expense);
+
+        if ($expense->status !== ExpenseStatus::PENDING->value) {
+            return back()->withErrors(['message' => 'Only pending expenses can be approved.']);
+        }
+
+        try {
+            DB::transaction(function () use ($expense) {
+                $expense->update(['status' => ExpenseStatus::PAID->value]);
+
+                if ($expense->payment_type === ExpenseTypeOfPaymentEnum::CASH->value) {
+                    app(CashOnHandService::class)->adjustBalance(
+                        $expense->branch_id,
+                        $expense->amount,
+                        'expense'
+                    );
+                }
+
+                // Credit expense from a different branch: create a debit transaction
+                // in the approver's branch to record the inter-branch transfer.
+                if (
+                    $expense->payment_type === ExpenseTypeOfPaymentEnum::CREDIT->value
+                    && $expense->debtor_branch_id
+                ) {
+                    $transaction = Transaction::create([
+                        'invoice_number' => Transaction::generateNumber(),
+                        'customer_id' => null,
+                        'particular' => 'Credit Expense — ' . ($expense->vendor_name ?: 'Expense #' . $expense->id),
+                        'description' => $expense->description,
+                        'amount_total' => $expense->amount,
+                        'amount_paid' => 0,
+                        'status' => TransactionStatus::PENDING->value,
+                        'staff_id' => auth()->id(),
+                        'branch_id' => $expense->debtor_branch_id,
+                        'transaction_date' => now(),
+                    ]);
+
+                    $transaction->recordPayment(
+                        $expense->amount,
+                        TransactionTypeOfPaymentEnum::DEBIT->value
+                    );
+                }
+            });
+
+            return back()->with('success', 'Expense approved successfully.');
+        } catch (\Exception $e) {
+            Log::error("Failed to approve expense #{$expense->id}: " . $e->getMessage());
+            return back()->withErrors(['message' => 'Failed to approve the expense.']);
+        }
+    }
+
+    public function reject(Expense $expense): RedirectResponse
+    {
+        $this->authorize('reject', $expense);
+
+        if ($expense->status !== ExpenseStatus::PENDING->value) {
+            return back()->withErrors(['message' => 'Only pending expenses can be rejected.']);
+        }
+
+        try {
+            $expense->update(['status' => ExpenseStatus::REJECTED->value]);
+            return back()->with('success', 'Expense rejected successfully.');
+        } catch (\Exception $e) {
+            Log::error("Failed to reject expense #{$expense->id}: " . $e->getMessage());
+            return back()->withErrors(['message' => 'Failed to reject the expense.']);
         }
     }
 }
