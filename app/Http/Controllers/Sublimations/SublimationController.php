@@ -58,29 +58,24 @@ class SublimationController extends Controller
                 $specialBranchesIds = Branch::whereIn('name', $specialBranches)->pluck('id')->toArray();
 
                 if ($hasFilter) {
-
-                    // Security: Only allow filtering within the special branches array
                     $validFilters = array_intersect($filterIds, $specialBranchesIds);
                     if (count($validFilters) === 0) {
                         return;
                     }
                     $query->whereIn('branch_id', $validFilters);
                 } else {
-                    // DEFAULT: Show all data from the 3 special branches
                     $query->whereIn('branch_id', $specialBranchesIds);
                 }
                 return;
             }
 
-            if (in_array($user->branch_id, $specialBranches)) {
-                $query->whereIn('branch_id', $specialBranches);
-                return;
-            }
             // 3. DEFAULT: Lock non-special users to their own branch
             $query->where('branch_id', $user->branch_id);
         });
 
-        $query->when($request->filled('status') && $request->status !== 'all', fn($q) => $q->whereIn('status', $request->status));
+        $query->when($request->filled('status') && $request->status !== 'all', 
+            fn($q) => $q->whereIn('status', (array) $request->status)
+        );
 
         $query->when(
             ! $request->boolean('include_completed'),
@@ -88,7 +83,7 @@ class SublimationController extends Controller
         );
 
         // handle unassigned
-        $query->when($request->filled('user_id'), function ($q) use ($request) {
+        $query->when($request->filled('user_id') && $request->user_id !== 'all', function ($q) use ($request) {
             if ($request->user_id === 'unassigned') {
                 $q->whereNull('user_id');
             } else {

@@ -3,6 +3,7 @@ import type { CellContext, ColumnDef } from '@tanstack/react-table';
 import { Banknote, Plus, XCircle } from 'lucide-react';
 import React, { useState } from 'react';
 import { route } from 'ziggy-js';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DataTable } from '@/components/data-table';
 import { Badge } from "@/components/ui/badge"; // Assuming Shadcn Badge
 import { Button } from '@/components/ui/button';
@@ -78,8 +79,14 @@ export default function ExpenseIndex({
             header: 'Branch',
             cell: ({ row }: CellContext<any, any>) => {
                 const branchName = row.original.branch?.name;
+                const isCredit = row.original.payment_type === 'credit';
                 return (
                     <div className="max-w-[150px] truncate" title={branchName}>
+                        {isCredit && (
+                            <span className="text-muted-foreground text-xs block">
+                                Creditor
+                            </span>
+                        )}
                         {branchName}
                     </div>
                 );
@@ -96,10 +103,11 @@ export default function ExpenseIndex({
             accessorKey: 'user.fullname',
             header: 'Staff',
             cell: ({ row }: CellContext<any, any>) => {
-                const staffName = row.original.user?.fullname;
+                const expense: Expense = row.original;
+                const staffName = expense.user?.fullname;
                 return (
                     <div className="max-w-[150px] truncate" title={staffName}>
-                        {staffName}
+                        {staffName} ({expense.user?.branch?.name})
                     </div>
                 );
             }
@@ -110,9 +118,16 @@ export default function ExpenseIndex({
             cell: ({ row }: CellContext<any, any>) => {
                 const description = row.original.description;
                 return (
-                    <div className="max-w-[200px] truncate" title={description}>
-                        {description}
-                    </div>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <div className="max-w-[200px] truncate">
+                                {description}
+                            </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            {description}
+                        </TooltipContent>
+                    </Tooltip>
                 );
             }
         },
@@ -173,6 +188,16 @@ export default function ExpenseIndex({
                         label: 'Paid',
                         className:
                             'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border-emerald-200',
+                    },
+                    pending: {
+                        label: 'Pending',
+                        className:
+                            'bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border-amber-200',
+                    },
+                    rejected: {
+                        label: 'Rejected',
+                        className:
+                            'bg-red-500/10 text-red-600 hover:bg-red-500/20 border-red-200',
                     },
                     void: {
                         label: 'Voided',

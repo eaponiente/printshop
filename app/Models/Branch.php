@@ -22,7 +22,7 @@ class Branch extends Model
 
     public function scopeAccessibleBy($query, $user)
     {
-        if ($user->role !== 'superadmin') {
+        if (!in_array($user->role, ['superadmin', 'admin'])) {
             return $query->where('id', $user->branch_id);
         }
 
