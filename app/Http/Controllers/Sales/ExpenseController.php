@@ -15,6 +15,7 @@ use App\Models\Expense;
 use App\Models\Transaction;
 use App\Services\Files\FileUploadService;
 use App\Services\Sales\CashOnHandService;
+use App\Services\Sales\SalesService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -100,6 +101,8 @@ class ExpenseController extends Controller
             Log::error('Failed to create expense: ' . $e->getMessage());
 
             return back()->withErrors(['message' => 'An error occurred while creating the expense.']);
+        } finally {
+            app(SalesService::class)->bustSalesAggregateCache();
         }
     }
 
@@ -123,18 +126,19 @@ class ExpenseController extends Controller
             Log::error('Failed to update expense: ' . $e->getMessage());
 
             return back()->withErrors(['message' => 'An error occurred while updating the expense.']);
+        } finally {
+            app(SalesService::class)->bustSalesAggregateCache();
         }
     }
 
     public function destroy(Expense $expense, FileUploadService $fileUploadService): RedirectResponse
     {
         try {
-            // 4. Reverse the cash impact if it was paid in cash
             if ($expense->payment_type === ExpenseTypeOfPaymentEnum::CASH->value) {
                 app(CashOnHandService::class)->adjustBalance(
                     $expense->branch_id,
-                    (float) $expense->amount, // Positive amount to "refund" the drawer
-                    'revenue' // Label it clearly for the audit trail
+                    (float) $expense->amount,
+                    'revenue'
                 );
             }
             $expense->delete();
@@ -144,6 +148,8 @@ class ExpenseController extends Controller
             Log::error('Failed to delete expense: ' . $e->getMessage());
 
             return back()->withErrors(['message' => 'An error occurred while deleting the expense.']);
+        } finally {
+            app(SalesService::class)->bustSalesAggregateCache();
         }
     }
 
@@ -181,12 +187,13 @@ class ExpenseController extends Controller
 
             return back()->with('success', 'Expense has been voided and cash balance adjusted.');
         } catch (\Exception $e) {
-            // Log the error for debugging
             Log::error("Failed to void expense #{$expense->id}: " . $e->getMessage());
 
             return back()->withErrors([
                 'message' => 'Failed to void the expense. Please try again or contact support.',
             ]);
+        } finally {
+            app(SalesService::class)->bustSalesAggregateCache();
         }
     }
 
@@ -240,6 +247,8 @@ class ExpenseController extends Controller
         } catch (\Exception $e) {
             Log::error("Failed to approve expense #{$expense->id}: " . $e->getMessage());
             return back()->withErrors(['message' => 'Failed to approve the expense.']);
+        } finally {
+            app(SalesService::class)->bustSalesAggregateCache();
         }
     }
 

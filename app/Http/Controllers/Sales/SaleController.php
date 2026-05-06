@@ -41,12 +41,12 @@ class SaleController extends Controller
             $query = $this->salesService->getTransactionQuery(array_merge($filters, ['status' => 'pending']));
             $aggregates = $this->salesService->getPaymentAggregates($query);
             $financeSummary = $this->salesService->getFinanceSummary(array_merge($filters, ['status' => null]));
+            $aggregates = array_merge($aggregates, $financeSummary);
             $paginated = $query->paginate(100)->withQueryString();
         } else {
             // Payment-based view: one row per payment, filtered by payment date
             $paymentQuery = $this->salesService->getPaymentQuery($filters);
-            $aggregates = $this->salesService->getPaymentAggregatesFromPayments($paymentQuery);
-            $financeSummary = $this->salesService->getFinanceSummaryFromPayments($paymentQuery, $filters);
+            $aggregates = $this->salesService->getCachedPaymentAggregates($filters);
             $paginated = $paymentQuery->paginate(100)->withQueryString();
         }
 
@@ -59,7 +59,7 @@ class SaleController extends Controller
             'types_of_payment' => TransactionTypeOfPaymentEnum::map(),
             'cash_on_hand_amount' => $cashOnHand,
             'is_payment_view' => ! $isUnpaidTab,
-        ], $aggregates, $financeSummary));
+        ], $aggregates));
     }
 
     public function store(StoreTransactionRequest $request): RedirectResponse
@@ -70,6 +70,8 @@ class SaleController extends Controller
                 'transaction_date' => now(),
                 'invoice_number' => Transaction::generateNumber(),
             ]));
+
+            $this->salesService->bustSalesAggregateCache();
 
             return back()->with('success', 'Sale created successfully.');
         } catch (\Exception $e) {
@@ -102,6 +104,8 @@ class SaleController extends Controller
 
         $sale->save();
 
+        $this->salesService->bustSalesAggregateCache();
+
         return back()->with('success', 'Sale updated successfully.');
     }
 
@@ -118,6 +122,8 @@ class SaleController extends Controller
                     'revenue'
                 );
             }
+
+            $this->salesService->bustSalesAggregateCache();
 
             return back()->with('success', 'Payment updated.');
         } catch (\Exception $e) {
@@ -139,6 +145,8 @@ class SaleController extends Controller
                     'expense'
                 );
             }
+
+            $this->salesService->bustSalesAggregateCache();
 
             return back()->with('success', 'Full refund recorded.');
         } catch (\Exception $e) {
@@ -216,6 +224,8 @@ class SaleController extends Controller
 
         try {
             $sale->delete();
+
+            $this->salesService->bustSalesAggregateCache();
 
             return back()->with('success', 'Sale deleted successfully.');
         } catch (\Exception $e) {

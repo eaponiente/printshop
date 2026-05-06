@@ -11,6 +11,7 @@ use App\Models\Payment;
 use App\Models\Transaction;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class SalesService
@@ -216,6 +217,48 @@ class SalesService
             'total_expenses' => (float) $expenses,
             'net_income' => (float) ($revenue - $expenses),
         ];
+    }
+
+    /**
+     * Returns cached payment aggregates + finance summary for a given filter set.
+     * Avoids scanning the entire filtered dataset multiple times per page load.
+     *
+     * Invalidated globally via bustSalesAggregateCache() on any mutation.
+     *
+     * @see getPaymentAggregatesFromPayments
+     * @see getFinanceSummaryFromPayments
+     */
+    public function getCachedPaymentAggregates(array $filters): array
+    {
+        $user = auth()->user();
+        $version = $this->aggregateCacheVersion();
+        $key = 'sales_aggregates:v' . $version . ':' . $user->id . ':' . md5(serialize($filters));
+
+        return Cache::remember($key, now()->addSeconds(60), function () use ($filters) {
+            $paymentQuery = $this->getPaymentQuery($filters);
+
+            return array_merge(
+                $this->getPaymentAggregatesFromPayments($paymentQuery),
+                $this->getFinanceSummaryFromPayments($paymentQuery, $filters),
+            );
+        });
+    }
+
+    /**
+     * Bump the global aggregate cache version, invalidating all cached results.
+     */
+    public function bustSalesAggregateCache(): void
+    {
+        Cache::increment('sales_aggregates_version');
+    }
+
+    /**
+     * Global counter used as a cache key prefix so that bumping it invalidates
+     * every cached aggregate entry at once (works with any cache driver).
+     */
+    private function aggregateCacheVersion(): int
+    {
+        return (int) Cache::rememberForever('sales_aggregates_version', fn () => 1);
     }
 
     public function searchCustomers(?string $search)

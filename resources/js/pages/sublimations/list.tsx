@@ -411,6 +411,7 @@ export default function SublimationIndex({
                                         href={route('sales.index', {
                                             search: transaction.invoice_number,
                                             tab: transaction?.amount_paid > 0 ? 'payments' : 'unpaid',
+                                            mode: 'yearly'
                                         })}
                                         target="_blank"
                                         className="group flex h-8 items-center gap-2 rounded-md px-2 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-all"
