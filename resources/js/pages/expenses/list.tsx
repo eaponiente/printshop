@@ -23,7 +23,7 @@ import type { BreadcrumbItem } from '@/types';
 import type { Expense, ExpensesList } from '@/types/expenses';
 import { toManilaTime } from '@/utils/dateHelper';
 import { formatCurrency } from '@/utils/formatters';
-import { printTableData } from '@/utils/printTable';
+import { printAllTableData } from '@/utils/printTable';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -480,7 +480,7 @@ export default function ExpenseIndex({
                         <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => printTableData('#expenses-table', 'Expenses Report')}
+                            onClick={() => printAllTableData('Expenses Report', route('expenses.print', filters))}
                             className="ml-auto h-10"
                         >
                             <Printer className="mr-1.5 h-3.5 w-3.5" />

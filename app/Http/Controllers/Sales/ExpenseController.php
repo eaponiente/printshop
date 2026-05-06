@@ -15,8 +15,10 @@ use App\Models\Expense;
 use App\Models\Transaction;
 use App\Services\Files\FileUploadService;
 use App\Services\Sales\CashOnHandService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -57,6 +59,45 @@ class ExpenseController extends Controller
             'branches' => Branch::get(['id', 'name']),
             'payment_methods' => ExpenseTypeOfPaymentEnum::map(),
         ]);
+    }
+
+    public function print(Request $request): JsonResponse
+    {
+        $user = auth()->user();
+        if ($user->role === UserRole::STAFF->value) {
+            abort(403);
+        }
+
+        $request->mergeIfMissing([
+            'mode' => 'monthly',
+        ]);
+
+        $query = Expense::query()->with(['branch', 'user.branch'])
+            ->dateFiltered($request->all())
+            ->when($request->filled('branch_id') && $request->branch_id !== 'all', function ($sq) use ($request) {
+                $sq->where('branch_id', $request->branch_id);
+            })
+            ->when($request->filled('payment_type'), function ($q) use ($request) {
+                $q->where('payment_type', $request->payment_type);
+            });
+
+        $records = $query->latest('expense_date')->get();
+
+        $headers = ['Branch', 'Amount', 'Staff', 'Description', 'Payment Type', 'Status', 'Date Purchased', 'Void Reason'];
+        $rows = $records->map(function ($expense) {
+            return [
+                $expense->branch?->name ?? '',
+                number_format($expense->amount, 2),
+                $expense->user ? $expense->user->fullname : '',
+                $expense->description,
+                ucfirst($expense->payment_type),
+                ucfirst($expense->status),
+                Carbon::parse($expense->expense_date)->setTimezone('Asia/Manila')->format('M d, Y'),
+                $expense->void_reason ?? '',
+            ];
+        })->values()->toArray();
+
+        return response()->json(compact('headers', 'rows'));
     }
 
     public function store(StoreExpenseRequest $request, FileUploadService $fileUploadService): RedirectResponse

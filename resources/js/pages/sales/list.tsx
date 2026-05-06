@@ -60,7 +60,7 @@ import type { Customer, User } from '@/types/user';
 import { toManilaTime } from '@/utils/dateHelper';
 import { formatCurrency, getCustomerDisplayName } from '@/utils/formatters';
 import { sortBy } from '@/utils/helpers';
-import { printTableData } from '@/utils/printTable';
+import { printAllTableData } from '@/utils/printTable';
 import { toast } from 'sonner';
 import SaleSummarySection from './components/sale-summary-section';
 
@@ -565,7 +565,7 @@ export default function SaleIndex({
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => printTableData('#sales-table', 'Sales Report')}
+                                onClick={() => printAllTableData('Sales Report', route('sales.print', { ...filters, tab: 'payments' }))}
                             >
                                 <Printer className="mr-1.5 h-3.5 w-3.5" />
                                 Print

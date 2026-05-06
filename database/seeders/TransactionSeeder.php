@@ -85,6 +85,10 @@ class TransactionSeeder extends Seeder
 
         if ($amountPaid > 0) {
             $transaction->recordPayment($amountPaid, $paymentType);
+            $transaction->payments()->latest('id')->first()->update([
+                'created_at' => $date,
+                'updated_at' => $date,
+            ]);
             if ($paymentType === TransactionTypeOfPaymentEnum::CASH->value) {
                 app(CashOnHandService::class)->adjustBalance($transaction->branch_id, $amountPaid, 'revenue');
             }

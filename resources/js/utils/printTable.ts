@@ -1,28 +1,10 @@
-/** Clone a table element's visible content into a print-friendly window and trigger print. */
-export function printTableData(tableSelector: string, title: string) {
-    const table = document.querySelector(tableSelector) as HTMLTableElement | null;
-    if (!table) return;
+interface PrintData {
+    headers: string[];
+    rows: string[][];
+}
 
-    const headers: string[] = [];
-    const rows: string[][] = [];
-
-    // Collect header texts
-    table.querySelectorAll('thead th').forEach((th) => {
-        const text = (th.textContent ?? '').trim();
-        if (text) headers.push(text);
-    });
-
-    // Collect row cell texts
-    table.querySelectorAll('tbody tr').forEach((tr) => {
-        const cells: string[] = [];
-        tr.querySelectorAll('td').forEach((td) => {
-            cells.push((td.textContent ?? '').trim());
-        });
-        if (cells.length > 0) rows.push(cells);
-    });
-
-    // Build print HTML
-    const html = `<!DOCTYPE html>
+function buildPrintHtml(headers: string[], rows: string[][], title: string): string {
+    return `<!DOCTYPE html>
 <html>
 <head>
     <title>${title}</title>
@@ -49,7 +31,9 @@ export function printTableData(tableSelector: string, title: string) {
     </table>
 </body>
 </html>`;
+}
 
+function openPrintWindow(html: string) {
     const printWindow = window.open('', '_blank', 'width=900,height=700');
     if (!printWindow) return;
 
@@ -57,4 +41,40 @@ export function printTableData(tableSelector: string, title: string) {
     printWindow.document.close();
     printWindow.focus();
     printWindow.print();
+}
+
+/** Clone a table element's visible content into a print-friendly window and trigger print. */
+export function printTableData(tableSelector: string, title: string) {
+    const table = document.querySelector(tableSelector) as HTMLTableElement | null;
+    if (!table) return;
+
+    const headers: string[] = [];
+    const rows: string[][] = [];
+
+    table.querySelectorAll('thead th').forEach((th) => {
+        const text = (th.textContent ?? '').trim();
+        if (text) headers.push(text);
+    });
+
+    table.querySelectorAll('tbody tr').forEach((tr) => {
+        const cells: string[] = [];
+        tr.querySelectorAll('td').forEach((td) => {
+            cells.push((td.textContent ?? '').trim());
+        });
+        if (cells.length > 0) rows.push(cells);
+    });
+
+    openPrintWindow(buildPrintHtml(headers, rows, title));
+}
+
+/** Fetch all matching records from a backend print endpoint and trigger a print dialog. */
+export async function printAllTableData(title: string, dataUrl: string) {
+    try {
+        const response = await fetch(dataUrl);
+        const { headers, rows }: PrintData = await response.json();
+
+        openPrintWindow(buildPrintHtml(headers, rows, title));
+    } catch {
+        // Silently fail
+    }
 }
