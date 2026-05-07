@@ -6,7 +6,9 @@ import { Banknote, Wallet, TrendingUp } from "lucide-react";
 interface SaleSummarySectionProps {
     cash_on_hand_amount: number;
     cash_amount: number;
+    cash_net_amount: number;
     gcash_amount: number;
+    gcash_net_amount: number;
     bank_transfer_amount: number;
     card_amount: number;
     check_amount: number;
@@ -20,7 +22,9 @@ interface SaleSummarySectionProps {
 export default function SaleSummarySection({
     cash_on_hand_amount,
     cash_amount,
+    cash_net_amount,
     gcash_amount,
+    gcash_net_amount,
     bank_transfer_amount,
     card_amount,
     check_amount,
@@ -71,6 +75,9 @@ export default function SaleSummarySection({
                             <p className="truncate text-[11px] leading-none font-bold">
                                 {formatCurrency(cash_amount || 0)}
                             </p>
+                            <p className="truncate text-[9px] leading-none text-muted-foreground">
+                                Net: {formatCurrency(cash_net_amount || 0)}
+                            </p>
                         </div>
 
                         {/* GCash */}
@@ -80,6 +87,9 @@ export default function SaleSummarySection({
                             </p>
                             <p className="truncate text-[11px] leading-none font-bold">
                                 {formatCurrency(gcash_amount || 0)}
+                            </p>
+                            <p className="truncate text-[9px] leading-none text-muted-foreground">
+                                Net: {formatCurrency(gcash_net_amount || 0)}
                             </p>
                         </div>
 

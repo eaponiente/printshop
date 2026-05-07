@@ -13,6 +13,7 @@ import type { Branch } from '@/types/branches';
 
 interface SalesTableFiltersProps {
     mode: string;
+    is_payment_view: boolean;
     filters: {
         search?: string;
         date?: string;
@@ -26,14 +27,17 @@ interface SalesTableFiltersProps {
     ) => void;
     clearFilters: () => void;
     branches: Branch[];
+    types_of_payment: { key: string; value: string }[];
 }
 
 const SalesTableFilters = React.memo(({
     mode,
+    is_payment_view,
     filters,
     handleFilterChange,
     clearFilters,
-    branches
+    branches,
+    types_of_payment,
 }: SalesTableFiltersProps) => {
     // 1. Local state for search to prevent re-rendering the whole page
     const [localSearch, setLocalSearch] = useState(filters.search || '');
@@ -201,6 +205,31 @@ const SalesTableFilters = React.memo(({
                     </SelectContent>
                 </Select>
             </div>
+
+            {/* Payment Type Filter — only on payments tab */}
+            {is_payment_view && (
+                <div className="space-y-1.5">
+                    <label className="ml-1 text-xs font-semibold text-muted-foreground uppercase">
+                        Payment
+                    </label>
+                    <Select
+                        value={filters.payment_type || 'all'}
+                        onValueChange={(v) => handleFilterChange(v, 'payment_type')}
+                    >
+                        <SelectTrigger className="w-[140px] bg-white text-sm">
+                            <SelectValue placeholder="All Types" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Types</SelectItem>
+                            {types_of_payment.map((type) => (
+                                <SelectItem key={type.key} value={type.key}>
+                                    {type.value}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            )}
 
             <Button
                 variant="ghost"

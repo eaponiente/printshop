@@ -36,33 +36,36 @@ class SaleController extends Controller
 
         $isUnpaidTab = ($filters['tab'] ?? 'payments') === 'unpaid';
 
-        if ($isUnpaidTab) {
-            // Transaction-based view: show pending transactions (no payments yet)
-            $query = $this->salesService->getTransactionQuery(array_merge($filters, ['status' => 'pending']));
-            $aggregates = $this->salesService->getPaymentAggregates($query);
-            $financeSummary = $this->salesService->getFinanceSummary(array_merge($filters, ['status' => null]));
-            $paginated = $query->paginate(100)->withQueryString();
-        } else {
-            // Payment-based view: one row per payment, filtered by payment date
-            $paymentQuery = $this->salesService->getPaymentQuery($filters);
-            $aggregates = $this->salesService->getPaymentAggregatesFromPayments($paymentQuery);
-            $financeSummary = $this->salesService->getFinanceSummaryFromPayments($paymentQuery, $filters);
-            $paginated = $paymentQuery->paginate(100)->withQueryString();
-        }
-
         $cashOnHand = $this->salesService->getCashOnHandTotal($request->input('branch_id', auth()->user()->branch_id));
 
         $branches = Branch::query()
             ->when(auth()->user()->isStaff() || auth()->user()->isAdmin(), fn($q) => $q->where('id', auth()->user()->branch_id))
             ->get(['id', 'name']);
 
+        if ($isUnpaidTab) {
+            $query = $this->salesService->getTransactionQuery(array_merge($filters, ['status' => 'pending']));
+
+            return Inertia::render('sales/list', [
+                'filters' => $filters,
+                'branches' => $branches,
+                'transactions' => $query->paginate(100)->withQueryString(),
+                'types_of_payment' => TransactionTypeOfPaymentEnum::map(),
+                'cash_on_hand_amount' => $cashOnHand,
+                'is_payment_view' => false,
+            ]);
+        }
+
+        $paymentQuery = $this->salesService->getPaymentQuery($filters);
+        $aggregates = $this->salesService->getPaymentAggregatesFromPayments($paymentQuery, $filters);
+        $financeSummary = $this->salesService->getFinanceSummaryFromPayments($paymentQuery, $filters);
+
         return Inertia::render('sales/list', array_merge([
             'filters' => $filters,
             'branches' => $branches,
-            'transactions' => $paginated,
+            'transactions' => $paymentQuery->paginate(100)->withQueryString(),
             'types_of_payment' => TransactionTypeOfPaymentEnum::map(),
             'cash_on_hand_amount' => $cashOnHand,
-            'is_payment_view' => ! $isUnpaidTab,
+            'is_payment_view' => true,
         ], $aggregates, $financeSummary));
     }
 

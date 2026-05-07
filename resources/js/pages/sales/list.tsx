@@ -75,7 +75,9 @@ interface SaleIndexProps {
     total_sales: number;
     net_income: number;
     cash_amount: number;
+    cash_net_amount: number;
     gcash_amount: number;
+    gcash_net_amount: number;
     check_amount: number;
     bank_transfer_amount: number;
     card_amount: number;
@@ -98,7 +100,9 @@ export default function SaleIndex({
     total_sales = 0,
     net_income = 0,
     cash_amount = 0,
+    cash_net_amount = 0,
     gcash_amount = 0,
+    gcash_net_amount = 0,
     check_amount = 0,
     bank_transfer_amount = 0,
     card_amount = 0,
@@ -484,7 +488,7 @@ export default function SaleIndex({
                     </Button>
                 </div>
 
-                {['superadmin', 'admin'].includes(auth.user.role) && (
+                {['superadmin', 'admin'].includes(auth.user.role) && is_payment_view && (
                     <div className="w-full">
                         <Collapsible
                             open={isSalesSummaryOpen}
@@ -516,7 +520,9 @@ export default function SaleIndex({
                                         total_sales={total_sales}
                                         net_income={net_income}
                                         cash_amount={cash_amount}
+                                        cash_net_amount={cash_net_amount}
                                         gcash_amount={gcash_amount}
+                                        gcash_net_amount={gcash_net_amount}
                                         check_amount={check_amount}
                                         bank_transfer_amount={bank_transfer_amount}
                                         card_amount={card_amount}
@@ -534,10 +540,12 @@ export default function SaleIndex({
                 <div className="rounded-md border border-sidebar-border bg-sidebar">
                     <TableFilters
                         mode={mode}
+                        is_payment_view={is_payment_view}
                         filters={filters}
                         handleFilterChange={handleFilterChange}
                         clearFilters={clearFilters}
                         branches={branches}
+                        types_of_payment={types_of_payment}
                     />
 
                     <div className="flex gap-1 px-4 pb-2">
