@@ -25,7 +25,7 @@ class GetTransactionsRequest extends FormRequest
             'status' => 'nullable|string',
             'search' => 'nullable|string',
             'branch_id' => 'nullable',
-            'payment_type' => ['nullable', 'string', \Illuminate\Validation\Rule::enum(TransactionTypeOfPaymentEnum::class)],
+            'payment_type' => ['nullable', 'string', 'in:' . implode(',', array_merge(array_map(fn ($c) => $c->value, TransactionTypeOfPaymentEnum::cases()), ['all']))],
             'customer' => 'nullable|string',
             'sort_field' => 'nullable|string|in:transaction_date,created_at',
             'sort_direction' => 'nullable|string|in:asc,desc',
