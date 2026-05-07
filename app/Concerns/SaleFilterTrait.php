@@ -5,31 +5,9 @@ namespace App\Concerns;
 use App\Models\Expense;
 use App\Models\PurchaseOrder;
 use Carbon\Carbon;
-use Illuminate\Database\Eloquent\Builder;
 
 trait SaleFilterTrait
 {
-    // App\Models\Transaction.php (And similar for Expense)
-    public function scopeFiltered(Builder $query, array $filters)
-    {
-        return $query->tap(fn($q) => $this->applyDateFilter($q, $filters))
-            ->where(function ($query) use ($filters) {
-                $user = auth()->user();
-                $filterId = $filters['branch_id'] ?? null;
-
-                if (!in_array($user->role, ['superadmin', 'admin'])) {
-                    // Non-admins are FORCED to their branch or expenses they created
-                    $query->where(function ($q) use ($user) {
-                        $q->where('branch_id', $user->branch_id)
-                            ->orWhere('user_id', $user->id);
-                    });
-                } elseif ($filterId && $filterId !== 'all') {
-                    // Admins/Superadmins only get a WHERE clause if they picked a specific branch
-                    $query->where('branch_id', $filterId);
-                }
-            });
-    }
-
     public function scopeDateFiltered($query, array $filters)
     {
         return $query->tap(fn($q) => $this->applyDateFilter($q, $filters));

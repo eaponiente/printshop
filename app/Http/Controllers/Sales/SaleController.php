@@ -52,9 +52,13 @@ class SaleController extends Controller
 
         $cashOnHand = $this->salesService->getCashOnHandTotal($request->input('branch_id', auth()->user()->branch_id));
 
+        $branches = Branch::query()
+            ->when(auth()->user()->isStaff() || auth()->user()->isAdmin(), fn($q) => $q->where('id', auth()->user()->branch_id))
+            ->get(['id', 'name']);
+
         return Inertia::render('sales/list', array_merge([
             'filters' => $filters,
-            'branches' => Branch::accessibleBy(auth()->user())->get(['id', 'name']),
+            'branches' => $branches,
             'transactions' => $paginated,
             'types_of_payment' => TransactionTypeOfPaymentEnum::map(),
             'cash_on_hand_amount' => $cashOnHand,

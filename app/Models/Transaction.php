@@ -181,4 +181,25 @@ class Transaction extends Model
             return $refundAmount;
         });
     }
+
+    public function scopeBranchFilters($query, array $filters)
+    {
+        $user = auth()->user();
+        $filterId = $filters['branch_id'] ?? null;
+
+        // 1. Superadmin Logic: See everything, but allow filtering by branch
+        if ($user->isSuperAdmin()) {
+            if ($filterId && $filterId !== 'all') {
+                $query->where('branch_id', $filterId);
+            }
+        }
+        // 2. Admin Logic: Restrict to their own branch
+        else if ($user->isAdmin()) {
+            $query->where('branch_id', $user->branch_id);
+        }
+        // 3. Staff Logic: Restrict to their own records
+        else if ($user->isStaff()) {
+            $query->where('staff_id', $user->id);
+        }
+    }
 }
