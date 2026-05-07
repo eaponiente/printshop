@@ -192,6 +192,7 @@ class SalesService
 
         $expenses = Expense::query()
             ->dateFiltered($filters)
+            ->salesBranchFilters($filters)
             ->when($filters['payment_type'] ?? null, function ($q) use ($filters) {
                 $q->where('payment_type', $filters['payment_type']);
             })
