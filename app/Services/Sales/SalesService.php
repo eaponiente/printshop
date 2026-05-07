@@ -134,7 +134,7 @@ class SalesService
         return $query;
     }
 
-    public function getPaymentAggregatesFromPayments(Builder $paymentQuery): array
+    public function getPaymentAggregatesFromPayments(Builder $paymentQuery, $filters): array
     {
         $totals = (clone $paymentQuery)
             ->reorder()
@@ -143,6 +143,9 @@ class SalesService
             ->pluck('total', 'payment_type')
             ->toArray();
 
+        $cashNet = (float) (($totals['cash'] ?? 0) - $this->getExpenseTotalForType('cash', $filters));
+        $gcashNet = (float) (($totals['gcash'] ?? 0) - $this->getExpenseTotalForType('gcash', $filters));
+
         return [
             'total_sales' => (float) array_sum($totals),
             'gcash_amount' => (float) ($totals['gcash'] ?? 0),
@@ -151,28 +154,19 @@ class SalesService
             'bank_transfer_amount' => (float) ($totals['bank_transfer'] ?? 0),
             'cash_amount' => (float) ($totals['cash'] ?? 0),
             'debit_amount' => (float) ($totals['debit'] ?? 0),
+            'cash_net_amount' => $cashNet,
+            'gcash_net_amount' => $gcashNet,
         ];
     }
 
-    public function getPaymentAggregates(Builder $query): array
+    private function getExpenseTotalForType(string $paymentType, array $filters): float
     {
-        // Join the payments table natively against the filtered transactions query
-        $totals = Payment::query()
-            ->joinSub((clone $query)->select('transactions.id')->reorder(), 't', 'payments.transaction_id', '=', 't.id')
-            ->select('payments.payment_type', DB::raw('SUM(payments.amount) as total'))
-            ->groupBy('payments.payment_type')
-            ->pluck('total', 'payment_type')
-            ->toArray();
-
-        return [
-            'total_sales' => (float) array_sum($totals),
-            'gcash_amount' => (float) ($totals['gcash'] ?? 0),
-            'card_amount' => (float) ($totals['card'] ?? 0),
-            'check_amount' => (float) ($totals['check'] ?? 0),
-            'bank_transfer_amount' => (float) ($totals['bank_transfer'] ?? 0),
-            'cash_amount' => (float) ($totals['cash'] ?? 0),
-            'debit_amount' => (float) ($totals['debit'] ?? 0),
-        ];
+        return (float) Expense::query()
+            ->dateFiltered($filters)
+            ->salesBranchFilters($filters)
+            ->where('payment_type', $paymentType)
+            ->where('status', ExpenseStatus::PAID->value)
+            ->sum('amount');
     }
 
     public function getCashOnHandTotal(?string $branchId): float
@@ -193,22 +187,6 @@ class SalesService
         $expenses = Expense::query()
             ->dateFiltered($filters)
             ->salesBranchFilters($filters)
-            ->when($filters['payment_type'] ?? null, function ($q) use ($filters) {
-                $q->where('payment_type', $filters['payment_type']);
-            })
-            ->where('status', ExpenseStatus::PAID->value)
-            ->sum('amount');
-
-        return [
-            'total_expenses' => (float) $expenses,
-            'net_income' => (float) ($revenue - $expenses),
-        ];
-    }
-
-    public function getFinanceSummary(array $filters): array
-    {
-        $revenue = Transaction::query()->branchFilters($filters)->sum('amount_paid');
-        $expenses = Expense::query()->branchFilters($filters)
             ->when($filters['payment_type'] ?? null, function ($q) use ($filters) {
                 $q->where('payment_type', $filters['payment_type']);
             })

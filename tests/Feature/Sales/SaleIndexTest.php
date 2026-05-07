@@ -339,7 +339,7 @@ it('filters transactions by monthly mode', function () {
 });
 
 // ── Response structure ──────────────────────────────────────────
-it('returns expected inertia props for payments tab', function () {
+it('returns expected inertia props for payments tab including net amounts', function () {
     $response = $this->actingAs($this->superadmin)
         ->get(route('sales.index'));
 
@@ -351,11 +351,13 @@ it('returns expected inertia props for payments tab', function () {
             ->has('transactions')
             ->has('types_of_payment')
             ->has('cash_on_hand_amount')
+            ->has('cash_net_amount')
+            ->has('gcash_net_amount')
             ->where('is_payment_view', true);
     });
 });
 
-it('returns expected inertia props for unpaid tab', function () {
+it('returns expected inertia props for unpaid tab without finance summary', function () {
     $response = $this->actingAs($this->superadmin)
         ->get(route('sales.index', ['tab' => 'unpaid']));
 
@@ -367,6 +369,8 @@ it('returns expected inertia props for unpaid tab', function () {
             ->has('transactions')
             ->has('types_of_payment')
             ->has('cash_on_hand_amount')
-            ->where('is_payment_view', false);
+            ->where('is_payment_view', false)
+            ->missing('total_expenses')
+            ->missing('net_income');
     });
 });
