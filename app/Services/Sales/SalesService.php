@@ -19,7 +19,8 @@ class SalesService
     {
         $query = Transaction::query()
             ->with(['user:id,first_name,last_name', 'branch:id,name', 'customer', 'payments', 'sublimation'])
-            ->filtered($filters)
+            ->dateFiltered($filters)
+            ->branchFilters($filters)
             ->when(auth()->user()->role === UserRole::STAFF->value, function ($q) {
                 return $q->where('staff_id', auth()->id());
             })
@@ -189,7 +190,8 @@ class SalesService
     {
         $revenue = (float) (clone $paymentQuery)->reorder()->sum('payments.amount');
 
-        $expenses = Expense::query()->filtered($filters)
+        $expenses = Expense::query()
+            ->dateFiltered($filters)
             ->when($filters['payment_type'] ?? null, function ($q) use ($filters) {
                 $q->where('payment_type', $filters['payment_type']);
             })
@@ -204,8 +206,8 @@ class SalesService
 
     public function getFinanceSummary(array $filters): array
     {
-        $revenue = Transaction::query()->filtered($filters)->sum('amount_paid');
-        $expenses = Expense::query()->filtered($filters)
+        $revenue = Transaction::query()->branchFilters($filters)->sum('amount_paid');
+        $expenses = Expense::query()->branchFilters($filters)
             ->when($filters['payment_type'] ?? null, function ($q) use ($filters) {
                 $q->where('payment_type', $filters['payment_type']);
             })

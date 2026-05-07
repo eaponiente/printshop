@@ -23,4 +23,13 @@ class Expense extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function scopeBranchFilters($query, array $filters)
+    {
+        $query->when($filters['branch_id'] ?? null, function ($query, $branchId) {
+            if ($branchId !== 'all') {
+                $query->where('branch_id', $branchId);
+            }
+        });;
+    }
 }
