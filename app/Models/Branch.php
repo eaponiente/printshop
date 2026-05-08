@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Users\UserRole;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -22,7 +23,7 @@ class Branch extends Model
 
     public function scopeAccessibleBy($query, $user)
     {
-        if (!in_array($user->role, ['superadmin', 'admin'])) {
+        if ($user->role === UserRole::STAFF->value) {
             return $query->where('id', $user->branch_id);
         }
 

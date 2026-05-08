@@ -30,7 +30,7 @@ export default function ExpenseActions({
     const [reason, setReason] = useState('');
     const [isOpen, setIsOpen] = useState(false);
 
-    let canApprove = auth.user.role === 'superadmin';
+    let canApprove = auth.user.role === 'superadmin' && expense.status === 'pending';
 
     if (auth.user.role === 'admin' && expense.status === 'pending') {
         const currentBranchId = +auth.user.branch_id;
