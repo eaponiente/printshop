@@ -64,6 +64,7 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('sublimations', SublimationController::class);
     Route::resource('customers', CustomerController::class);
 
+    Route::get('sales/print', [SaleController::class, 'print'])->name('sales.print');
     Route::patch('sales/payment/{transaction}', [SaleController::class, 'updatePayment'])->name('sales.update-payment');
     Route::patch('sales/refund/{transaction}', [SaleController::class, 'refundPayment'])->name('sales.refund-payment');
     Route::post('sales/{sale}/attachment', [SaleController::class, 'storeAttachment'])->name('sales.attachment.store');
@@ -75,6 +76,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('purchase-orders/{purchaseOrder}/transactions', [PurchaseOrderController::class, 'createTransaction'])->name('purchase-orders.transactions.store');
     Route::resource('purchase-orders', PurchaseOrderController::class);
     Route::resource('endorsements', EndorsementController::class);
+    Route::get('/expenses/print', [ExpenseController::class, 'print'])->name('expenses.print');
     Route::patch('/expenses/{expense}/void', [ExpenseController::class, 'void'])->name('expenses.void');
     Route::post('/expenses/{expense}/approve', [ExpenseController::class, 'approve'])->name('expenses.approve');
     Route::post('/expenses/{expense}/reject', [ExpenseController::class, 'reject'])->name('expenses.reject');

@@ -1,6 +1,6 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
-import { Banknote, Plus, XCircle } from 'lucide-react';
+import { Banknote, Plus, Printer, XCircle } from 'lucide-react';
 import React, { useState } from 'react';
 import { route } from 'ziggy-js';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -23,6 +23,7 @@ import type { BreadcrumbItem } from '@/types';
 import type { Expense, ExpensesList } from '@/types/expenses';
 import { toManilaTime } from '@/utils/dateHelper';
 import { formatCurrency } from '@/utils/formatters';
+import { printAllTableData } from '@/utils/printTable';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -39,6 +40,7 @@ export default function ExpenseIndex({
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [mode, setMode] = useState(filters.mode || 'monthly');
     const [getExpense, setExpense] = useState<any | null>(null);
+    const { auth } = usePage().props;
     const openEditForm = (expense: Expense | null) => {
         setExpense(expense);
         setIsDialogOpen(true);
@@ -475,9 +477,22 @@ export default function ExpenseIndex({
                             <XCircle className="mr-2 h-4 w-4" />
                             Clear
                         </Button>
+
+                        {auth.user.role === 'superadmin' && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => printAllTableData('Expenses Report', route('expenses.print', filters))}
+                                className="ml-auto h-10"
+                            >
+                                <Printer className="mr-1.5 h-3.5 w-3.5" />
+                                Print
+                            </Button>
+                        )}
+
                     </div>
 
-                    <DataTable columns={columns} pagination={expenses} />
+                    <DataTable columns={columns} tableId="expenses-table" pagination={expenses} />
                 </div>
             </div>
             {isDialogOpen && (
