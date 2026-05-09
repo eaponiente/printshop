@@ -569,18 +569,19 @@ export default function SaleIndex({
                             <AlertCircle className="mr-1.5 h-3.5 w-3.5" />
                             Unpaid
                         </Button>
-                        {activeTab === 'payments' && (
-                            <div className="ml-auto">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => printAllTableData('Sales Report', route('sales.print', { ...filters, tab: 'payments' }))}
-                                >
-                                    <Printer className="mr-1.5 h-3.5 w-3.5" />
-                                    Print
-                                </Button>
-                            </div>
-                        )}
+                        {activeTab === 'payments' &&
+                            auth.user.role === 'superadmin' && (
+                                <div className="ml-auto">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => printAllTableData('Sales Report', route('sales.print', { ...filters, tab: 'payments' }))}
+                                    >
+                                        <Printer className="mr-1.5 h-3.5 w-3.5" />
+                                        Print
+                                    </Button>
+                                </div>
+                            )}
                     </div>
 
                     <DataTable columns={columns} tableId="sales-table" pagination={transactions} />

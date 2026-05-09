@@ -1,4 +1,4 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
 import { Banknote, Plus, Printer, XCircle } from 'lucide-react';
 import React, { useState } from 'react';
@@ -40,6 +40,7 @@ export default function ExpenseIndex({
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [mode, setMode] = useState(filters.mode || 'monthly');
     const [getExpense, setExpense] = useState<any | null>(null);
+    const { auth } = usePage().props;
     const openEditForm = (expense: Expense | null) => {
         setExpense(expense);
         setIsDialogOpen(true);
@@ -477,15 +478,18 @@ export default function ExpenseIndex({
                             Clear
                         </Button>
 
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => printAllTableData('Expenses Report', route('expenses.print', filters))}
-                            className="ml-auto h-10"
-                        >
-                            <Printer className="mr-1.5 h-3.5 w-3.5" />
-                            Print
-                        </Button>
+                        {auth.user.role === 'superadmin' && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => printAllTableData('Expenses Report', route('expenses.print', filters))}
+                                className="ml-auto h-10"
+                            >
+                                <Printer className="mr-1.5 h-3.5 w-3.5" />
+                                Print
+                            </Button>
+                        )}
+
                     </div>
 
                     <DataTable columns={columns} tableId="expenses-table" pagination={expenses} />
