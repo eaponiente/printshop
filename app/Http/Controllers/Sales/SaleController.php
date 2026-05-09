@@ -216,8 +216,8 @@ class SaleController extends Controller
             return back()->withErrors(['message' => 'Cannot delete processed sales.']);
         }
 
-        // only if no payments
-        if ($sale->payments()->exists()) {
+        // only if no payments (allow refunded transactions where amount_paid netted to 0)
+        if ($sale->amount_paid > 0) {
             return back()->withErrors(['message' => 'Cannot delete sales with payments.']);
         }
 
