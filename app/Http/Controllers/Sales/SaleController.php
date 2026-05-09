@@ -16,6 +16,8 @@ use App\Models\Transaction;
 use App\Services\Files\FileUploadService;
 use App\Services\Sales\CashOnHandService;
 use App\Services\Sales\SalesService;
+use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -67,6 +69,38 @@ class SaleController extends Controller
             'cash_on_hand_amount' => $cashOnHand,
             'is_payment_view' => true,
         ], $aggregates, $financeSummary));
+    }
+
+    public function print(Request $request): JsonResponse
+    {
+        $filters = array_merge([
+            'date' => now()->toDateString(),
+            'mode' => 'daily',
+            'tab' => 'payments',
+        ], $request->all());
+
+        $paymentQuery = $this->salesService->getPaymentQuery($filters);
+        $records = $paymentQuery->get();
+
+        $headers = ['Customer Name', 'Particular', 'Branch', 'Total', 'Payment', 'Type', 'Balance', 'Status', 'Staff', 'Date'];
+        $rows = $records->map(function ($payment) {
+            $tx = $payment->transaction;
+
+            return [
+                $tx?->customer ? ($tx->customer->first_name . ' ' . ($tx->customer->last_name ?? '')) : '',
+                $tx?->particular ?? '',
+                $tx?->branch?->name ?? '',
+                number_format($tx?->amount_total ?? 0, 2),
+                number_format($payment->amount, 2),
+                ucfirst($payment->payment_type),
+                number_format($tx?->balance ?? 0, 2),
+                ucfirst($tx?->status ?? ''),
+                $tx?->user ? ($tx->user->first_name . ' ' . $tx->user->last_name) : '',
+                Carbon::parse($payment->created_at)->setTimezone('Asia/Manila')->format('M d, Y'),
+            ];
+        })->values()->toArray();
+
+        return response()->json(compact('headers', 'rows'));
     }
 
     public function store(StoreTransactionRequest $request): RedirectResponse
