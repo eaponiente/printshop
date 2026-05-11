@@ -1,5 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import {
+    Banknote,
     BadgeDollarSign,
     Cog,
     Folder,
@@ -8,7 +9,7 @@ import {
     NotebookPen,
     Shirt,
     ShoppingCart,
-    Users
+    Users,
 } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
@@ -33,12 +34,12 @@ import type { NavItem } from '@/types';
 const footerNavItems: NavItem[] = [];
 
 export function AppSidebar() {
-
     const { auth } = usePage().props;
     // Define the full array inside the component or as a function
     const userRole = auth.user.role; // 'staff', 'admin', or 'superadmin'
 
     const isAdmin = userRole === 'admin' || userRole === 'superadmin';
+    const isSuperAdmin = userRole === 'superadmin';
 
     const mainNavItems: NavItem[] = [
         {
@@ -47,15 +48,19 @@ export function AppSidebar() {
             icon: LayoutGrid,
         },
         // 1. Users/Customers: Admin/SuperAdmin only
-        ...(isAdmin ? [{
-            title: 'Users',
-            href: '#',
-            icon: Users,
-            items: [
-                { title: 'Users', url: '/users' },
-                { title: 'Customers', url: '/customers' },
-            ],
-        }] : []),
+        ...(isAdmin
+            ? [
+                {
+                    title: 'Users',
+                    href: '#',
+                    icon: Users,
+                    items: [
+                        { title: 'Users', url: '/users' },
+                        { title: 'Customers', url: '/customers' },
+                    ],
+                },
+            ]
+            : []),
 
         // 2. Sales: Everyone
         {
@@ -65,16 +70,26 @@ export function AppSidebar() {
         },
 
         // 3. Expenses & Purchase Orders: Admin/SuperAdmin only
-        ...(isAdmin ? [
+        ...(isAdmin
+            ? [
+                {
+                    title: 'Expenses',
+                    href: expenses.index(),
+                    icon: NotebookPen,
+                },
+                {
+                    title: 'Purchase Orders',
+                    href: purchaseOrders.index(),
+                    icon: ShoppingCart,
+                },
+            ]
+            : []),
+
+        ...(isSuperAdmin ? [
             {
-                title: 'Expenses',
-                href: expenses.index(),
-                icon: NotebookPen,
-            },
-            {
-                title: 'Purchase Orders',
-                href: purchaseOrders.index(),
-                icon: ShoppingCart,
+                title: 'Incentives',
+                href: '/incentives',
+                icon: Banknote,
             },
         ] : []),
 
@@ -86,23 +101,33 @@ export function AppSidebar() {
         },
 
         // 5. Endorsements: Admin/SuperAdmin only
-        ...(isAdmin ? [{
-            title: 'Endorsements',
-            href: endorsements.index(),
-            icon: Newspaper,
-        }] : []),
+        ...(isAdmin
+            ? [
+                {
+                    title: 'Endorsements',
+                    href: endorsements.index(),
+                    icon: Newspaper,
+                },
+            ]
+            : []),
 
         // 6. Settings: Filter specific sub-items
-        ...(isAdmin ? [{
-            title: 'Settings',
-            href: '#',
-            icon: Cog,
-            items: [
-                { title: 'Tags', url: '/tags' },
-                // Only SuperAdmin sees Branches
-                ...(userRole === 'superadmin' ? [{ title: 'Branches', url: '/branches' }] : [])
-            ],
-        }] : []),
+        ...(isAdmin
+            ? [
+                {
+                    title: 'Settings',
+                    href: '#',
+                    icon: Cog,
+                    items: [
+                        { title: 'Tags', url: '/tags' },
+                        // Only SuperAdmin sees Branches
+                        ...(userRole === 'superadmin'
+                            ? [{ title: 'Branches', url: '/branches' }]
+                            : []),
+                    ],
+                },
+            ]
+            : []),
     ];
 
     return (

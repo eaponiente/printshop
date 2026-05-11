@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Home\DashboardController;
+use App\Http\Controllers\Incentives\IncentiveController;
 use App\Http\Controllers\PurchaseOrders\PurchaseOrderController;
 use App\Http\Controllers\Sales\ExpenseController;
 use App\Http\Controllers\Sales\SaleController;
@@ -81,6 +82,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/expenses/{expense}/approve', [ExpenseController::class, 'approve'])->name('expenses.approve');
     Route::post('/expenses/{expense}/reject', [ExpenseController::class, 'reject'])->name('expenses.reject');
     Route::resource('expenses', ExpenseController::class);
+
+    Route::get('incentives', [IncentiveController::class, 'index'])->name('incentives.index');
+    Route::post('incentives/pay', [IncentiveController::class, 'pay'])->name('incentives.pay');
 
     Route::prefix('api')->group(function () {
         Route::get('/customers', [CustomerController::class, 'indexApiList'])->name('api.customers.index');
