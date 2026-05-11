@@ -5,12 +5,51 @@ use App\Models\CashOnHand;
 use App\Models\Transaction;
 use App\Models\User;
 
-it('only allows refunds for non-pending transactions', function () {
+it('fully refunds a paid transaction and resets it to pending', function () {
     $branch = Branch::factory()->create();
     $transaction = Transaction::factory()->create([
         'amount_total' => 100,
         'amount_paid' => 100,
         'status' => 'paid',
+        'fulfilled_at' => now()->subDay(),
+        'branch_id' => $branch->id,
+    ]);
+
+    $user = User::factory()->create([
+        'branch_id' => $branch->id,
+        'role' => 'superadmin',
+    ]);
+
+    $transaction->payments()->create([
+        'amount' => 100,
+        'payment_type' => 'cash',
+        'staff_id' => $user->id,
+    ]);
+
+    $existingPaymentIds = $transaction->payments()->pluck('id')->all();
+
+    $this->actingAs($user)
+        ->patch(route('sales.refund-payment', $transaction), [
+            'payment_type' => 'check',
+        ])
+        ->assertSessionHasNoErrors();
+
+    $refreshed = $transaction->fresh();
+    $latestPayment = $refreshed->payments()->latest('id')->first();
+
+    expect($refreshed->amount_paid)->toEqual(0.0)
+        ->and($refreshed->status)->toEqual('pending')
+        ->and($refreshed->fulfilled_at)->toBeNull()
+        ->and($refreshed->payments()->whereIn('id', $existingPaymentIds)->count())->toEqual(count($existingPaymentIds))
+        ->and((float) $latestPayment->amount)->toEqual(-100.0);
+});
+
+it('rejects refund for pending transactions', function () {
+    $branch = Branch::factory()->create();
+    $transaction = Transaction::factory()->create([
+        'amount_total' => 100,
+        'amount_paid' => 0,
+        'status' => 'pending',
         'branch_id' => $branch->id,
     ]);
 
@@ -21,9 +60,9 @@ it('only allows refunds for non-pending transactions', function () {
 
     $this->actingAs($user)
         ->patch(route('sales.refund-payment', $transaction), [
-            'payment_type' => 'check',
+            'payment_type' => 'cash',
         ])
-        ->assertSessionHasNoErrors(['payment_type']);
+        ->assertSessionHasErrors(['payment_type']);
 });
 
 it('records a full refund as a ledger entry instead of deleting payments', function () {
