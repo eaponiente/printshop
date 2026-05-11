@@ -29,8 +29,8 @@ class RefundTransactionPaymentRequest extends FormRequest
             function ($validator) {
                 $transaction = $this->route('transaction');
 
-                if ($transaction->status !== TransactionStatus::PARTIAL->value) {
-                    $validator->errors()->add('payment_type', 'Only partial transactions can be refunded.');
+                if ($transaction->status === TransactionStatus::PENDING->value) {
+                    $validator->errors()->add('payment_type', 'Only partial/paid transactions can be refunded.');
                 }
 
                 if ((float) $transaction->amount_paid <= 0) {

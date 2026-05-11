@@ -5,7 +5,7 @@ use App\Models\CashOnHand;
 use App\Models\Transaction;
 use App\Models\User;
 
-it('only allows refunds for partial transactions', function () {
+it('only allows refunds for non-pending transactions', function () {
     $branch = Branch::factory()->create();
     $transaction = Transaction::factory()->create([
         'amount_total' => 100,
@@ -21,9 +21,9 @@ it('only allows refunds for partial transactions', function () {
 
     $this->actingAs($user)
         ->patch(route('sales.refund-payment', $transaction), [
-            'payment_type' => 'cash',
+            'payment_type' => 'check',
         ])
-        ->assertSessionHasErrors(['payment_type']);
+        ->assertSessionHasNoErrors(['payment_type']);
 });
 
 it('records a full refund as a ledger entry instead of deleting payments', function () {

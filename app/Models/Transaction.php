@@ -156,8 +156,8 @@ class Transaction extends Model
         return DB::transaction(function () use ($paymentType) {
             $fresh = self::lockForUpdate()->find($this->id);
 
-            if ($fresh->status !== TransactionStatus::PARTIAL->value) {
-                throw new \Exception('Only partial transactions can be refunded.');
+            if (!in_array($fresh->status, [TransactionStatus::PARTIAL->value, TransactionStatus::PAID->value])) {
+                throw new \Exception('Only partial/paid transactions can be refunded.');
             }
 
             $refundAmount = (float) $fresh->amount_paid;
