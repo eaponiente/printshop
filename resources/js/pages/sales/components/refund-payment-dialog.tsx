@@ -13,9 +13,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Spinner } from '@/components/ui/spinner';
-import type { TypeOfPayment } from '@/types/settings';
 import type { Transaction } from '@/types/transaction';
 import { formatCurrency } from '@/utils/formatters';
 
@@ -23,18 +21,14 @@ interface RefundPaymentDialogProps {
     transaction: Transaction | null;
     open: boolean;
     setOpen: (open: boolean) => void;
-    typesOfPayment: TypeOfPayment[];
 }
 
 export default function RefundPaymentDialog({
     open,
     setOpen,
     transaction,
-    typesOfPayment,
 }: RefundPaymentDialogProps) {
-    const { data, setData, patch, processing, errors, reset } = useForm({
-        payment_type: '',
-    });
+    const { patch, processing, errors, reset } = useForm({});
 
     if (!transaction) {
         return null;
@@ -108,27 +102,7 @@ export default function RefundPaymentDialog({
                 </div>
 
                 <form onSubmit={submit} className="space-y-5">
-                    <div className="grid gap-3">
-                        <Label htmlFor="payment_type">Refund Method</Label>
-                        <NativeSelect
-                            value={data.payment_type}
-                            onChange={(e) => setData('payment_type', e.target.value)}
-                        >
-                            <NativeSelectOption value="">
-                                Select type
-                            </NativeSelectOption>
-                            {typesOfPayment.map((payment) => (
-                                <NativeSelectOption
-                                    key={payment.key}
-                                    value={payment.key}
-                                >
-                                    {payment.value}
-                                </NativeSelectOption>
-                            ))}
-                        </NativeSelect>
-                        <InputError message={errors.payment_type} />
-                    </div>
-
+                    <InputError message={errors.payment_type} />
                     <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                         This action refunds the full collected amount and resets the transaction back to pending.
                     </div>

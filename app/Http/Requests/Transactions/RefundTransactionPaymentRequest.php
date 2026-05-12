@@ -3,7 +3,6 @@
 namespace App\Http\Requests\Transactions;
 
 use App\Enums\Sales\TransactionStatus;
-use App\Enums\Sales\TransactionTypeOfPaymentEnum;
 use Illuminate\Foundation\Http\FormRequest;
 
 class RefundTransactionPaymentRequest extends FormRequest
@@ -18,9 +17,7 @@ class RefundTransactionPaymentRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
-            'payment_type' => 'required|string|in:' . implode(',', array_column(TransactionTypeOfPaymentEnum::cases(), 'value')),
-        ];
+        return [];
     }
 
     public function after(): array
@@ -29,8 +26,8 @@ class RefundTransactionPaymentRequest extends FormRequest
             function ($validator) {
                 $transaction = $this->route('transaction');
 
-                if ($transaction->status !== TransactionStatus::PARTIAL->value) {
-                    $validator->errors()->add('payment_type', 'Only partial transactions can be refunded.');
+                if ($transaction->status === TransactionStatus::PENDING->value) {
+                    $validator->errors()->add('payment_type', 'Only partial/paid transactions can be refunded.');
                 }
 
                 if ((float) $transaction->amount_paid <= 0) {

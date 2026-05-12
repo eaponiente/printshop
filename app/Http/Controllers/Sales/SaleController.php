@@ -171,12 +171,17 @@ class SaleController extends Controller
     public function refundPayment(RefundTransactionPaymentRequest $request, Transaction $transaction): RedirectResponse
     {
         try {
-            $refundedAmount = $transaction->refundPayment($request->payment_type);
+            $cashRefund = $transaction->payments()
+                ->where('payment_type', TransactionTypeOfPaymentEnum::CASH->value)
+                ->where('amount', '>', 0)
+                ->sum('amount');
 
-            if ($request->payment_type === TransactionTypeOfPaymentEnum::CASH->value) {
+            $transaction->refundPayment();
+
+            if ($cashRefund > 0) {
                 app(CashOnHandService::class)->adjustBalance(
                     $transaction->branch_id,
-                    $refundedAmount,
+                    (float) $cashRefund,
                     'expense'
                 );
             }

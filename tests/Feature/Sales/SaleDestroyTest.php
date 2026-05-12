@@ -28,7 +28,7 @@ it('allows superadmin to delete a fully refunded transaction', function () {
 
     $this->actingAs($this->superadmin);
 
-    $transaction->refundPayment('cash');
+    $transaction->refundPayment();
 
     $this->delete(route('sales.destroy', $transaction->fresh()))
         ->assertRedirect()

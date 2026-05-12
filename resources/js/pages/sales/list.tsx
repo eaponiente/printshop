@@ -373,7 +373,6 @@ export default function SaleIndex({
             cell: ({ row }: any) => {
                 const tx = getTx(row.original);
                 const status = tx.status.toLowerCase();
-                if (status === 'paid') return null;
 
                 return (
                     <div className="flex gap-2 whitespace-nowrap">
@@ -388,7 +387,7 @@ export default function SaleIndex({
                                 Collect
                             </Button>
                         )}
-                        {status === 'partial' &&
+                        {(status === 'partial' || status === 'paid') &&
                             auth.user.role === 'superadmin' && (
                                 <Button
                                     size="sm"
@@ -611,7 +610,6 @@ export default function SaleIndex({
                     <RefundPaymentDialog
                         transaction={getTransaction}
                         open={isRefundDialogOpen}
-                        typesOfPayment={types_of_payment}
                         setOpen={setIsRefundDialogOpen}
                     />
                 )}
