@@ -610,7 +610,6 @@ export default function SaleIndex({
                     <RefundPaymentDialog
                         transaction={getTransaction}
                         open={isRefundDialogOpen}
-                        typesOfPayment={types_of_payment}
                         setOpen={setIsRefundDialogOpen}
                     />
                 )}

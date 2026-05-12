@@ -3,7 +3,6 @@
 namespace App\Http\Requests\Transactions;
 
 use App\Enums\Sales\TransactionStatus;
-use App\Enums\Sales\TransactionTypeOfPaymentEnum;
 use Illuminate\Foundation\Http\FormRequest;
 
 class RefundTransactionPaymentRequest extends FormRequest
@@ -18,9 +17,7 @@ class RefundTransactionPaymentRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
-            'payment_type' => 'required|string|in:' . implode(',', array_column(TransactionTypeOfPaymentEnum::cases(), 'value')),
-        ];
+        return [];
     }
 
     public function after(): array

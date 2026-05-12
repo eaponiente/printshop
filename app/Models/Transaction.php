@@ -144,33 +144,40 @@ class Transaction extends Model
     }
 
     /**
-     * Reverse the full collected amount on a partial transaction.
+     * Reverse the full collected amount on a partial or paid transaction.
      *
-     * We keep payment rows as an immutable ledger and append a negative
-     * refund entry instead of deleting historical collections.
+     * We keep payment rows as an immutable ledger and append negative
+     * refund entries (one per original payment type) instead of deleting
+     * historical collections.
      *
      * @throws \Exception
      */
-    public function refundPayment(string $paymentType): float
+    public function refundPayment(): float
     {
-        return DB::transaction(function () use ($paymentType) {
+        return DB::transaction(function () {
             $fresh = self::lockForUpdate()->find($this->id);
 
             if (!in_array($fresh->status, [TransactionStatus::PARTIAL->value, TransactionStatus::PAID->value])) {
                 throw new \Exception('Only partial/paid transactions can be refunded.');
             }
 
-            $refundAmount = (float) $fresh->amount_paid;
+            $positivePayments = $fresh->payments()->where('amount', '>', 0)->get();
 
-            if ($refundAmount <= 0) {
+            if ($positivePayments->isEmpty()) {
                 throw new \Exception('There is no collected amount available to refund.');
             }
 
-            $fresh->payments()->create([
-                'amount' => -$refundAmount,
-                'payment_type' => $paymentType,
-                'staff_id' => auth()->id(),
-            ]);
+            $totalsByType = $positivePayments
+                ->groupBy('payment_type')
+                ->map(fn($group) => $group->sum('amount'));
+
+            foreach ($totalsByType as $type => $amount) {
+                $fresh->payments()->create([
+                    'amount' => -((float) $amount),
+                    'payment_type' => $type,
+                    'staff_id' => auth()->id(),
+                ]);
+            }
 
             $fresh->update([
                 'amount_paid' => 0,
@@ -178,7 +185,7 @@ class Transaction extends Model
                 'fulfilled_at' => null,
             ]);
 
-            return $refundAmount;
+            return (float) $totalsByType->sum();
         });
     }
 
