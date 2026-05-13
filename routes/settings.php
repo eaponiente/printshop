@@ -86,6 +86,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('incentives', [IncentiveController::class, 'index'])->name('incentives.index');
     Route::post('incentives/pay', [IncentiveController::class, 'pay'])->name('incentives.pay');
 
+    Route::inertia('payroll', 'payroll/index')->name('payroll.index');
+
     Route::prefix('api')->group(function () {
         Route::get('/customers', [CustomerController::class, 'indexApiList'])->name('api.customers.index');
     });
