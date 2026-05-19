@@ -1,6 +1,5 @@
 import { useForm, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
 import { route } from 'ziggy-js';
 import InputError from '@/components/input-error';
 import SearchCustomersField from '@/components/shared/search-customers-field';
@@ -41,7 +40,6 @@ export default function SublimationDialog({
     open,
     setOpen,
     branches,
-    users,
     availableTags,
     sublimation,
 }: SublimationDialogProps) {

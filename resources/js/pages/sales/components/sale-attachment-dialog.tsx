@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
 import { ImagePlus, Loader2, Paperclip, ZoomIn } from 'lucide-react';
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useId, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { route } from 'ziggy-js';
 
@@ -50,12 +50,17 @@ export default function SaleAttachmentDialog({
         }
     }, []);
 
-    useEffect(() => {
-        if (!open) {
-            setZoomOpen(false);
-            revokePreview();
-        }
-    }, [open, revokePreview]);
+    const handleOpenChange = useCallback(
+        (nextOpen: boolean) => {
+            if (!nextOpen) {
+                setZoomOpen(false);
+                revokePreview();
+            }
+
+            setOpen(nextOpen);
+        },
+        [setOpen, revokePreview],
+    );
 
     const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -140,7 +145,7 @@ export default function SaleAttachmentDialog({
 
     return (
         <>
-            <Dialog open={open} onOpenChange={setOpen}>
+            <Dialog open={open} onOpenChange={handleOpenChange}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">

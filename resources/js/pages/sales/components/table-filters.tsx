@@ -63,9 +63,11 @@ const SalesTableFilters = React.memo(
         // Sync local search if filters are cleared externally
         useEffect(() => {
             if (!filters.search && localSearch) {
-                setLocalSearch('');
+                const id = setTimeout(() => setLocalSearch(''), 0);
+
+                return () => clearTimeout(id);
             }
-        }, [filters.search]);
+        }, [filters.search, localSearch]);
 
         // Map mode to HTML input types
         return (

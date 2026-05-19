@@ -6,7 +6,6 @@ import {
     DropdownMenuItem,
 } from '@radix-ui/react-dropdown-menu';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
-import { format } from 'date-fns';
 import {
     ArrowUpDown,
     Check,
@@ -46,7 +45,7 @@ import AppLayout from '@/layouts/app-layout';
 import PurchaseOrderDialog from '@/pages/purchase-orders/purchase-order-dialog';
 import type { BreadcrumbItem } from '@/types';
 import type { PurchaseOrder, PurchaseOrdersList } from '@/types/purchase-order';
-import { readableDate, toManilaTime } from '@/utils/dateHelper';
+import { readableDate } from '@/utils/dateHelper';
 import { formatCurrency } from '@/utils/formatters';
 import { sortBy } from '@/utils/helpers';
 import CreatePoTransactionDialog from './components/create-po-transaction-dialog';
@@ -126,19 +125,6 @@ export default function PurchaseOrderIndex({
     const showMakeTransactionDialog = (po: PurchaseOrder) => {
         setPurchaseOrder(po);
         setIsMakeTransactionDialogOpen(true);
-    };
-
-    const onMakeTransaction = (purchaseOrder: PurchaseOrder) => {
-        router.post(
-            route('purchase-orders.make-transaction', purchaseOrder.id),
-            {},
-            {
-                onSuccess: () =>
-                    toast.success('Transaction created successfully', {
-                        position: 'top-center',
-                    }),
-            },
-        );
     };
 
     const columns: ColumnDef<unknown, any>[] = [

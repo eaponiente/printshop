@@ -61,11 +61,10 @@ const statusConfig = {
     partial: 'bg-blue-100 text-blue-700 border-blue-200',
 };
 import type { BreadcrumbItem } from '@/types';
-import type { Branch } from '@/types/branches';
 import type { PaginatedResponse } from '@/types/pagination';
 import type { TypeOfPayment } from '@/types/settings';
 import type { Payment, Transaction } from '@/types/transaction';
-import type { Customer, User } from '@/types/user';
+import type { User } from '@/types/user';
 import { toManilaTime } from '@/utils/dateHelper';
 import { formatCurrency, getCustomerDisplayName } from '@/utils/formatters';
 import { sortBy } from '@/utils/helpers';
@@ -160,7 +159,7 @@ export default function SaleIndex({
         setIsDialogOpen(true);
     }, []);
 
-    const deleteSale = (transaction: Transaction) => {
+    const deleteSale = useCallback((transaction: Transaction) => {
         router.delete(route('sales.destroy', transaction.id), {
             onSuccess: () =>
                 toast.success(
@@ -170,7 +169,7 @@ export default function SaleIndex({
             onError: (errors) =>
                 toast.error(errors.message, { position: 'top-center' }),
         });
-    };
+    }, []);
 
     const openDetailsForm = useCallback((transaction: Transaction) => {
         setTransaction(transaction);

@@ -1,7 +1,7 @@
 import { Head, usePage } from '@inertiajs/react';
+import PayrollLayout from '@/layouts/payroll-layout';
 import { dashboard } from '@/routes';
 import type { BreadcrumbItem } from '@/types';
-import PayrollLayout from '@/layouts/payroll-layout';
 
 // Shadcn UI Components (Assuming standard installation paths)
 

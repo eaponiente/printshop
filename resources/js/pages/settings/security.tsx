@@ -1,4 +1,3 @@
-import { Transition } from '@headlessui/react';
 import { Form, Head } from '@inertiajs/react';
 import { useRef } from 'react';
 import { toast } from 'sonner';
@@ -65,7 +64,7 @@ export default function Security() {
                         }}
                         className="space-y-6"
                     >
-                        {({ errors, processing, recentlySuccessful }) => (
+                        {({ errors, processing }) => (
                             <>
                                 <div className="grid gap-2">
                                     <Label htmlFor="current_password">

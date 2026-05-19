@@ -108,3 +108,4 @@ Domains: `sales`, `expenses`, `sublimations`, `purchase-orders`, `customers`, `e
 - When making class create separate folder for each class. This applies to controllers, models, requests, etc. Example: App\Http\Controllers\Employee\CreateController.php and App\Http\Requests\Employee\StoreEmployeeRequest.php
 - Use Tailwind CSS v4 for styling. No need for bootstrap or any other css framework.
 - On tsx files, if a component is deemed too big (exceeds 100 lines), split it into smaller components.
+- Always run lint and artisan test when committing files.

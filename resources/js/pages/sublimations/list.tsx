@@ -1,6 +1,5 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
-import { format, parseISO } from 'date-fns';
 import {
     ArrowUpDown,
     Check,
@@ -13,7 +12,6 @@ import {
     UserPlus,
     X,
 } from 'lucide-react';
-import { Calendar as CalendarIcon, Clock } from 'lucide-react';
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { route } from 'ziggy-js';
@@ -31,7 +29,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
     Command,
@@ -40,7 +37,6 @@ import {
     CommandInput,
     CommandItem,
     CommandList,
-    CommandSeparator,
 } from '@/components/ui/command';
 import {
     Dialog,
@@ -74,7 +70,6 @@ import type { PaginatedResponse } from '@/types/pagination';
 import type { Tag } from '@/types/settings';
 import type { Sublimation } from '@/types/sublimations';
 import type { User } from '@/types/user';
-import { readableDate } from '@/utils/dateHelper';
 import { getCustomerDisplayName } from '@/utils/formatters';
 import { getAvatarColor, sortBy } from '@/utils/helpers';
 import { EditableDateCell } from './components/editable-date-cell';
@@ -110,7 +105,6 @@ export default function SublimationIndex({
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
     const [gallerySublimation, setGallerySublimation] =
         useState<Sublimation | null>(null);
-    const { auth } = usePage().props;
 
     const openGallery = (sublimation: Sublimation) => {
         setGallerySublimation(sublimation);
