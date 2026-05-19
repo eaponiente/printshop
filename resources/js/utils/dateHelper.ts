@@ -2,7 +2,6 @@ import {
     parseISO,
     isToday,
     isTomorrow,
-    differenceInDays,
     format,
     isPast,
     differenceInCalendarDays,
@@ -14,8 +13,6 @@ import utc from 'dayjs/plugin/utc';
 // Extend dayjs with required plugins
 dayjs.extend(utc);
 dayjs.extend(timezone);
-
-const MANILA_TIMEZONE = 'Asia/Manila';
 
 /**
  * Converts any valid date input to Asia/Manila time.

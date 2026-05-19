@@ -1,7 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
 import {
     Banknote,
-    BadgeDollarSign,
     Cog,
     Folder,
     LayoutGrid,

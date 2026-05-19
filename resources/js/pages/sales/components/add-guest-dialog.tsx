@@ -47,7 +47,7 @@ export function AddGuestModal({
         }
 
         wasOpen.current = open;
-    }, [form.setData, open, searchQuery]);
+    }, [form.setData, form, open, searchQuery]);
 
     const handleAddCustomerSubmit = (
         e?: React.FormEvent | React.MouseEvent,

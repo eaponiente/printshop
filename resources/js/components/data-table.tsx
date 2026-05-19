@@ -47,6 +47,7 @@ export function DataTable<TData>({
     const [sorting, setSorting] = useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
+    // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table's API returns non-memoizable functions
     const table = useReactTable({
         data: pagination.data, // Access the array here
         columns,

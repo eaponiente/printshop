@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 export const useSalesFilters = (initialFilters: any) => {
     const [searchTerm, setSearchTerm] = useState(initialFilters.search || '');
     const [mode, setMode] = useState(initialFilters.mode || 'daily');
-    const [filters, setFilters] = useState({
+    const [filters] = useState({
         date: initialFilters.date || '',
         status: initialFilters.status || 'all',
     });
@@ -22,7 +22,7 @@ export const useSalesFilters = (initialFilters: any) => {
         }, 300);
 
         return () => clearTimeout(delayDebounceFn);
-    }, [searchTerm]);
+    }, [searchTerm, initialFilters]);
 
     const handleFilterChange = (value: string, type: string) => {
         const params = { ...initialFilters, search: searchTerm };

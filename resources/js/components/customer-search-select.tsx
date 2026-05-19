@@ -1,5 +1,5 @@
 import { debounce } from 'lodash';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import {
@@ -45,40 +45,45 @@ const CustomerSearchSelect = ({
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedName, setSelectedName] = useState('');
 
-    const fetchCustomers = async (query = '') => {
-        setIsLoading(true);
+    const fetchCustomers = useCallback(
+        async (query = '') => {
+            setIsLoading(true);
 
-        try {
-            const response = await fetch(`/api/customers?customer=${query}`);
-            const data = await response.json();
-            setCustomers(data);
+            try {
+                const response = await fetch(
+                    `/api/customers?customer=${query}`,
+                );
+                const data = await response.json();
+                setCustomers(data);
 
-            if (value && !selectedName) {
-                const current = data.find((c: Customer) => c.id === value);
+                if (value && !selectedName) {
+                    const current = data.find((c: Customer) => c.id === value);
 
-                if (current) {
-                    setSelectedName(
-                        `${current.first_name} ${current.last_name}`,
-                    );
+                    if (current) {
+                        setSelectedName(
+                            `${current.first_name} ${current.last_name}`,
+                        );
+                    }
                 }
+            } catch (e) {
+                console.error('Search failed', e);
+            } finally {
+                setIsLoading(false);
             }
-        } catch (e) {
-            console.error('Search failed', e);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+        },
+        [value, selectedName],
+    );
 
     const debouncedSearch = useMemo(
         () => debounce((val: string) => fetchCustomers(val), 400),
-        [],
+        [fetchCustomers],
     );
 
     useEffect(() => {
         if (open) {
             fetchCustomers();
         }
-    }, [open]);
+    }, [open, fetchCustomers]);
 
     const handleSelect = (customer: Customer) => {
         setSelectedName(`${customer.first_name} ${customer.last_name}`);

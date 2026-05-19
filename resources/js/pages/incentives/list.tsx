@@ -388,7 +388,7 @@ export default function IncentiveIndex({
                 },
             },
         ],
-        [],
+        [isSuperAdmin],
     );
 
     const yearOptions = useMemo(() => {
