@@ -3,7 +3,11 @@ interface PrintData {
     rows: string[][];
 }
 
-function buildPrintHtml(headers: string[], rows: string[][], title: string): string {
+function buildPrintHtml(
+    headers: string[],
+    rows: string[][],
+    title: string,
+): string {
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -35,7 +39,10 @@ function buildPrintHtml(headers: string[], rows: string[][], title: string): str
 
 function openPrintWindow(html: string) {
     const printWindow = window.open('', '_blank', 'width=900,height=700');
-    if (!printWindow) return;
+
+    if (!printWindow) {
+        return;
+    }
 
     printWindow.document.write(html);
     printWindow.document.close();
@@ -45,15 +52,23 @@ function openPrintWindow(html: string) {
 
 /** Clone a table element's visible content into a print-friendly window and trigger print. */
 export function printTableData(tableSelector: string, title: string) {
-    const table = document.querySelector(tableSelector) as HTMLTableElement | null;
-    if (!table) return;
+    const table = document.querySelector(
+        tableSelector,
+    ) as HTMLTableElement | null;
+
+    if (!table) {
+        return;
+    }
 
     const headers: string[] = [];
     const rows: string[][] = [];
 
     table.querySelectorAll('thead th').forEach((th) => {
         const text = (th.textContent ?? '').trim();
-        if (text) headers.push(text);
+
+        if (text) {
+            headers.push(text);
+        }
     });
 
     table.querySelectorAll('tbody tr').forEach((tr) => {
@@ -61,7 +76,10 @@ export function printTableData(tableSelector: string, title: string) {
         tr.querySelectorAll('td').forEach((td) => {
             cells.push((td.textContent ?? '').trim());
         });
-        if (cells.length > 0) rows.push(cells);
+
+        if (cells.length > 0) {
+            rows.push(cells);
+        }
     });
 
     openPrintWindow(buildPrintHtml(headers, rows, title));

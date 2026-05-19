@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\Expenses\ExpenseStatus;
-use App\Enums\Expenses\ExpenseTypeOfPaymentEnum;
 use App\Models\Branch;
 use App\Models\CashOnHand;
 use App\Models\Expense;

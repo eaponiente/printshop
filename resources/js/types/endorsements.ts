@@ -5,7 +5,7 @@ import type { User } from '@/types/user';
 export type EndorsementsList = {
     endorsements: PaginatedResponse<Endorsement>;
     branches: Branch[];
-}
+};
 
 export type Endorsement = {
     id: number;
@@ -14,4 +14,4 @@ export type Endorsement = {
 
     user: User;
     branch: Branch;
-}
+};

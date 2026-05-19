@@ -42,7 +42,8 @@ class ProfileController extends Controller
 
             return to_route('profile.edit')->with('success', 'Profile updated successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to update profile: ' . $e->getMessage());
+            Log::error('Failed to update profile: '.$e->getMessage());
+
             return back()->withErrors(['error' => 'An error occurred while updating your profile.']);
         }
     }
@@ -64,7 +65,8 @@ class ProfileController extends Controller
 
             return redirect('/login')->with('success', 'Profile deleted successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to delete profile: ' . $e->getMessage());
+            Log::error('Failed to delete profile: '.$e->getMessage());
+
             return back()->withErrors(['error' => 'An error occurred while deleting your profile.']);
         }
     }

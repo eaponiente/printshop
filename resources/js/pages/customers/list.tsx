@@ -5,17 +5,21 @@ import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/data-table';
 import {
-    AlertDialog, AlertDialogAction, AlertDialogCancel,
-    AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger
+    AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
+import CustomerDialog from '@/pages/customers/customer-dialog';
 import type { BreadcrumbItem } from '@/types';
 import type { Customer, CustomersList } from '@/types/user';
-import CustomerDialog from '@/pages/customers/customer-dialog';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -33,19 +37,20 @@ export default function CustomerIndex({ customers }: CustomersList) {
 
     const deleteCustomer = (customer: Customer) => {
         router.delete(`/customers/${customer.id}`, {
-            onSuccess: () => toast.success('Customer deleted', { position: 'top-center' }),
+            onSuccess: () =>
+                toast.success('Customer deleted', { position: 'top-center' }),
             onError: (errors) => {
                 if (errors.delete) {
                     toast.error('Action Denied', {
                         description: errors.delete,
-                        position: 'top-center'
+                        position: 'top-center',
                     });
                 } else {
                     toast.error('An unexpected error occurred.');
                 }
             },
         });
-    }
+    };
 
     const columns: ColumnDef<unknown, any>[] = [
         {
@@ -65,30 +70,49 @@ export default function CustomerIndex({ customers }: CustomersList) {
             cell: ({ row }: CellContext<any, any>) => {
                 return (
                     <>
-                        <Button variant="ghost" size="sm" onClick={() => openEditForm(row.original)}><Pencil /></Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditForm(row.original)}
+                        >
+                            <Pencil />
+                        </Button>
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="sm"><Trash2 /></Button>
+                                <Button variant="ghost" size="sm">
+                                    <Trash2 />
+                                </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                                 <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                    <AlertDialogTitle>
+                                        Are you absolutely sure?
+                                    </AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        This action cannot be undone. This will permanently delete your
-                                        user from our servers.
+                                        This action cannot be undone. This will
+                                        permanently delete your user from our
+                                        servers.
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => deleteCustomer(row.original)}>Continue</AlertDialogAction>
+                                    <AlertDialogCancel>
+                                        Cancel
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                        onClick={() =>
+                                            deleteCustomer(row.original)
+                                        }
+                                    >
+                                        Continue
+                                    </AlertDialogAction>
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
                     </>
-                )
-            }
-        }
-    ]
+                );
+            },
+        },
+    ];
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -97,8 +121,12 @@ export default function CustomerIndex({ customers }: CustomersList) {
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-xl font-semibold">Customer Management</h1>
-                        <p className="text-sm text-muted-foreground">Manage your customer.</p>
+                        <h1 className="text-xl font-semibold">
+                            Customer Management
+                        </h1>
+                        <p className="text-sm text-muted-foreground">
+                            Manage your customer.
+                        </p>
                     </div>
 
                     {/* Create Staff Button */}
@@ -113,9 +141,12 @@ export default function CustomerIndex({ customers }: CustomersList) {
                 </div>
             </div>
             {isDialogOpen && (
-                <CustomerDialog open={isDialogOpen} setOpen={setIsDialogOpen} customer={getCustomer} />
+                <CustomerDialog
+                    open={isDialogOpen}
+                    setOpen={setIsDialogOpen}
+                    customer={getCustomer}
+                />
             )}
-
         </AppLayout>
     );
 }

@@ -37,7 +37,7 @@ class UpdateTransactionPaymentRequest extends FormRequest
                 'required',
                 'numeric',
                 'min:1',
-                'lte:' . $transaction->balance,
+                'lte:'.$transaction->balance,
             ],
 
             /**
@@ -55,7 +55,7 @@ class UpdateTransactionPaymentRequest extends FormRequest
              * 3. payment_type (Highly Recommended):
              * - If you are receiving money, you should log HOW it was received.
              */
-            'payment_type' => 'required|string|in:' . implode(',', array_column(TransactionTypeOfPaymentEnum::cases(), 'value')),
+            'payment_type' => 'required|string|in:'.implode(',', array_column(TransactionTypeOfPaymentEnum::cases(), 'value')),
         ];
     }
 
@@ -65,7 +65,7 @@ class UpdateTransactionPaymentRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'amount_paid.lte' => 'The paid amount cannot exceed the total invoice amount of ' . $this->route('transaction')->amount_total,
+            'amount_paid.lte' => 'The paid amount cannot exceed the total invoice amount of '.$this->route('transaction')->amount_total,
             'amount_paid.min' => 'Please enter a valid payment amount.',
         ];
     }

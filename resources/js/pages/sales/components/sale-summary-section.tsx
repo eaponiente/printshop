@@ -1,7 +1,7 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { Branch } from "@/types/branches";
-import { formatCurrency } from "@/utils/formatters";
-import { Banknote, Wallet, TrendingUp } from "lucide-react";
+import { Banknote, Wallet, TrendingUp } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import type { Branch } from '@/types/branches';
+import { formatCurrency } from '@/utils/formatters';
 
 interface SaleSummarySectionProps {
     cash_on_hand_amount: number;
@@ -99,9 +99,7 @@ export default function SaleSummarySection({
                                 Bank
                             </p>
                             <p className="truncate text-[11px] leading-none font-bold">
-                                {formatCurrency(
-                                    bank_transfer_amount || 0,
-                                )}
+                                {formatCurrency(bank_transfer_amount || 0)}
                             </p>
                         </div>
 
@@ -127,7 +125,6 @@ export default function SaleSummarySection({
 
                         {/* Placeholder / Other */}
                         <div className="border-t border-r border-sidebar-border pt-2 pr-1">
-
                             <p className="mb-1 text-[8px] leading-none font-medium text-muted-foreground uppercase">
                                 Debit
                             </p>
@@ -193,5 +190,5 @@ export default function SaleSummarySection({
                 </CardContent>
             </Card>
         </div>
-    )
+    );
 }

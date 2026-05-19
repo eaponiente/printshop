@@ -1,19 +1,21 @@
-"use client"
+'use client';
 
-import { router } from "@inertiajs/react"
-import type { ColumnDef ,
+import { router } from '@inertiajs/react';
+import type {
+    ColumnDef,
     SortingState,
-    ColumnFiltersState} from "@tanstack/react-table";
+    ColumnFiltersState,
+} from '@tanstack/react-table';
 import {
     flexRender,
     getCoreRowModel,
     useReactTable,
     getSortedRowModel,
-    getFilteredRowModel
-} from "@tanstack/react-table"
+    getFilteredRowModel,
+} from '@tanstack/react-table';
 
 import { useState } from 'react';
-import { Button } from "@/components/ui/button"
+import { Button } from '@/components/ui/button';
 import {
     Table,
     TableBody,
@@ -21,27 +23,29 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from "@/components/ui/table"
+} from '@/components/ui/table';
 
 interface DataTableProps<TData> {
-    columns: ColumnDef<TData, any>[]
-    tableId?: string
+    columns: ColumnDef<TData, any>[];
+    tableId?: string;
     // 'pagination' represents the object returned by Laravel ->paginate()
     pagination: {
-        data: TData[]
-        prev_page_url: string | null
-        next_page_url: string | null
-        current_page: number
-        last_page: number
-        total: number
-    }
+        data: TData[];
+        prev_page_url: string | null;
+        next_page_url: string | null;
+        current_page: number;
+        last_page: number;
+        total: number;
+    };
 }
 
-export function DataTable<TData>({ columns, tableId, pagination }: DataTableProps<TData>) {
-    const [sorting, setSorting] = useState<SortingState>([])
-    const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(
-        []
-    )
+export function DataTable<TData>({
+    columns,
+    tableId,
+    pagination,
+}: DataTableProps<TData>) {
+    const [sorting, setSorting] = useState<SortingState>([]);
+    const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
     const table = useReactTable({
         data: pagination.data, // Access the array here
@@ -53,9 +57,9 @@ export function DataTable<TData>({ columns, tableId, pagination }: DataTableProp
         getFilteredRowModel: getFilteredRowModel(),
         state: {
             sorting,
-            columnFilters
+            columnFilters,
         },
-    })
+    });
 
     return (
         <div className="space-y-4">
@@ -66,7 +70,10 @@ export function DataTable<TData>({ columns, tableId, pagination }: DataTableProp
                             <TableRow key={headerGroup.id}>
                                 {headerGroup.headers.map((header) => (
                                     <TableHead key={header.id}>
-                                        {flexRender(header.column.columnDef.header, header.getContext())}
+                                        {flexRender(
+                                            header.column.columnDef.header,
+                                            header.getContext(),
+                                        )}
                                     </TableHead>
                                 ))}
                             </TableRow>
@@ -77,17 +84,24 @@ export function DataTable<TData>({ columns, tableId, pagination }: DataTableProp
                             table.getRowModel().rows.map((row) => (
                                 <TableRow
                                     className="even:bg-black/[0.07] dark:even:bg-white/[0.07]"
-                                    key={row.id}>
+                                    key={row.id}
+                                >
                                     {row.getVisibleCells().map((cell) => (
                                         <TableCell key={cell.id}>
-                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                            {flexRender(
+                                                cell.column.columnDef.cell,
+                                                cell.getContext(),
+                                            )}
                                         </TableCell>
                                     ))}
                                 </TableRow>
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={columns.length} className="h-24 text-center">
+                                <TableCell
+                                    colSpan={columns.length}
+                                    className="h-24 text-center"
+                                >
                                     No results.
                                 </TableCell>
                             </TableRow>
@@ -99,7 +113,8 @@ export function DataTable<TData>({ columns, tableId, pagination }: DataTableProp
             {/* Pagination Controls */}
             <div className="flex items-center justify-between px-2">
                 <div className="text-sm text-muted-foreground">
-                    Page {pagination.current_page} of {pagination.last_page} ({pagination.total} total)
+                    Page {pagination.current_page} of {pagination.last_page} (
+                    {pagination.total} total)
                 </div>
                 <div className="flex items-center space-x-2">
                     <Button
@@ -121,5 +136,5 @@ export function DataTable<TData>({ columns, tableId, pagination }: DataTableProp
                 </div>
             </div>
         </div>
-    )
+    );
 }

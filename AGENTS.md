@@ -96,4 +96,15 @@ Domains: `sales`, `expenses`, `sublimations`, `purchase-orders`, `customers`, `e
 - **`.npmrc`** sets `public-hoist-pattern[]=@inertiajs/core` — needed for pnpm compatibility.
 - **`react-compiler`** is enabled via babel plugin in Vite config — React components get auto-memoized, so manual `useMemo`/`useCallback` may be redundant.
 - **The `/add-user` route** (in `routes/settings.php`) creates a superadmin user (`username: superadmin`, `password: password`) and seeds branches. Use this for initial setup.
-- **Cursor rules** at `.cursor/rules/` contain additional architecture details; keep them aligned.
+
+## Notes
+- Payroll stuff should go into Payroll Domain namespace.
+- Payroll js/tsx files should go into payroll/pages.
+- Always think of the use cases and edge cases when creating features or making changes to existing features.
+- Always write tests for new features or changes to existing features.
+- Always document the new features or changes to existing features.
+- Always use pagination on lists except if coming from enums or other queries with limit.
+- Always put the validation logic in Request classes and keep them only for validation purpose, no business logic should be there.
+- When making class create separate folder for each class. This applies to controllers, models, requests, etc. Example: App\Http\Controllers\Employee\CreateController.php and App\Http\Requests\Employee\StoreEmployeeRequest.php
+- Use Tailwind CSS v4 for styling. No need for bootstrap or any other css framework.
+- On tsx files, if a component is deemed too big (exceeds 100 lines), split it into smaller components.

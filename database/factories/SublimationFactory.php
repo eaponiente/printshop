@@ -2,8 +2,11 @@
 
 namespace Database\Factories;
 
-use App\Models\Sublimation;
 use App\Enums\Sublimations\SublimationStatus;
+use App\Models\Branch;
+use App\Models\Customer;
+use App\Models\Sublimation;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class SublimationFactory extends Factory
@@ -13,9 +16,9 @@ class SublimationFactory extends Factory
     public function definition(): array
     {
         return [
-            'branch_id' => \App\Models\Branch::factory(),
-            'customer_id' => \App\Models\Customer::factory(),
-            'user_id' => \App\Models\User::factory(),
+            'branch_id' => Branch::factory(),
+            'customer_id' => Customer::factory(),
+            'user_id' => User::factory(),
             'amount_total' => $this->faker->randomFloat(2, 100, 5000),
             'status' => SublimationStatus::FOR_APPROVAL->value,
             'description' => $this->faker->sentence(),

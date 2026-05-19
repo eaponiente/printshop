@@ -1,15 +1,15 @@
 import { Form } from '@inertiajs/react';
-import { toast } from "sonner"
+import { toast } from 'sonner';
 import InputError from '@/components/input-error';
-import { Button } from "@/components/ui/button"
+import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
     DialogHeader,
-    DialogTitle
+    DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { update, store } from '@/routes/branches';
 import type { Branch } from '@/types/branches';
@@ -20,15 +20,18 @@ interface BranchDialogProps {
     setOpen: (open: boolean) => void;
 }
 
-export default function BranchDialog({ open, setOpen, branch }: BranchDialogProps) {
-
+export default function BranchDialog({
+    open,
+    setOpen,
+    branch,
+}: BranchDialogProps) {
     const isEdit = !!branch;
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogContent className="sm:max-w-[625px]">
                 <DialogHeader>
-                    <DialogTitle>{ isEdit ? 'Edit' : 'Add'} Branch</DialogTitle>
+                    <DialogTitle>{isEdit ? 'Edit' : 'Add'} Branch</DialogTitle>
                 </DialogHeader>
 
                 <Form

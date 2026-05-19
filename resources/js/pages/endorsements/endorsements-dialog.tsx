@@ -89,7 +89,9 @@ export default function EndorsementDialog({
                                 id="amount"
                                 defaultValue={endorsement?.amount}
                                 name="amount"
-                                onChange={e => setData('amount', e.target.value)}
+                                onChange={(e) =>
+                                    setData('amount', e.target.value)
+                                }
                                 tabIndex={1}
                             />
                             <InputError message={errors.amount} />

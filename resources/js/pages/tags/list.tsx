@@ -12,7 +12,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
     AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
     Table,
@@ -20,12 +20,12 @@ import {
     TableCell,
     TableHead,
     TableHeader,
-    TableRow
+    TableRow,
 } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
+import TagDialog from '@/pages/tags/tags-dialog';
 import type { BreadcrumbItem } from '@/types';
 import type { Tag, TagsList } from '@/types/settings';
-import TagDialog from '@/pages/tags/tags-dialog';
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Tags', href: '/tags' },
@@ -42,9 +42,10 @@ export default function TagIndex({ tags }: TagsList) {
 
     const deleteTag = (tag: Tag) => {
         router.delete(`/tags/${tag.id}`, {
-            onSuccess: () => toast.success('Tag deleted', { position: 'top-center'}),
+            onSuccess: () =>
+                toast.success('Tag deleted', { position: 'top-center' }),
         });
-    }
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -53,8 +54,12 @@ export default function TagIndex({ tags }: TagsList) {
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-xl font-semibold">Tag Management</h1>
-                        <p className="text-sm text-muted-foreground">Manage your tag.</p>
+                        <h1 className="text-xl font-semibold">
+                            Tag Management
+                        </h1>
+                        <p className="text-sm text-muted-foreground">
+                            Manage your tag.
+                        </p>
                     </div>
 
                     <Button onClick={() => openEditForm(null)}>
@@ -69,38 +74,68 @@ export default function TagIndex({ tags }: TagsList) {
                             <TableRow>
                                 <TableHead>Name</TableHead>
                                 <TableHead>Color</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
+                                <TableHead className="text-right">
+                                    Actions
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {tags.map((tag) => (
                                 <TableRow key={tag.id}>
-                                    <TableCell className="font-medium">{tag.name}</TableCell>
+                                    <TableCell className="font-medium">
+                                        {tag.name}
+                                    </TableCell>
                                     <TableCell>
                                         <span
                                             className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium"
-                                            style={{ backgroundColor: tag.color, color: '#fff' }}
+                                            style={{
+                                                backgroundColor: tag.color,
+                                                color: '#fff',
+                                            }}
                                         >
                                             {tag.color}
                                         </span>
                                     </TableCell>
                                     <TableCell className="text-right">
-                                        <Button variant="ghost" size="sm" onClick={() => openEditForm(tag)}><Pencil /></Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => openEditForm(tag)}
+                                        >
+                                            <Pencil />
+                                        </Button>
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
-                                                <Button variant="ghost" size="sm"><Trash2 /></Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                >
+                                                    <Trash2 />
+                                                </Button>
                                             </AlertDialogTrigger>
                                             <AlertDialogContent>
                                                 <AlertDialogHeader>
-                                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                                    <AlertDialogTitle>
+                                                        Are you absolutely sure?
+                                                    </AlertDialogTitle>
                                                     <AlertDialogDescription>
-                                                        This action cannot be undone. This will permanently delete your
+                                                        This action cannot be
+                                                        undone. This will
+                                                        permanently delete your
                                                         tag from our servers.
                                                     </AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter>
-                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => deleteTag(tag)}>Continue</AlertDialogAction>
+                                                    <AlertDialogCancel>
+                                                        Cancel
+                                                    </AlertDialogCancel>
+                                                    <AlertDialogAction
+                                                        onClick={() =>
+                                                            deleteTag(tag)
+                                                        }
+                                                    >
+                                                        Continue
+                                                    </AlertDialogAction>
                                                 </AlertDialogFooter>
                                             </AlertDialogContent>
                                         </AlertDialog>
@@ -112,9 +147,12 @@ export default function TagIndex({ tags }: TagsList) {
                 </div>
             </div>
             {isDialogOpen && (
-                <TagDialog open={isDialogOpen} setOpen={setIsDialogOpen} tag={getTag} />
+                <TagDialog
+                    open={isDialogOpen}
+                    setOpen={setIsDialogOpen}
+                    tag={getTag}
+                />
             )}
-
         </AppLayout>
     );
 }

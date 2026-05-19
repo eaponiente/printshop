@@ -41,12 +41,14 @@ export const getCustomerDisplayName = (customer?: {
     full_name?: string | null;
     company?: string | null;
 }) => {
-    if (!customer) return "Unknown Customer";
+    if (!customer) {
+        return 'Unknown Customer';
+    }
 
     // Check if first_name exists and isn't just whitespace
     const hasFirstName = !!customer.first_name?.trim();
 
     return hasFirstName
-        ? (customer.full_name ?? "Unknown Name")
-        : (customer.company ?? "Unknown Customer");
+        ? (customer.full_name ?? 'Unknown Name')
+        : (customer.company ?? 'Unknown Customer');
 };

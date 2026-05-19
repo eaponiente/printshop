@@ -3,9 +3,8 @@ import type { CellContext, ColumnDef } from '@tanstack/react-table';
 import { Banknote, Plus, Printer, XCircle } from 'lucide-react';
 import React, { useState } from 'react';
 import { route } from 'ziggy-js';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DataTable } from '@/components/data-table';
-import { Badge } from "@/components/ui/badge"; // Assuming Shadcn Badge
+import { Badge } from '@/components/ui/badge'; // Assuming Shadcn Badge
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,6 +15,11 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import ExpenseActions from '@/pages/expenses/components/expense-actions';
 import ExpenseDialog from '@/pages/expenses/expenses-dialog';
@@ -82,17 +86,18 @@ export default function ExpenseIndex({
             cell: ({ row }: CellContext<any, any>) => {
                 const branchName = row.original.branch?.name;
                 const isCredit = row.original.payment_type === 'credit';
+
                 return (
                     <div className="max-w-[150px] truncate" title={branchName}>
                         {isCredit && (
-                            <span className="text-muted-foreground text-xs block">
+                            <span className="block text-xs text-muted-foreground">
                                 Creditor
                             </span>
                         )}
                         {branchName}
                     </div>
                 );
-            }
+            },
         },
         {
             accessorKey: 'amount',
@@ -107,18 +112,20 @@ export default function ExpenseIndex({
             cell: ({ row }: CellContext<any, any>) => {
                 const expense: Expense = row.original;
                 const staffName = expense.user?.fullname;
+
                 return (
                     <div className="max-w-[150px] truncate" title={staffName}>
                         {staffName} ({expense.user?.branch?.name})
                     </div>
                 );
-            }
+            },
         },
         {
             accessorKey: 'description',
             header: 'Description',
             cell: ({ row }: CellContext<any, any>) => {
                 const description = row.original.description;
+
                 return (
                     <Tooltip>
                         <TooltipTrigger asChild>
@@ -126,12 +133,10 @@ export default function ExpenseIndex({
                                 {description}
                             </div>
                         </TooltipTrigger>
-                        <TooltipContent>
-                            {description}
-                        </TooltipContent>
+                        <TooltipContent>{description}</TooltipContent>
                     </Tooltip>
                 );
-            }
+            },
         },
         {
             accessorKey: 'payment_type',
@@ -170,11 +175,18 @@ export default function ExpenseIndex({
                 };
 
                 const config = paymentTypeConfig[paymentType] || {
-                    label: paymentType.charAt(0).toUpperCase() + paymentType.slice(1),
+                    label:
+                        paymentType.charAt(0).toUpperCase() +
+                        paymentType.slice(1),
                     className: '',
                 };
-                return <Badge variant="outline" className={config.className}>{config.label}</Badge>;
-            }
+
+                return (
+                    <Badge variant="outline" className={config.className}>
+                        {config.label}
+                    </Badge>
+                );
+            },
         },
         {
             accessorKey: 'status',
@@ -235,12 +247,13 @@ export default function ExpenseIndex({
             header: 'Void Reason',
             cell: ({ row }: CellContext<any, any>) => {
                 const voidReason = row.original.void_reason;
+
                 return (
                     <div className="max-w-[200px] truncate" title={voidReason}>
                         {voidReason}
                     </div>
                 );
-            }
+            },
         },
         {
             header: 'Actions',
@@ -482,17 +495,25 @@ export default function ExpenseIndex({
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => printAllTableData('Expenses Report', route('expenses.print', filters))}
+                                onClick={() =>
+                                    printAllTableData(
+                                        'Expenses Report',
+                                        route('expenses.print', filters),
+                                    )
+                                }
                                 className="ml-auto h-10"
                             >
                                 <Printer className="mr-1.5 h-3.5 w-3.5" />
                                 Print
                             </Button>
                         )}
-
                     </div>
 
-                    <DataTable columns={columns} tableId="expenses-table" pagination={expenses} />
+                    <DataTable
+                        columns={columns}
+                        tableId="expenses-table"
+                        pagination={expenses}
+                    />
                 </div>
             </div>
             {isDialogOpen && (

@@ -1,12 +1,12 @@
-import { Sublimation } from "./sublimations"
+import type { Sublimation } from './sublimations';
 
 export type TransactionStatus = {
-    name: string
-}
+    name: string;
+};
 
 export type PaymentType = {
-    name: string
-}
+    name: string;
+};
 
 export type Payment = {
     id: number;
@@ -21,7 +21,7 @@ export type Payment = {
         first_name: string;
         last_name: string;
     };
-}
+};
 
 export type Transaction = {
     id: number;
@@ -77,4 +77,4 @@ export type Transaction = {
     payments_count?: number;
     created_at: string;
     updated_at: string;
-}
+};

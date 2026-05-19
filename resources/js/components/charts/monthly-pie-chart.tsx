@@ -60,8 +60,9 @@ export default function SixMonthPie({ pieData }: any) {
                                 key={`cell-${index}`}
                                 fill={
                                     // Cast the string to a key of chartConfig
-                                    chartConfig[entry.month.toLowerCase() as keyof typeof chartConfig]
-                                        ?.color || '#cbd5e1'
+                                    chartConfig[
+                                        entry.month.toLowerCase() as keyof typeof chartConfig
+                                    ]?.color || '#cbd5e1'
                                 }
                             />
                         ))}

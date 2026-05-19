@@ -69,7 +69,6 @@ class PurchaseOrderController extends Controller
                 }
             )
 
-
             ->when($filters['mode'] ?? null, function ($query, $mode) use ($filters) {
                 // 1. Determine which column to filter - changed default from 'date' to 'due_at'
                 $column = $filters['date_field'] ?? 'due_at';
@@ -99,7 +98,7 @@ class PurchaseOrderController extends Controller
                     $query->whereMonth($column, $date->month)
                         ->whereYear($column, $date->year);
                 } elseif ($mode === 'yearly') {
-                    // If frontend sends "2024", Carbon::parse might fail or act odd. 
+                    // If frontend sends "2024", Carbon::parse might fail or act odd.
                     // We use the raw value or parse only the year.
                     $year = is_numeric($dateValue) ? $dateValue : Carbon::parse($dateValue)->year;
 
@@ -146,7 +145,7 @@ class PurchaseOrderController extends Controller
 
             return back()->with('success', 'Purchase order created successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to create purchase order: ' . $e->getMessage());
+            Log::error('Failed to create purchase order: '.$e->getMessage());
 
             return back()->withErrors(['message' => 'An error occurred while creating the purchase order.']);
         }
@@ -173,7 +172,7 @@ class PurchaseOrderController extends Controller
 
             return redirect()->back()->with('success', 'Purchase order updated successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to update purchase order: ' . $e->getMessage());
+            Log::error('Failed to update purchase order: '.$e->getMessage());
 
             return back()->withErrors(['message' => 'An error occurred while updating the purchase order.']);
         }
@@ -186,7 +185,7 @@ class PurchaseOrderController extends Controller
 
             return back()->with('success', 'Purchase order deleted successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to delete purchase order: ' . $e->getMessage());
+            Log::error('Failed to delete purchase order: '.$e->getMessage());
 
             return back()->withErrors(['message' => 'An error occurred while deleting the purchase order.']);
         }
@@ -204,7 +203,7 @@ class PurchaseOrderController extends Controller
                     $transaction = $this->salesService->createTransaction(array_merge($transactionData, [
                         'invoice_number' => Transaction::generateNumber(),
                         'amount_total' => $validated['amount_total'],
-                        'particular' => 'Purchase Order for ' . $purchaseOrder->po_number,
+                        'particular' => 'Purchase Order for '.$purchaseOrder->po_number,
                         'staff_id' => auth()->id(),
                         'transaction_date' => now(),
                     ]));
@@ -216,7 +215,7 @@ class PurchaseOrderController extends Controller
 
             return back()->with('success', 'Transaction created successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to create transaction: ' . $e->getMessage());
+            Log::error('Failed to create transaction: '.$e->getMessage());
 
             return back()->withErrors(['message' => 'An error occurred while creating the transaction.']);
         }
@@ -235,7 +234,7 @@ class PurchaseOrderController extends Controller
 
             return back()->with('success', 'Purchase order updated successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to update purchase order: ' . $e->getMessage());
+            Log::error('Failed to update purchase order: '.$e->getMessage());
 
             return back()->withErrors(['message' => 'An error occurred while updating the purchase order.']);
         }

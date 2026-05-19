@@ -3,7 +3,6 @@
 namespace App\Http\Requests\PurchaseOrders;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class CreatePurchaseOrderTransactionRequest extends FormRequest
 {

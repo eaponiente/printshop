@@ -15,9 +15,7 @@ type Props = {
     canRegister: boolean;
 };
 
-export default function Login({
-    status,
-}: Props) {
+export default function Login({ status }: Props) {
     return (
         <AuthLayout
             title="Log in to your account"

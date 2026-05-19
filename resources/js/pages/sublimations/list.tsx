@@ -1,5 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
+import { format, parseISO } from 'date-fns';
 import {
     ArrowUpDown,
     Check,
@@ -12,6 +13,7 @@ import {
     UserPlus,
     X,
 } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock } from 'lucide-react';
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { route } from 'ziggy-js';
@@ -27,9 +29,31 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+    CommandSeparator,
+} from '@/components/ui/command';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from '@/components/ui/dialog';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
 import {
     Select,
     SelectContent,
@@ -38,6 +62,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
+import { cn } from '@/lib/utils';
+import { StatusFilter } from '@/pages/sublimations/components/status-filter';
 import { StatusCell } from '@/pages/sublimations/status-cell';
 import SublimationDialog from '@/pages/sublimations/sublimation-dialog';
 import SublimationGallery from '@/pages/sublimations/sublimation-gallery';
@@ -48,30 +74,10 @@ import type { PaginatedResponse } from '@/types/pagination';
 import type { Tag } from '@/types/settings';
 import type { Sublimation } from '@/types/sublimations';
 import type { User } from '@/types/user';
-import { getAvatarColor, sortBy } from '@/utils/helpers';
-import { StatusFilter } from '@/pages/sublimations/components/status-filter';
 import { readableDate } from '@/utils/dateHelper';
-import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-    CommandSeparator,
-} from "@/components/ui/command";
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover";
-import { cn } from '@/lib/utils';
-import { format, parseISO } from "date-fns";
-import { Calendar as CalendarIcon, Clock } from "lucide-react";
-import { Calendar } from "@/components/ui/calendar";
-import { EditableDateCell } from './components/editable-date-cell';
-import { Badge } from '@/components/ui/badge';
 import { getCustomerDisplayName } from '@/utils/formatters';
+import { getAvatarColor, sortBy } from '@/utils/helpers';
+import { EditableDateCell } from './components/editable-date-cell';
 import { TagCell } from './tag-cell';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -94,14 +100,16 @@ export default function SublimationIndex({
     filters,
     statuses,
     users,
-    availableTags
+    availableTags,
 }: SublimationIndexProps) {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [selectedSublimation, setSelectedSublimation] = useState<Sublimation | null>(null);
+    const [selectedSublimation, setSelectedSublimation] =
+        useState<Sublimation | null>(null);
     const [zoomedImage, setZoomedImage] = useState<UploadedImage | null>(null);
 
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
-    const [gallerySublimation, setGallerySublimation] = useState<Sublimation | null>(null);
+    const [gallerySublimation, setGallerySublimation] =
+        useState<Sublimation | null>(null);
     const { auth } = usePage().props;
 
     const openGallery = (sublimation: Sublimation) => {
@@ -121,21 +129,27 @@ export default function SublimationIndex({
 
     const deleteSublimation = (sublimation: Sublimation) => {
         router.delete(route('sublimations.destroy', sublimation.id), {
-            onSuccess: () => toast.success('Sublimation deleted', { position: 'top-center' }),
-            onError: (errors) => toast.error(errors.message, { position: 'top-center' }),
+            onSuccess: () =>
+                toast.success('Sublimation deleted', {
+                    position: 'top-center',
+                }),
+            onError: (errors) =>
+                toast.error(errors.message, { position: 'top-center' }),
         });
     };
 
-    const [branchOpen, setBranchOpen] = useState(false)
-    const selectedValues = Array.isArray(filters.branch_id) ? filters.branch_id : []
+    const [branchOpen, setBranchOpen] = useState(false);
+    const selectedValues: string[] = Array.isArray(filters.branch_id)
+        ? filters.branch_id
+        : [];
 
     const toggleBranch = (id: string) => {
-        const newSelection = selectedValues.includes(id)
+        const newSelection: string[] = selectedValues.includes(id)
             ? selectedValues.filter((item: string) => item !== id)
-            : [...selectedValues, id]
+            : [...selectedValues, id];
 
-        handleFilterChange(newSelection, 'branch_id')
-    }
+        handleFilterChange(newSelection, 'branch_id');
+    };
 
     const handleFilterChange = (
         // Update value to accept string or string array
@@ -166,34 +180,44 @@ export default function SublimationIndex({
             accessorKey: 'customer.full_name',
             header: 'Customer',
             cell: ({ row }: CellContext<any, any>) => {
-                const customerName = getCustomerDisplayName(row.original.customer);
+                const customerName = getCustomerDisplayName(
+                    row.original.customer,
+                );
+
                 return (
-                    <div className="max-w-[150px] truncate" title={customerName}>
+                    <div
+                        className="max-w-[150px] truncate"
+                        title={customerName}
+                    >
                         {customerName}
                     </div>
                 );
-            }
+            },
         },
         {
             accessorKey: 'tags',
             header: 'Category',
             cell: ({ row }: CellContext<any, any>) => {
                 return (
-                    <TagCell sublimation={row.original} allTags={availableTags} />
+                    <TagCell
+                        sublimation={row.original}
+                        allTags={availableTags}
+                    />
                 );
-            }
+            },
         },
         {
             accessorKey: 'description',
             header: 'Team / Subject',
             cell: ({ row }: CellContext<any, any>) => {
                 const description = row.original.description;
+
                 return (
                     <div className="max-w-[150px] truncate" title={description}>
                         {description}
                     </div>
                 );
-            }
+            },
         },
         {
             accessorKey: 'due_at',
@@ -239,12 +263,13 @@ export default function SublimationIndex({
             header: 'Branch',
             cell: ({ row }: CellContext<any, any>) => {
                 const branchName = row.original.branch?.name;
+
                 return (
                     <div className="max-w-[150px] truncate" title={branchName}>
                         {branchName}
                     </div>
                 );
-            }
+            },
         },
         {
             accessorKey: 'user.fullname',
@@ -272,12 +297,16 @@ export default function SublimationIndex({
                 const recordId = row.original.id;
 
                 const updateStaff = (userId: string | null) => {
-                    router.patch(route('sublimations.update-staff', recordId), {
-                        user_id: userId,
-                    }, {
-                        preserveScroll: true,
-                        preserveState: true
-                    });
+                    router.patch(
+                        route('sublimations.update-staff', recordId),
+                        {
+                            user_id: userId,
+                        },
+                        {
+                            preserveScroll: true,
+                            preserveState: true,
+                        },
+                    );
                 };
 
                 return (
@@ -285,19 +314,29 @@ export default function SublimationIndex({
                         <PopoverTrigger asChild>
                             <button
                                 className={cn(
-                                    "group flex items-center gap-2 px-2 py-1.5 rounded-full border transition-all duration-200 w-fit max-w-[180px]",
+                                    'group flex w-fit max-w-[180px] items-center gap-2 rounded-full border px-2 py-1.5 transition-all duration-200',
                                     assignedUser
-                                        ? "bg-background border-input hover:border-primary/50 hover:shadow-sm"
-                                        : "bg-muted/30 border-dashed border-muted-foreground/30 hover:bg-muted/50"
+                                        ? 'border-input bg-background hover:border-primary/50 hover:shadow-sm'
+                                        : 'border-dashed border-muted-foreground/30 bg-muted/30 hover:bg-muted/50',
                                 )}
                             >
                                 {/* Avatar Circle - Now with Dynamic Background */}
                                 <div
                                     className={cn(
-                                        "flex items-center justify-center h-5 w-5 rounded-full text-[9px] font-bold shrink-0 uppercase text-white transition-colors",
-                                        !assignedUser && "bg-muted-foreground/20 text-muted-foreground"
+                                        'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white uppercase transition-colors',
+                                        !assignedUser &&
+                                            'bg-muted-foreground/20 text-muted-foreground',
                                     )}
-                                    style={assignedUser ? { backgroundColor: getAvatarColor(assignedUser.fullname) } : {}}
+                                    style={
+                                        assignedUser
+                                            ? {
+                                                  backgroundColor:
+                                                      getAvatarColor(
+                                                          assignedUser.fullname,
+                                                      ),
+                                              }
+                                            : {}
+                                    }
                                 >
                                     {assignedUser ? (
                                         assignedUser.fullname.substring(0, 2)
@@ -307,33 +346,52 @@ export default function SublimationIndex({
                                 </div>
 
                                 {/* Name Label */}
-                                <span className={cn(
-                                    "text-xs truncate pr-1",
-                                    assignedUser ? "font-medium text-foreground" : "text-muted-foreground"
-                                )}>
-                                    {assignedUser ? assignedUser.fullname : "Assign Staff"}
+                                <span
+                                    className={cn(
+                                        'truncate pr-1 text-xs',
+                                        assignedUser
+                                            ? 'font-medium text-foreground'
+                                            : 'text-muted-foreground',
+                                    )}
+                                >
+                                    {assignedUser
+                                        ? assignedUser.fullname
+                                        : 'Assign Staff'}
                                 </span>
 
-                                <ChevronsUpDown className="h-3 w-3 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                <ChevronsUpDown className="h-3 w-3 text-muted-foreground/50 opacity-0 transition-opacity group-hover:opacity-100" />
                             </button>
                         </PopoverTrigger>
 
-                        <PopoverContent className="w-[240px] p-0 shadow-lg" align="start">
+                        <PopoverContent
+                            className="w-[240px] p-0 shadow-lg"
+                            align="start"
+                        >
                             {/* Header Action: Unassign */}
-                            <div className="p-1.5 border-b bg-muted/20">
+                            <div className="border-b bg-muted/20 p-1.5">
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="w-full justify-start text-xs h-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                    className="h-8 w-full justify-start text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
                                     onClick={() => updateStaff(null)}
                                 >
-                                    <Check className={cn("mr-2 h-3.5 w-3.5", !assignedUser ? "opacity-100" : "opacity-0")} />
+                                    <Check
+                                        className={cn(
+                                            'mr-2 h-3.5 w-3.5',
+                                            !assignedUser
+                                                ? 'opacity-100'
+                                                : 'opacity-0',
+                                        )}
+                                    />
                                     Remove Assignment
                                 </Button>
                             </div>
 
                             <Command>
-                                <CommandInput placeholder="Search users..." className="h-9" />
+                                <CommandInput
+                                    placeholder="Search users..."
+                                    className="h-9"
+                                />
                                 <CommandList className="max-h-[250px]">
                                     <CommandEmpty>No users found.</CommandEmpty>
                                     <CommandGroup heading="Available Staff">
@@ -341,18 +399,33 @@ export default function SublimationIndex({
                                             <CommandItem
                                                 key={user.id}
                                                 value={user.fullname}
-                                                onSelect={() => updateStaff(user.id.toString())}
-                                                className="flex items-center gap-2 px-2 py-2 cursor-pointer"
+                                                onSelect={() =>
+                                                    updateStaff(
+                                                        user.id.toString(),
+                                                    )
+                                                }
+                                                className="flex cursor-pointer items-center gap-2 px-2 py-2"
                                             >
                                                 {/* Dropdown Avatar Color */}
                                                 <div
-                                                    className="flex items-center justify-center h-6 w-6 rounded-full text-white text-[10px] font-semibold uppercase"
-                                                    style={{ backgroundColor: getAvatarColor(user.fullname) }}
+                                                    className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold text-white uppercase"
+                                                    style={{
+                                                        backgroundColor:
+                                                            getAvatarColor(
+                                                                user.fullname,
+                                                            ),
+                                                    }}
                                                 >
-                                                    {user.fullname.substring(0, 2)}
+                                                    {user.fullname.substring(
+                                                        0,
+                                                        2,
+                                                    )}
                                                 </div>
-                                                <span className="flex-1 truncate">{user.fullname}</span>
-                                                {assignedUser?.id === user.id && (
+                                                <span className="flex-1 truncate">
+                                                    {user.fullname}
+                                                </span>
+                                                {assignedUser?.id ===
+                                                    user.id && (
                                                     <Check className="h-4 w-4 text-primary" />
                                                 )}
                                             </CommandItem>
@@ -363,7 +436,7 @@ export default function SublimationIndex({
                         </PopoverContent>
                     </Popover>
                 );
-            }
+            },
         },
         {
             id: 'transaction_lean_widget',
@@ -375,33 +448,40 @@ export default function SublimationIndex({
                 console.log('tt', transaction?.payments_count || 0);
 
                 const colors = {
-                    paid: "bg-emerald-500 text-emerald-600 border-emerald-100",
-                    pending: "bg-amber-500 text-amber-600 border-amber-100",
-                    partial: "bg-blue-500 text-blue-600 border-blue-100",
-                    none: "bg-slate-300 text-slate-400 border-slate-100",
+                    paid: 'bg-emerald-500 text-emerald-600 border-emerald-100',
+                    pending: 'bg-amber-500 text-amber-600 border-amber-100',
+                    partial: 'bg-blue-500 text-blue-600 border-blue-100',
+                    none: 'bg-slate-300 text-slate-400 border-slate-100',
                 };
 
-                const theme = colors[status as keyof typeof colors] || colors.none;
+                const theme =
+                    colors[status as keyof typeof colors] || colors.none;
 
                 return (
-                    <div className="flex items-center gap-3 min-w-[200px]">
+                    <div className="flex min-w-[200px] items-center gap-3">
                         {/* 1. Slim Status Indicator */}
-                        <div className="flex flex-col items-center gap-1 shrink-0">
-                            <div className={`h-8 w-1 rounded-full ${theme.split(' ')[0]}`} />
+                        <div className="flex shrink-0 flex-col items-center gap-1">
+                            <div
+                                className={`h-8 w-1 rounded-full ${theme.split(' ')[0]}`}
+                            />
                         </div>
 
                         <div className="flex flex-1 items-center justify-between">
                             {/* 2. Info Block */}
                             <div className="flex flex-col">
-                                <span className={`text-[10px] font-bold uppercase tracking-widest ${theme.split(' ')[1]}`}>
+                                <span
+                                    className={`text-[10px] font-bold tracking-widest uppercase ${theme.split(' ')[1]}`}
+                                >
                                     {status || 'No Sale'}
                                 </span>
                                 {transaction ? (
-                                    <span className="text-sm font-semibold text-slate-700 tracking-tight">
+                                    <span className="text-sm font-semibold tracking-tight text-slate-700">
                                         {transaction.invoice_number}
                                     </span>
                                 ) : (
-                                    <span className="text-xs text-slate-400 italic">Pending Entry</span>
+                                    <span className="text-xs text-slate-400 italic">
+                                        Pending Entry
+                                    </span>
                                 )}
                             </div>
 
@@ -410,14 +490,20 @@ export default function SublimationIndex({
                                     <a
                                         href={route('sales.index', {
                                             search: transaction.invoice_number,
-                                            tab: transaction?.amount_paid > 0 ? 'payments' : 'unpaid',
-                                            mode: 'yearly'
+                                            tab:
+                                                transaction?.amount_paid > 0
+                                                    ? 'payments'
+                                                    : 'unpaid',
+                                            mode: 'yearly',
                                         })}
                                         target="_blank"
-                                        className="group flex h-8 items-center gap-2 rounded-md px-2 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-all"
+                                        className="group flex h-8 items-center gap-2 rounded-md px-2 text-xs font-bold text-slate-500 transition-all hover:bg-slate-50 hover:text-indigo-600"
                                     >
                                         <span>VIEW</span>
-                                        <ExternalLink size={12} className="opacity-0 group-hover:opacity-100 transition-all -translate-x-1 group-hover:translate-x-0" />
+                                        <ExternalLink
+                                            size={12}
+                                            className="-translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100"
+                                        />
                                     </a>
                                 )}
                             </div>
@@ -436,7 +522,6 @@ export default function SublimationIndex({
                 ];
 
                 return (
-
                     <>
                         <Button
                             variant="ghost"
@@ -466,12 +551,15 @@ export default function SublimationIndex({
                                             Are you absolutely sure?
                                         </AlertDialogTitle>
                                         <AlertDialogDescription>
-                                            This action cannot be undone. This will
-                                            permanently delete this sublimation.
+                                            This action cannot be undone. This
+                                            will permanently delete this
+                                            sublimation.
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogCancel>
+                                            Cancel
+                                        </AlertDialogCancel>
                                         <AlertDialogAction
                                             onClick={() =>
                                                 deleteSublimation(row.original)
@@ -485,7 +573,7 @@ export default function SublimationIndex({
                         )}
                     </>
                 );
-            }
+            },
         },
     ];
 
@@ -516,7 +604,10 @@ export default function SublimationIndex({
                                 <label className="ml-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
                                     Branches
                                 </label>
-                                <Popover open={branchOpen} onOpenChange={setBranchOpen}>
+                                <Popover
+                                    open={branchOpen}
+                                    onOpenChange={setBranchOpen}
+                                >
                                     <PopoverTrigger asChild>
                                         <Button
                                             variant="outline"
@@ -525,10 +616,23 @@ export default function SublimationIndex({
                                             className="h-auto min-h-10 w-[200px] justify-between bg-white px-3 py-2 text-sm"
                                         >
                                             <div className="flex flex-wrap gap-1">
-                                                {selectedValues.length === 0 && "All Branches"}
+                                                {selectedValues.length === 0 &&
+                                                    'All Branches'}
                                                 {selectedValues.map((id) => (
-                                                    <Badge variant="secondary" key={id} className="font-normal">
-                                                        {branches.find((b) => String(b.id) === String(id))?.name}
+                                                    <Badge
+                                                        variant="secondary"
+                                                        key={id}
+                                                        className="font-normal"
+                                                    >
+                                                        {
+                                                            branches.find(
+                                                                (b) =>
+                                                                    String(
+                                                                        b.id,
+                                                                    ) ===
+                                                                    String(id),
+                                                            )?.name
+                                                        }
                                                     </Badge>
                                                 ))}
                                             </div>
@@ -539,24 +643,44 @@ export default function SublimationIndex({
                                         <Command>
                                             <CommandInput placeholder="Search branch..." />
                                             <CommandList>
-                                                <CommandEmpty>No branch found.</CommandEmpty>
+                                                <CommandEmpty>
+                                                    No branch found.
+                                                </CommandEmpty>
                                                 <CommandGroup>
                                                     {branches.map((branch) => {
-                                                        const isSelected = selectedValues.includes(String(branch.id))
+                                                        const isSelected =
+                                                            selectedValues.includes(
+                                                                String(
+                                                                    branch.id,
+                                                                ),
+                                                            );
+
                                                         return (
                                                             <CommandItem
                                                                 key={branch.id}
-                                                                onSelect={() => toggleBranch(String(branch.id))}
+                                                                onSelect={() =>
+                                                                    toggleBranch(
+                                                                        String(
+                                                                            branch.id,
+                                                                        ),
+                                                                    )
+                                                                }
                                                                 className="flex items-center gap-2"
                                                             >
                                                                 {/* The Checkbox Component */}
                                                                 <Checkbox
-                                                                    checked={isSelected}
+                                                                    checked={
+                                                                        isSelected
+                                                                    }
                                                                     id={`branch-${branch.id}`}
                                                                 />
-                                                                <span className="flex-1">{branch.name}</span>
+                                                                <span className="flex-1">
+                                                                    {
+                                                                        branch.name
+                                                                    }
+                                                                </span>
                                                             </CommandItem>
-                                                        )
+                                                        );
                                                     })}
                                                 </CommandGroup>
                                             </CommandList>
@@ -589,23 +713,26 @@ export default function SublimationIndex({
                                         <SelectItem value="unassigned">
                                             Unassigned
                                         </SelectItem>
-                                        {users
-                                            .map((user: User) => (
-                                                <SelectItem
-                                                    key={user.id}
-                                                    value={String(
-                                                        user.id,
-                                                    )}
-                                                >
-                                                    {user.fullname}
-                                                </SelectItem>
-                                            ))}
+                                        {users.map((user: User) => (
+                                            <SelectItem
+                                                key={user.id}
+                                                value={String(user.id)}
+                                            >
+                                                {user.fullname}
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
 
                             {/* Status Filter */}
-                            <StatusFilter filters={filters} statuses={statuses} handleFilterChange={(value: string) => handleFilterChange(value, 'status')} />
+                            <StatusFilter
+                                filters={filters}
+                                statuses={statuses}
+                                handleFilterChange={(value: string) =>
+                                    handleFilterChange(value, 'status')
+                                }
+                            />
 
                             {/* New Checkbox Filter */}
                             <div className="flex h-10 items-center space-x-2 px-2">

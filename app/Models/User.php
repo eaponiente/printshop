@@ -62,7 +62,7 @@ class User extends Authenticatable
     protected function fullname(): Attribute
     {
         return Attribute::make(
-            get: fn() => "{$this->first_name} {$this->last_name}"
+            get: fn () => "{$this->first_name} {$this->last_name}"
         );
     }
 
@@ -80,7 +80,6 @@ class User extends Authenticatable
     {
         return $this->role === UserRole::STAFF->value;
     }
-
 
     public function branch(): BelongsTo
     {

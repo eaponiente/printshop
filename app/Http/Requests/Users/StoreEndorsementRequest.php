@@ -32,7 +32,7 @@ class StoreEndorsementRequest extends FormRequest
                 function ($attribute, $value, $fail) use ($branchId, $maxAmount) {
                     // If branch_id is missing, let the 'required' rule handle it.
                     // We only run this logic if a branch was actually selected.
-                    if (!$branchId) {
+                    if (! $branchId) {
                         return;
                     }
 

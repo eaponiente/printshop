@@ -2,6 +2,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
 import { BadgeDollarSign, Calendar, XCircle } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { route } from 'ziggy-js';
 import { DataTable } from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
@@ -27,7 +28,6 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Incentive, IncentivesList } from '@/types/incentives';
 import { formatCurrency } from '@/utils/formatters';
-import { toast } from 'sonner';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -120,7 +120,10 @@ export default function IncentiveIndex({
     }, []);
 
     const confirmPay = useCallback(() => {
-        if (!payDialog) return;
+        if (!payDialog) {
+            return;
+        }
+
         router.post(
             route('incentives.pay'),
             {
@@ -154,7 +157,7 @@ export default function IncentiveIndex({
         () => [
             {
                 accessorKey: 'branch_name',
-                header: 'Branch'
+                header: 'Branch',
             },
             {
                 accessorKey: 'incentive_amount',
@@ -171,9 +174,7 @@ export default function IncentiveIndex({
                 cell: ({ row }: CellContext<any, any>) => (
                     <span
                         className={
-                            row.original.cash_on_hand < 0
-                                ? 'text-red-600'
-                                : ''
+                            row.original.cash_on_hand < 0 ? 'text-red-600' : ''
                         }
                     >
                         {formatCurrency(row.original.cash_on_hand)}
@@ -186,15 +187,16 @@ export default function IncentiveIndex({
                           accessorKey: 'owner_contribution',
                           header: 'Owner Pays',
                           cell: ({ row }: CellContext<any, any>) => {
-                              const amount =
-                                  row.original.owner_contribution;
+                              const amount = row.original.owner_contribution;
+
                               if (!amount || amount <= 0) {
                                   return (
-                                      <span className="text-muted-foreground text-xs">
+                                      <span className="text-xs text-muted-foreground">
                                           --
                                       </span>
                                   );
                               }
+
                               return (
                                   <span className="font-medium text-amber-600">
                                       {formatCurrency(amount)}
@@ -259,6 +261,7 @@ export default function IncentiveIndex({
                         label: status,
                         className: '',
                     };
+
                     return (
                         <Badge
                             variant="outline"
@@ -275,9 +278,11 @@ export default function IncentiveIndex({
                           header: 'Action',
                           cell: ({ row }: CellContext<any, any>) => {
                               const incentive = row.original as Incentive;
+
                               if (incentive.status === 'paid') {
                                   return null;
                               }
+
                               return (
                                   <Button
                                       size="sm"
@@ -348,15 +353,16 @@ export default function IncentiveIndex({
                           accessorKey: 'owner_contribution',
                           header: 'Owner Paid',
                           cell: ({ row }: CellContext<any, any>) => {
-                              const amount =
-                                  row.original.owner_contribution;
+                              const amount = row.original.owner_contribution;
+
                               if (!amount || amount <= 0) {
                                   return (
-                                      <span className="text-muted-foreground text-xs">
+                                      <span className="text-xs text-muted-foreground">
                                           --
                                       </span>
                                   );
                               }
+
                               return (
                                   <span className="font-medium text-amber-600">
                                       {formatCurrency(amount)}
@@ -371,6 +377,7 @@ export default function IncentiveIndex({
                 header: 'Paid At',
                 cell: ({ row }: CellContext<any, any>) => {
                     const date = row.original.paid_at;
+
                     return date
                         ? new Date(date).toLocaleDateString('en-US', {
                               year: 'numeric',
@@ -386,6 +393,7 @@ export default function IncentiveIndex({
 
     const yearOptions = useMemo(() => {
         const currentYear = new Date().getFullYear();
+
         return Array.from({ length: 5 }, (_, i) => currentYear - i);
     }, []);
 
@@ -557,7 +565,9 @@ export default function IncentiveIndex({
             <Dialog
                 open={payDialog !== null}
                 onOpenChange={(open) => {
-                    if (!open) setPayDialog(null);
+                    if (!open) {
+                        setPayDialog(null);
+                    }
                 }}
             >
                 <DialogContent>
@@ -595,9 +605,7 @@ export default function IncentiveIndex({
                                                 : 'font-medium text-emerald-600'
                                         }
                                     >
-                                        {formatCurrency(
-                                            payDialog.net_income,
-                                        )}
+                                        {formatCurrency(payDialog.net_income)}
                                     </p>
                                 </div>
                                 <div>
@@ -630,9 +638,7 @@ export default function IncentiveIndex({
                                     Suggested (5%):{' '}
                                     {formatCurrency(
                                         Math.round(
-                                            payDialog.net_income *
-                                                0.05 *
-                                                100,
+                                            payDialog.net_income * 0.05 * 100,
                                         ) / 100,
                                     )}
                                 </p>
@@ -641,7 +647,7 @@ export default function IncentiveIndex({
                             {incentiveInput &&
                                 parseFloat(incentiveInput) > 0 && (
                                     <div className="space-y-2 rounded-md border bg-slate-50 p-3">
-                                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                        <h4 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                                             Payment Breakdown
                                         </h4>
 
@@ -651,8 +657,7 @@ export default function IncentiveIndex({
                                             </span>
                                             <span
                                                 className={
-                                                    payDialog.cash_on_hand <
-                                                    0
+                                                    payDialog.cash_on_hand < 0
                                                         ? 'font-medium text-red-600'
                                                         : 'font-medium'
                                                 }

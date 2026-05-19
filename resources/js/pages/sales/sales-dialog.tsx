@@ -5,17 +5,20 @@ import { route } from 'ziggy-js';
 import InputError from '@/components/input-error';
 import SearchCustomersField from '@/components/shared/search-customers-field';
 import { submitFormOptions } from '@/components/shared/submit-form-options';
-import { Button } from "@/components/ui/button"
+import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
     DialogHeader,
-    DialogTitle
+    DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
-import { Textarea } from "@/components/ui/textarea"
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+    NativeSelect,
+    NativeSelectOption,
+} from '@/components/ui/native-select';
+import { Textarea } from '@/components/ui/textarea';
 import type { Branch } from '@/types/branches';
 import type { Transaction } from '@/types/transaction';
 
@@ -26,8 +29,12 @@ interface SaleDialogProps {
     transaction?: Transaction | null;
 }
 
-export default function SaleDialog({ open, setOpen, transaction, branches }: SaleDialogProps) {
-
+export default function SaleDialog({
+    open,
+    setOpen,
+    transaction,
+    branches,
+}: SaleDialogProps) {
     const isEdit = !!transaction;
     const { auth } = usePage().props;
 
@@ -136,7 +143,9 @@ export default function SaleDialog({ open, setOpen, transaction, branches }: Sal
                                     Total Amount
                                 </Label>
                                 <Input
-                                    disabled={isEdit && data.status !== 'pending'}
+                                    disabled={
+                                        isEdit && data.status !== 'pending'
+                                    }
                                     type="number"
                                     value={data.amount_total}
                                     onChange={(e) =>

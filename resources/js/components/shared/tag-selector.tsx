@@ -3,17 +3,31 @@ import { Plus, X, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem, CommandSeparator } from '@/components/ui/command';
+import {
+    Command,
+    CommandInput,
+    CommandList,
+    CommandEmpty,
+    CommandGroup,
+    CommandItem,
+    CommandSeparator,
+} from '@/components/ui/command';
 import { Input } from '@/components/ui/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
 import type { Tag } from '@/types/settings';
 
 const randomColor = () => {
     const letters = '0123456789ABCDEF';
     let color = '#';
+
     for (let i = 0; i < 6; i++) {
         color += letters[Math.floor(Math.random() * 16)];
     }
+
     return color;
 };
 
@@ -42,34 +56,42 @@ export default function TagSelector({
 
     const handleCreateTag = () => {
         const trimmed = newTagName.trim();
-        if (!trimmed || isCreating) return;
+
+        if (!trimmed || isCreating) {
+            return;
+        }
 
         setIsCreating(true);
-        router.post('/tags', {
-            name: trimmed,
-            color: randomColor(),
-        }, {
-            preserveScroll: true,
-            onSuccess: () => {
-                setNewTagName('');
-                router.reload({
-                    preserveScroll: true,
-                    onSuccess: (page: any) => {
-                        const created = page.props.availableTags?.find(
-                            (t: any) => t.name === trimmed
-                        );
-                        if (created) {
-                            onAdd(created.id);
-                            onTagCreated?.(created);
-                            setOpen(false);
-                        }
-                        setIsCreating(false);
-                    },
-                    onError: () => setIsCreating(false),
-                });
+        router.post(
+            '/tags',
+            {
+                name: trimmed,
+                color: randomColor(),
             },
-            onError: () => setIsCreating(false),
-        });
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setNewTagName('');
+                    router.reload({
+                        onSuccess: (page: any) => {
+                            const created = page.props.availableTags?.find(
+                                (t: any) => t.name === trimmed,
+                            );
+
+                            if (created) {
+                                onAdd(created.id);
+                                onTagCreated?.(created);
+                                setOpen(false);
+                            }
+
+                            setIsCreating(false);
+                        },
+                        onError: () => setIsCreating(false),
+                    });
+                },
+                onError: () => setIsCreating(false),
+            },
+        );
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -80,10 +102,20 @@ export default function TagSelector({
     };
 
     return (
-        <div className={layout === 'col' ? 'flex flex-col gap-1.5' : 'flex flex-wrap items-center gap-1.5'}>
+        <div
+            className={
+                layout === 'col'
+                    ? 'flex flex-col gap-1.5'
+                    : 'flex flex-wrap items-center gap-1.5'
+            }
+        >
             {selectedTagIds.map((tagId) => {
                 const tag = availableTags.find((t) => t.id === tagId);
-                if (!tag) return null;
+
+                if (!tag) {
+                    return null;
+                }
+
                 return (
                     <Badge
                         key={tag.id}
@@ -109,7 +141,11 @@ export default function TagSelector({
                         type="button"
                         className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed border-slate-400 hover:bg-slate-50"
                     >
-                        {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                        {loading ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                            <Plus className="h-3 w-3" />
+                        )}
                     </button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[220px] p-0" align="start">
@@ -122,16 +158,23 @@ export default function TagSelector({
                                     <CommandItem
                                         key={tag.id}
                                         onSelect={() => {
-                                            if (!selectedTagIds.includes(tag.id)) {
+                                            if (
+                                                !selectedTagIds.includes(tag.id)
+                                            ) {
                                                 onAdd(tag.id);
                                             }
+
                                             setOpen(false);
                                         }}
-                                        disabled={selectedTagIds.includes(tag.id)}
+                                        disabled={selectedTagIds.includes(
+                                            tag.id,
+                                        )}
                                     >
                                         <div
                                             className="mr-2 h-2 w-2 rounded-full"
-                                            style={{ backgroundColor: tag.color }}
+                                            style={{
+                                                backgroundColor: tag.color,
+                                            }}
                                         />
                                         {tag.name}
                                     </CommandItem>
@@ -155,7 +198,11 @@ export default function TagSelector({
                                 disabled={!newTagName.trim() || isCreating}
                                 onClick={handleCreateTag}
                             >
-                                {isCreating ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add'}
+                                {isCreating ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                    'Add'
+                                )}
                             </Button>
                         </div>
                     </Command>

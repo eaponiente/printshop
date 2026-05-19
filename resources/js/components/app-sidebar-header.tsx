@@ -17,7 +17,7 @@ export function AppSidebarHeader({
                 <SidebarTrigger className="-ml-1" />
                 <Breadcrumbs breadcrumbs={breadcrumbs} />
             </div>
-            {auth.user.role !== 'staff' && (
+            {/* {auth.user.role !== 'staff' && (
                 <div className="ml-auto">
                     <Link
                         href="/payroll"
@@ -27,7 +27,7 @@ export function AppSidebarHeader({
                         Payroll
                     </Link>
                 </div>
-            )}
+            )} */}
         </header>
     );
 }
