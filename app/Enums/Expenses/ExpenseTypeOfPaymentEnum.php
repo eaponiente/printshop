@@ -29,7 +29,7 @@ enum ExpenseTypeOfPaymentEnum: string
     public static function map(): array
     {
         return collect(self::cases())
-            ->map(fn($case) => [
+            ->map(fn ($case) => [
                 'key' => $case->value,
                 'value' => $case->label(),
             ])

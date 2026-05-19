@@ -10,7 +10,7 @@ trait SaleFilterTrait
 {
     public function scopeDateFiltered($query, array $filters)
     {
-        return $query->tap(fn($q) => $this->applyDateFilter($q, $filters));
+        return $query->tap(fn ($q) => $this->applyDateFilter($q, $filters));
     }
 
     private function applyDateFilter($query, $filters)

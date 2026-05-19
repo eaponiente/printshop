@@ -34,7 +34,7 @@ class IncentiveService
             ->when($branchId && $branchId !== 'all',
                 fn ($q) => $q->where('branch_id', $branchId))
             ->get()
-            ->keyBy(fn (Incentive $i) => $i->branch_id . '-' . $i->user_id);
+            ->keyBy(fn (Incentive $i) => $i->branch_id.'-'.$i->user_id);
 
         $admins = User::query()
             ->where('role', UserRole::ADMIN->value)
@@ -73,7 +73,7 @@ class IncentiveService
         return $admins->map(function (User $admin) use ($month, $year, $branchFinances, $branches, $incentives) {
             $branch = $branches->get($admin->branch_id);
             $finance = $branchFinances[$admin->branch_id];
-            $key = $admin->branch_id . '-' . $admin->id;
+            $key = $admin->branch_id.'-'.$admin->id;
             $existing = $incentives->get($key);
 
             return [

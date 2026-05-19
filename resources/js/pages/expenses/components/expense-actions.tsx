@@ -1,6 +1,7 @@
 import { router, usePage } from '@inertiajs/react';
 import { Pencil, Ban, CheckCircle, XCircle } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { route } from 'ziggy-js';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,7 +16,6 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { toast } from 'sonner';
 
 interface ExpenseActionsProps {
     expense: any; // Replace with your Expense type
@@ -30,7 +30,8 @@ export default function ExpenseActions({
     const [reason, setReason] = useState('');
     const [isOpen, setIsOpen] = useState(false);
 
-    let canApprove = auth.user.role === 'superadmin' && expense.status === 'pending';
+    let canApprove =
+        auth.user.role === 'superadmin' && expense.status === 'pending';
 
     if (auth.user.role === 'admin' && expense.status === 'pending') {
         const currentBranchId = +auth.user.branch_id;
@@ -45,17 +46,31 @@ export default function ExpenseActions({
     const isPending = expense.status === 'pending';
 
     const handleApprove = () => {
-        router.post(route('expenses.approve', expense.id), {}, {
-            onSuccess: () => toast.success('Expense approved.'),
-            onError: (err) => toast.error(Object.values(err)[0] || 'Error approving expense.')
-        });
+        router.post(
+            route('expenses.approve', expense.id),
+            {},
+            {
+                onSuccess: () => toast.success('Expense approved.'),
+                onError: (err) =>
+                    toast.error(
+                        Object.values(err)[0] || 'Error approving expense.',
+                    ),
+            },
+        );
     };
 
     const handleReject = () => {
-        router.post(route('expenses.reject', expense.id), {}, {
-            onSuccess: () => toast.success('Expense rejected.'),
-            onError: (err) => toast.error(Object.values(err)[0] || 'Error rejecting expense.')
-        });
+        router.post(
+            route('expenses.reject', expense.id),
+            {},
+            {
+                onSuccess: () => toast.success('Expense rejected.'),
+                onError: (err) =>
+                    toast.error(
+                        Object.values(err)[0] || 'Error rejecting expense.',
+                    ),
+            },
+        );
     };
 
     const handleVoid = () => {
@@ -85,11 +100,7 @@ export default function ExpenseActions({
     return (
         <div className="flex items-center gap-1">
             {/* Edit Button */}
-            <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onEdit(expense)}
-            >
+            <Button variant="ghost" size="sm" onClick={() => onEdit(expense)}>
                 <Pencil className="h-4 w-4" />
             </Button>
 

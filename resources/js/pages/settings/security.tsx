@@ -1,6 +1,6 @@
-import { Transition } from '@headlessui/react';
 import { Form, Head } from '@inertiajs/react';
 import { useRef } from 'react';
+import { toast } from 'sonner';
 import SecurityController from '@/actions/App/Http/Controllers/Settings/SecurityController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
@@ -11,7 +11,6 @@ import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 import { edit } from '@/routes/security';
 import type { BreadcrumbItem } from '@/types';
-import { toast } from 'sonner';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -49,8 +48,10 @@ export default function Security() {
                             'current_password',
                         ]}
                         resetOnSuccess
-                        onSuccess={
-                            () => toast.success('Password updated successfully', { position: 'top-center' })
+                        onSuccess={() =>
+                            toast.success('Password updated successfully', {
+                                position: 'top-center',
+                            })
                         }
                         onError={(errors) => {
                             if (errors.password) {
@@ -63,7 +64,7 @@ export default function Security() {
                         }}
                         className="space-y-6"
                     >
-                        {({ errors, processing, recentlySuccessful }) => (
+                        {({ errors, processing }) => (
                             <>
                                 <div className="grid gap-2">
                                     <Label htmlFor="current_password">

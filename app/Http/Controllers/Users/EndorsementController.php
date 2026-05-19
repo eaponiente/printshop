@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Users\StoreEndorsementRequest;
 use App\Http\Requests\Users\UpdateEndorsementRequest;
 use App\Models\Branch;
-use App\Models\CashOnHand;
 use App\Models\Endorsement;
 use App\Services\Sales\CashOnHandService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;

@@ -1,23 +1,37 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
-import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import {
+    Command,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from '@/components/ui/command';
 import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { AddGuestModal } from '@/pages/sales/components/add-guest-dialog';
 import type { Customer } from '@/types/user';
-import { debounce } from '@/utils/helpers';
 import { getCustomerDisplayName } from '@/utils/formatters';
+import { debounce } from '@/utils/helpers';
 
-export default function SearchCustomersField({ field, selectCustomer, errors }: any) {
+export default function SearchCustomersField({
+    field,
+    selectCustomer,
+    errors,
+}: any) {
     const [searchQuery, setSearchQuery] = useState('');
     const [customers, setCustomers] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [searchOpen, setSearchOpen] = useState(false);
     const [showAddCustomer, setShowAddCustomer] = useState(false);
     const [displayName, setDisplayName] = useState(
-        field?.customer ? getCustomerDisplayName(field.customer) : ''
+        field?.customer ? getCustomerDisplayName(field.customer) : '',
     );
 
     const handleCustomerSelect = (id: number, name: string) => {
@@ -27,18 +41,20 @@ export default function SearchCustomersField({ field, selectCustomer, errors }: 
     };
 
     const debouncedSearch = useMemo(
-        () => debounce((val: string) => {
-            if (val.length > 0) {
-                fetchCustomers(val)
-            } else {
-                setCustomers([]);
-            }
-        }, 400),
-        []
+        () =>
+            debounce((val: string) => {
+                if (val.length > 0) {
+                    fetchCustomers(val);
+                } else {
+                    setCustomers([]);
+                }
+            }, 400),
+        [],
     );
 
     const fetchCustomers = async (query = '') => {
         setIsLoading(true);
+
         try {
             const response = await fetch(`/api/customers?customer=${query}`);
             const data = await response.json();
@@ -53,9 +69,13 @@ export default function SearchCustomersField({ field, selectCustomer, errors }: 
     return (
         <>
             <div className="grid gap-1.5">
-                <input type="hidden" name="customer_id" defaultValue={field?.customer_id ?? ''} />
+                <input
+                    type="hidden"
+                    name="customer_id"
+                    defaultValue={field?.customer_id ?? ''}
+                />
 
-                <Label className="ml-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <Label className="ml-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
                     Customer
                 </Label>
 
@@ -66,11 +86,16 @@ export default function SearchCustomersField({ field, selectCustomer, errors }: 
                             role="combobox"
                             className="h-9 w-full justify-start px-3 text-sm font-normal shadow-none transition-colors"
                         >
-                            <span className={cn('truncate', !displayName && 'text-muted-foreground')}>
+                            <span
+                                className={cn(
+                                    'truncate',
+                                    !displayName && 'text-muted-foreground',
+                                )}
+                            >
                                 {displayName || 'Search customers...'}
                             </span>
                             {isLoading && (
-                                <span className="ml-auto text-[10px] uppercase text-muted-foreground animate-pulse">
+                                <span className="ml-auto animate-pulse text-[10px] text-muted-foreground uppercase">
                                     Loading...
                                 </span>
                             )}
@@ -122,34 +147,47 @@ export default function SearchCustomersField({ field, selectCustomer, errors }: 
                                 <CommandGroup>
                                     {customers.map((c: Customer) => {
                                         // 1. Check if we actually have a name to show
-                                        const hasName = c.first_name && c.first_name.trim() !== "";
+                                        const hasName =
+                                            c.first_name &&
+                                            c.first_name.trim() !== '';
 
                                         // 2. Set the Primary Label: Name takes priority, Company is the fallback
                                         const primaryLabel = hasName
-                                            ? `${c.first_name} ${c.last_name || ""}`.trim()
-                                            : (c.company || "Unknown Customer");
+                                            ? `${c.first_name} ${c.last_name || ''}`.trim()
+                                            : c.company || 'Unknown Customer';
 
                                         // 3. Set the Secondary Label: Only show company if it's not already the primary label
-                                        const secondaryLabel = hasName ? c.company : null;
+                                        const secondaryLabel = hasName
+                                            ? c.company
+                                            : null;
 
                                         // 4. Update selection logic to match the displayed primary label
-                                        const isSelected = displayName === primaryLabel;
+                                        const isSelected =
+                                            displayName === primaryLabel;
 
                                         return (
                                             <CommandItem
                                                 key={c.id}
-                                                onSelect={() => handleCustomerSelect(c.id, primaryLabel)}
-                                                className="flex flex-col items-start px-3 py-2 cursor-pointer"
+                                                onSelect={() =>
+                                                    handleCustomerSelect(
+                                                        c.id,
+                                                        primaryLabel,
+                                                    )
+                                                }
+                                                className="flex cursor-pointer flex-col items-start px-3 py-2"
                                             >
-                                                <span className={cn(
-                                                    "text-sm",
-                                                    isSelected && "font-bold text-primary"
-                                                )}>
+                                                <span
+                                                    className={cn(
+                                                        'text-sm',
+                                                        isSelected &&
+                                                            'font-bold text-primary',
+                                                    )}
+                                                >
                                                     {primaryLabel}
                                                 </span>
 
                                                 {secondaryLabel && (
-                                                    <span className="text-[11px] text-muted-foreground line-clamp-1 italic">
+                                                    <span className="line-clamp-1 text-[11px] text-muted-foreground italic">
                                                         {secondaryLabel}
                                                     </span>
                                                 )}

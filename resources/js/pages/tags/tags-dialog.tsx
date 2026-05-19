@@ -23,9 +23,11 @@ interface BranchDialogProps {
 const randomColor = () => {
     const letters = '0123456789ABCDEF';
     let color = '#';
+
     for (let i = 0; i < 6; i++) {
         color += letters[Math.floor(Math.random() * 16)];
     }
+
     return color;
 };
 
@@ -42,10 +44,9 @@ export default function TagDialog({ open, setOpen, tag }: BranchDialogProps) {
 
         const options = {
             onSuccess: () => {
-                toast.success(
-                    isEdit ? 'Tag updated' : 'Tag created',
-                );
+                toast.success(isEdit ? 'Tag updated' : 'Tag created');
                 setOpen(false);
+
                 if (!isEdit) {
                     reset();
                 }
@@ -73,7 +74,9 @@ export default function TagDialog({ open, setOpen, tag }: BranchDialogProps) {
                             <Input
                                 id="name"
                                 value={data.name}
-                                onChange={(e) => setData('name', e.target.value)}
+                                onChange={(e) =>
+                                    setData('name', e.target.value)
+                                }
                                 tabIndex={1}
                             />
                             <InputError message={errors.name} />
@@ -85,7 +88,9 @@ export default function TagDialog({ open, setOpen, tag }: BranchDialogProps) {
                                 <input
                                     type="color"
                                     value={data.color}
-                                    onChange={(e) => setData('color', e.target.value)}
+                                    onChange={(e) =>
+                                        setData('color', e.target.value)
+                                    }
                                     className="h-10 w-14 cursor-pointer rounded border border-input bg-white p-1"
                                     tabIndex={2}
                                 />
@@ -96,7 +101,9 @@ export default function TagDialog({ open, setOpen, tag }: BranchDialogProps) {
                                     className="w-28 font-mono"
                                     maxLength={7}
                                     tabIndex={3}
-                                    onChange={(e) => setData('color', e.target.value)}
+                                    onChange={(e) =>
+                                        setData('color', e.target.value)
+                                    }
                                 />
                             </div>
                             <InputError message={errors.color} />

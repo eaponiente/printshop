@@ -19,21 +19,21 @@ class UpdateCustomerRequest extends FormRequest
                 'nullable',
                 'string',
                 'min:2',
-                'max:255'
+                'max:255',
             ],
             'last_name' => [
                 'required_with:first_name',
                 'nullable',
                 'string',
                 'min:2',
-                'max:255'
+                'max:255',
             ],
             'company' => [
                 'required_without:first_name',
                 'nullable',
                 'string',
                 'min:2',
-                'max:255'
+                'max:255',
             ],
         ];
     }

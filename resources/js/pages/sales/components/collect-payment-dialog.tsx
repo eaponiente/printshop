@@ -1,30 +1,33 @@
 import { useForm } from '@inertiajs/react';
-import { Banknote, CreditCard, Receipt } from "lucide-react";
-import { toast } from "sonner";
+import { Banknote, CreditCard, Receipt } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { route } from 'ziggy-js';
 import InputError from '@/components/input-error';
-import { Button } from "@/components/ui/button";
+import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+} from '@/components/ui/accordion';
+import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
     DialogDescription,
-    DialogFooter
+    DialogFooter,
 } from '@/components/ui/dialog';
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+    NativeSelect,
+    NativeSelectOption,
+} from '@/components/ui/native-select';
 import { Spinner } from '@/components/ui/spinner';
 import type { TypeOfPayment } from '@/types/settings';
 import { formatCurrency } from '@/utils/formatters';
-import {
-    Accordion,
-    AccordionContent,
-    AccordionItem,
-    AccordionTrigger,
-} from "@/components/ui/accordion"
 
 interface PaymentDialogProps {
     transaction: any;
@@ -33,8 +36,12 @@ interface PaymentDialogProps {
     typesOfPayment: TypeOfPayment[];
 }
 
-export default function PaymentDialog({ open, setOpen, transaction, typesOfPayment }: PaymentDialogProps) {
-
+export default function PaymentDialog({
+    open,
+    setOpen,
+    transaction,
+    typesOfPayment,
+}: PaymentDialogProps) {
     // Standard Inertia useForm hook
     const { data, setData, patch, processing, errors, reset } = useForm({
         amount_paid: '',
@@ -112,7 +119,7 @@ export default function PaymentDialog({ open, setOpen, transaction, typesOfPayme
 
                             {/* Row 2: Sublimation Quantity */}
                             {transaction.sublimation && (
-                                <div className="text-muted-foreground text-[14px] font-medium mt-0.5">
+                                <div className="mt-0.5 text-[14px] font-medium text-muted-foreground">
                                     Quantity: {transaction.sublimation.quantity}
                                 </div>
                             )}
@@ -120,36 +127,50 @@ export default function PaymentDialog({ open, setOpen, transaction, typesOfPayme
                     </div>
 
                     {/* Show payment history if any exists */}
-                    {transaction.payments && transaction.payments.length > 0 && (
-                        <Accordion type="single" collapsible className="w-full border-t border-border/30 pt-1">
-                            <AccordionItem value="payment-history" className="border-none">
-                                <AccordionTrigger className="py-2 hover:no-underline">
-                                    <Label className="text-[10px] tracking-widest text-muted-foreground uppercase cursor-pointer">
-                                        Payment History ({transaction.payments.length})
-                                    </Label>
-                                </AccordionTrigger>
-                                <AccordionContent>
-                                    <div className="space-y-1.5 pt-1">
-                                        {transaction.payments.map((payment: any) => (
-                                            <div
-                                                key={payment.id}
-                                                className="flex justify-between text-xs items-center bg-background/50 p-1.5 rounded-md border border-border/40"
-                                            >
-                                                <div className="flex gap-2">
-                                                    <span className="font-medium text-foreground capitalize">
-                                                        {payment.payment_type || 'Unknown'}
-                                                    </span>
-                                                </div>
-                                                <div className="font-mono text-green-600 dark:text-green-400 font-medium">
-                                                    {formatCurrency(payment.amount)}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </AccordionContent>
-                            </AccordionItem>
-                        </Accordion>
-                    )}
+                    {transaction.payments &&
+                        transaction.payments.length > 0 && (
+                            <Accordion
+                                type="single"
+                                collapsible
+                                className="w-full border-t border-border/30 pt-1"
+                            >
+                                <AccordionItem
+                                    value="payment-history"
+                                    className="border-none"
+                                >
+                                    <AccordionTrigger className="py-2 hover:no-underline">
+                                        <Label className="cursor-pointer text-[10px] tracking-widest text-muted-foreground uppercase">
+                                            Payment History (
+                                            {transaction.payments.length})
+                                        </Label>
+                                    </AccordionTrigger>
+                                    <AccordionContent>
+                                        <div className="space-y-1.5 pt-1">
+                                            {transaction.payments.map(
+                                                (payment: any) => (
+                                                    <div
+                                                        key={payment.id}
+                                                        className="flex items-center justify-between rounded-md border border-border/40 bg-background/50 p-1.5 text-xs"
+                                                    >
+                                                        <div className="flex gap-2">
+                                                            <span className="font-medium text-foreground capitalize">
+                                                                {payment.payment_type ||
+                                                                    'Unknown'}
+                                                            </span>
+                                                        </div>
+                                                        <div className="font-mono font-medium text-green-600 dark:text-green-400">
+                                                            {formatCurrency(
+                                                                payment.amount,
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ),
+                                            )}
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            </Accordion>
+                        )}
                 </div>
 
                 <form onSubmit={submit} className="space-y-5">
@@ -190,10 +211,7 @@ export default function PaymentDialog({ open, setOpen, transaction, typesOfPayme
                                 type="button"
                                 className="text-xs font-medium text-indigo-600 underline-offset-4 hover:text-indigo-500 hover:underline"
                                 onClick={() =>
-                                    setData(
-                                        'amount_paid',
-                                        transaction.balance,
-                                    )
+                                    setData('amount_paid', transaction.balance)
                                 }
                             >
                                 Pay Full Balance

@@ -1,6 +1,5 @@
 import { useForm, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
 import { route } from 'ziggy-js';
 import InputError from '@/components/input-error';
 import SearchCustomersField from '@/components/shared/search-customers-field';
@@ -16,7 +15,10 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import {
+    NativeSelect,
+    NativeSelectOption,
+} from '@/components/ui/native-select';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import type { Branch } from '@/types/branches';
@@ -38,7 +40,6 @@ export default function SublimationDialog({
     open,
     setOpen,
     branches,
-    users,
     availableTags,
     sublimation,
 }: SublimationDialogProps) {
@@ -68,7 +69,8 @@ export default function SublimationDialog({
 
     const prePaymentKeys = ['for_approval', 'done_layout', 'waiting_for_dp'];
 
-    const [availableTagsState, setAvailableTagsState] = useState<Tag[]>(availableTags);
+    const [availableTagsState, setAvailableTagsState] =
+        useState<Tag[]>(availableTags);
 
     const addTag = (tagId: number) => {
         if (!data.tag_ids.includes(tagId)) {
@@ -77,7 +79,10 @@ export default function SublimationDialog({
     };
 
     const removeTag = (tagId: number) => {
-        setData('tag_ids', data.tag_ids.filter((id) => id !== tagId));
+        setData(
+            'tag_ids',
+            data.tag_ids.filter((id) => id !== tagId),
+        );
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -87,7 +92,7 @@ export default function SublimationDialog({
             isEdit,
             resourceName: 'Sublimation',
             onSuccess: () => setOpen(false),
-            reset
+            reset,
         });
 
         if (isEdit) {
@@ -285,7 +290,10 @@ export default function SublimationDialog({
                                     onRemove={removeTag}
                                     layout="row"
                                     onTagCreated={(tag) =>
-                                        setAvailableTagsState((prev) => [...prev, tag])
+                                        setAvailableTagsState((prev) => [
+                                            ...prev,
+                                            tag,
+                                        ])
                                     }
                                 />
                             </div>

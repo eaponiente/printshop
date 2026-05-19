@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Users;
 
 use App\Enums\Sales\TransactionStatus;
-use App\Enums\Sublimations\SublimationStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Users\StoreCustomerRequest;
 use App\Http\Requests\Users\UpdateCustomerRequest;
@@ -41,7 +40,7 @@ class CustomerController extends Controller
             $customersQuery->whereAny(
                 ['first_name', 'last_name', 'company'],
                 'like',
-                '%' . $filters['customer'] . '%'
+                '%'.$filters['customer'].'%'
             );
         }
 
@@ -55,7 +54,7 @@ class CustomerController extends Controller
 
             return back()->with('new_customer', $customer)->with('success', 'Customer created successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to create customer: ' . $e->getMessage());
+            Log::error('Failed to create customer: '.$e->getMessage());
 
             return back()->withErrors(['error' => 'An error occurred while creating the customer.']);
         }
@@ -70,7 +69,7 @@ class CustomerController extends Controller
 
             return back()->with('message', 'Customer updated successfully.')->with('success', 'Customer updated successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to update customer: ' . $e->getMessage());
+            Log::error('Failed to update customer: '.$e->getMessage());
 
             return back()->withErrors(['error' => 'An error occurred while updating the customer.']);
         }
@@ -95,7 +94,7 @@ class CustomerController extends Controller
 
             return back()->with('success', 'Customer deleted successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to delete customer: ' . $e->getMessage());
+            Log::error('Failed to delete customer: '.$e->getMessage());
 
             return back()->withErrors(['error' => 'An error occurred while deleting the customer.']);
         }

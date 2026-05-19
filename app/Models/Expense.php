@@ -10,6 +10,7 @@ class Expense extends Model
 {
     use HasFactory;
     use SaleFilterTrait;
+
     protected $table = 'expenses';
 
     protected $guarded = ['id'];
@@ -45,11 +46,11 @@ class Expense extends Model
             }
         }
         // 2. Admin Logic: Restrict to their own branch
-        else if ($user->isAdmin()) {
+        elseif ($user->isAdmin()) {
             $query->where('branch_id', $user->branch_id);
         }
         // 3. Staff Logic: Restrict to their own records
-        else if ($user->isStaff()) {
+        elseif ($user->isStaff()) {
             $query->where('user_id', $user->id);
         }
     }

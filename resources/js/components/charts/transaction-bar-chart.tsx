@@ -1,25 +1,24 @@
-import { Bar, BarChart, CartesianGrid, XAxis } from "recharts"
+import { Bar, BarChart, CartesianGrid, XAxis } from 'recharts';
 import {
     ChartContainer,
     ChartTooltip,
-    ChartTooltipContent
+    ChartTooltipContent,
 } from '@/components/ui/chart';
-import type { ChartConfig
-} from '../ui/chart';
+import type { ChartConfig } from '../ui/chart';
 
 // 1. Define the appearance of your data keys
 const chartConfig = {
     total: {
-        label: "Total Billed",
+        label: 'Total Billed',
         // Option A: Use a theme variable (defined in globals.css)
-        color: "#000000",
+        color: '#000000',
     },
     paid: {
-        label: "Amount Paid",
+        label: 'Amount Paid',
         // Option B: Use a direct Hex or HSL string
-        color: "#10b981",
+        color: '#10b981',
     },
-} satisfies ChartConfig
+} satisfies ChartConfig;
 
 export default function TransactionBarChart({ chartData }: any) {
     return (
@@ -32,12 +31,14 @@ export default function TransactionBarChart({ chartData }: any) {
                     tickLine={false}
                     tickMargin={10}
                     axisLine={false}
-                    tickFormatter={(value) => value.split('-').slice(1).join('/')} // Shorten dates
+                    tickFormatter={(value) =>
+                        value.split('-').slice(1).join('/')
+                    } // Shorten dates
                 />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Bar dataKey="total" fill="var(--color-total)" radius={4} />
                 <Bar dataKey="paid" fill="var(--color-paid)" radius={4} />
             </BarChart>
         </ChartContainer>
-    )
+    );
 }

@@ -1,4 +1,4 @@
-import { Branch } from '@/types/branches';
+import type { Branch } from '@/types/branches';
 
 export type User = {
     id: number;
@@ -11,6 +11,7 @@ export type User = {
     created_at: string;
     updated_at: string;
     branch: Branch;
+    avatar?: string | null;
     [key: string]: unknown;
 };
 

@@ -17,8 +17,8 @@ use App\Services\Files\FileUploadService;
 use App\Services\Sales\CashOnHandService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -114,13 +114,13 @@ class ExpenseController extends Controller
                 $validated['expense_date'] = now();
 
                 $isCreditCrossBranch = $validated['payment_type'] === ExpenseTypeOfPaymentEnum::CREDIT->value
-                    && !empty($validated['branch_id'])
-                    && !empty($validated['debtor_branch_id'])
+                    && ! empty($validated['branch_id'])
+                    && ! empty($validated['debtor_branch_id'])
                     && $validated['branch_id'] != $validated['debtor_branch_id'];
                 $isRegularCrossBranch = $validated['payment_type'] !== ExpenseTypeOfPaymentEnum::CREDIT->value
                     && $validated['branch_id'] != auth()->user()->branch_id;
                 $isSuperAdmin = auth()->user()->role === 'superadmin';
-                $status = (($isCreditCrossBranch || $isRegularCrossBranch) && !$isSuperAdmin)
+                $status = (($isCreditCrossBranch || $isRegularCrossBranch) && ! $isSuperAdmin)
                     ? ExpenseStatus::PENDING->value
                     : ExpenseStatus::PAID->value;
                 $validated['status'] = $status;
@@ -138,7 +138,7 @@ class ExpenseController extends Controller
 
             return back()->with('success', 'Expense created successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to create expense: ' . $e->getMessage());
+            Log::error('Failed to create expense: '.$e->getMessage());
 
             return back()->withErrors(['message' => 'An error occurred while creating the expense.']);
         }
@@ -161,7 +161,7 @@ class ExpenseController extends Controller
 
             return back()->with('success', 'Expense updated successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to update expense: ' . $e->getMessage());
+            Log::error('Failed to update expense: '.$e->getMessage());
 
             return back()->withErrors(['message' => 'An error occurred while updating the expense.']);
         }
@@ -182,7 +182,7 @@ class ExpenseController extends Controller
 
             return back()->with('success', 'Expense deleted successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to delete expense: ' . $e->getMessage());
+            Log::error('Failed to delete expense: '.$e->getMessage());
 
             return back()->withErrors(['message' => 'An error occurred while deleting the expense.']);
         }
@@ -190,7 +190,7 @@ class ExpenseController extends Controller
 
     public function void(Request $request, Expense $expense): RedirectResponse
     {
-        //$this->authorize('void', $expense);
+        // $this->authorize('void', $expense);
 
         // 1. Pre-emptive check
         if ($expense->status === ExpenseStatus::VOID->value) {
@@ -223,7 +223,7 @@ class ExpenseController extends Controller
             return back()->with('success', 'Expense has been voided and cash balance adjusted.');
         } catch (\Exception $e) {
             // Log the error for debugging
-            Log::error("Failed to void expense #{$expense->id}: " . $e->getMessage());
+            Log::error("Failed to void expense #{$expense->id}: ".$e->getMessage());
 
             return back()->withErrors([
                 'message' => 'Failed to void the expense. Please try again or contact support.',
@@ -260,7 +260,7 @@ class ExpenseController extends Controller
                     $transaction = Transaction::create([
                         'invoice_number' => Transaction::generateNumber(),
                         'customer_id' => null,
-                        'particular' => 'Credit Expense — ' . ($expense->vendor_name ?: 'Expense #' . $expense->id),
+                        'particular' => 'Credit Expense — '.($expense->vendor_name ?: 'Expense #'.$expense->id),
                         'description' => $expense->description,
                         'amount_total' => $expense->amount,
                         'amount_paid' => 0,
@@ -279,7 +279,8 @@ class ExpenseController extends Controller
 
             return back()->with('success', 'Expense approved successfully.');
         } catch (\Exception $e) {
-            Log::error("Failed to approve expense #{$expense->id}: " . $e->getMessage());
+            Log::error("Failed to approve expense #{$expense->id}: ".$e->getMessage());
+
             return back()->withErrors(['message' => 'Failed to approve the expense.']);
         }
     }
@@ -294,9 +295,11 @@ class ExpenseController extends Controller
 
         try {
             $expense->update(['status' => ExpenseStatus::REJECTED->value]);
+
             return back()->with('success', 'Expense rejected successfully.');
         } catch (\Exception $e) {
-            Log::error("Failed to reject expense #{$expense->id}: " . $e->getMessage());
+            Log::error("Failed to reject expense #{$expense->id}: ".$e->getMessage());
+
             return back()->withErrors(['message' => 'Failed to reject the expense.']);
         }
     }

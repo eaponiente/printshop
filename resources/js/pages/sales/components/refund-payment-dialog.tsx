@@ -2,7 +2,6 @@ import { useForm } from '@inertiajs/react';
 import { RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { route } from 'ziggy-js';
-import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -28,7 +27,7 @@ export default function RefundPaymentDialog({
     setOpen,
     transaction,
 }: RefundPaymentDialogProps) {
-    const { patch, processing, errors, reset } = useForm({});
+    const { patch, processing, reset } = useForm({});
 
     if (!transaction) {
         return null;
@@ -86,7 +85,7 @@ export default function RefundPaymentDialog({
                             <Label className="text-[10px] tracking-widest text-muted-foreground uppercase">
                                 Status
                             </Label>
-                            <div className="text-sm font-semibold capitalize text-foreground/80">
+                            <div className="text-sm font-semibold text-foreground/80 capitalize">
                                 {transaction.status}
                             </div>
                         </div>
@@ -102,9 +101,9 @@ export default function RefundPaymentDialog({
                 </div>
 
                 <form onSubmit={submit} className="space-y-5">
-                    <InputError message={errors.payment_type} />
                     <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                        This action refunds the full collected amount and resets the transaction back to pending.
+                        This action refunds the full collected amount and resets
+                        the transaction back to pending.
                     </div>
 
                     <DialogFooter className="pt-2">

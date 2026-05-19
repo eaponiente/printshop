@@ -4,7 +4,6 @@ namespace App\Policies;
 
 use App\Models\PurchaseOrder;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class PurchaseOrderPolicy
 {
@@ -37,7 +36,7 @@ class PurchaseOrderPolicy
      */
     public function update(User $user, PurchaseOrder $purchaseOrder): bool
     {
-        if (!in_array($user->role, ['superadmin', 'admin'])) {
+        if (! in_array($user->role, ['superadmin', 'admin'])) {
             return false;
         }
 

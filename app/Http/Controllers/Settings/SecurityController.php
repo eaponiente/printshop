@@ -57,7 +57,8 @@ class SecurityController extends Controller implements HasMiddleware
 
             return back()->with('success', 'Password updated successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to update password: ' . $e->getMessage());
+            Log::error('Failed to update password: '.$e->getMessage());
+
             return back()->withErrors(['error' => 'An error occurred while updating your password.']);
         }
     }

@@ -1,4 +1,4 @@
-import { Form, useForm, usePage } from '@inertiajs/react';
+import { useForm, usePage } from '@inertiajs/react';
 import { toast } from 'sonner';
 import { route } from 'ziggy-js';
 import InputError from '@/components/input-error';
@@ -89,7 +89,9 @@ export default function EndorsementDialog({
                                 id="amount"
                                 defaultValue={endorsement?.amount}
                                 name="amount"
-                                onChange={e => setData('amount', e.target.value)}
+                                onChange={(e) =>
+                                    setData('amount', e.target.value)
+                                }
                                 tabIndex={1}
                             />
                             <InputError message={errors.amount} />

@@ -1,6 +1,6 @@
-import type { PaginatedResponse } from '@/types/pagination';
 import type { Branch } from '@/types/branches';
-import { Transaction } from './transaction';
+import type { PaginatedResponse } from '@/types/pagination';
+import type { Transaction } from './transaction';
 
 export type POStatus = 'pending' | 'active' | 'finished' | 'released';
 

@@ -8,7 +8,7 @@ export interface PaginatedResponse<T> {
     links: Array<{
         url: string | null;
         label: string;
-        page: number
+        page: number;
         active: boolean;
     }>;
     next_page_url: string;

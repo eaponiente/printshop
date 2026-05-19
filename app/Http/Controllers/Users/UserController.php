@@ -94,7 +94,7 @@ class UserController extends Controller
 
             return redirect()->back()->withErrors([
                 'message' => $e->getMessage(),
-                'error' => 'An error occurred while deleting the user.'
+                'error' => 'An error occurred while deleting the user.',
             ]);
         }
     }

@@ -9,7 +9,7 @@ export type ExpensesList = {
     payment_methods: TypeOfPayment[];
     expenses_amount: number;
     filters: any;
-}
+};
 
 export type ExpenseStatus = 'pending' | 'approved' | 'rejected' | 'reimbursed';
 

@@ -1,17 +1,20 @@
 import { Form, usePage } from '@inertiajs/react';
-import { toast } from "sonner"
+import { toast } from 'sonner';
 import InputError from '@/components/input-error';
 import PasswordInput from '@/components/password-input';
-import { Button } from "@/components/ui/button"
+import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
     DialogHeader,
-    DialogTitle
+    DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+    NativeSelect,
+    NativeSelectOption,
+} from '@/components/ui/native-select';
 import { Spinner } from '@/components/ui/spinner';
 import { store, update } from '@/routes/users';
 import type { User } from '@/types';
@@ -24,8 +27,12 @@ interface UserDialogProps {
     branches: Branch[];
 }
 
-export default function UserDialog({ open, setOpen, user, branches }: UserDialogProps) {
-
+export default function UserDialog({
+    open,
+    setOpen,
+    user,
+    branches,
+}: UserDialogProps) {
     const isEdit = !!user;
 
     const { auth } = usePage().props;
@@ -38,8 +45,8 @@ export default function UserDialog({ open, setOpen, user, branches }: UserDialog
         {
             id: 'admin',
             name: 'Admin',
-        }
-    ]
+        },
+    ];
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -96,7 +103,11 @@ export default function UserDialog({ open, setOpen, user, branches }: UserDialog
                                     <NativeSelect
                                         tabIndex={3}
                                         name={'branch_id'}
-                                        defaultValue={isEdit ? user?.branch_id : auth.user.branch_id}
+                                        defaultValue={
+                                            isEdit
+                                                ? user?.branch_id
+                                                : auth.user.branch_id
+                                        }
                                     >
                                         <NativeSelectOption value="">
                                             Select branch

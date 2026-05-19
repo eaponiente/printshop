@@ -1,5 +1,5 @@
 import { debounce } from 'lodash';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import {
@@ -45,34 +45,45 @@ const CustomerSearchSelect = ({
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedName, setSelectedName] = useState('');
 
-    const fetchCustomers = async (query = '') => {
-        setIsLoading(true);
-        try {
-            const response = await fetch(`/api/customers?customer=${query}`);
-            const data = await response.json();
-            setCustomers(data);
+    const fetchCustomers = useCallback(
+        async (query = '') => {
+            setIsLoading(true);
 
-            if (value && !selectedName) {
-                const current = data.find((c: Customer) => c.id === value);
-                if (current) {
-                    setSelectedName(`${current.first_name} ${current.last_name}`);
+            try {
+                const response = await fetch(
+                    `/api/customers?customer=${query}`,
+                );
+                const data = await response.json();
+                setCustomers(data);
+
+                if (value && !selectedName) {
+                    const current = data.find((c: Customer) => c.id === value);
+
+                    if (current) {
+                        setSelectedName(
+                            `${current.first_name} ${current.last_name}`,
+                        );
+                    }
                 }
+            } catch (e) {
+                console.error('Search failed', e);
+            } finally {
+                setIsLoading(false);
             }
-        } catch (e) {
-            console.error('Search failed', e);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+        },
+        [value, selectedName],
+    );
 
     const debouncedSearch = useMemo(
         () => debounce((val: string) => fetchCustomers(val), 400),
-        [],
+        [fetchCustomers],
     );
 
     useEffect(() => {
-        if (open) fetchCustomers();
-    }, [open]);
+        if (open) {
+            fetchCustomers();
+        }
+    }, [open, fetchCustomers]);
 
     const handleSelect = (customer: Customer) => {
         setSelectedName(`${customer.first_name} ${customer.last_name}`);
@@ -82,7 +93,7 @@ const CustomerSearchSelect = ({
 
     return (
         <div className="grid gap-1.5">
-            <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            <Label className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
                 {label}
             </Label>
 
@@ -94,11 +105,15 @@ const CustomerSearchSelect = ({
                         className={cn(
                             'h-9 w-full justify-start px-3 font-normal shadow-none',
                             error && 'border-destructive text-destructive',
-                            !selectedName && 'text-muted-foreground'
+                            !selectedName && 'text-muted-foreground',
                         )}
                     >
                         {selectedName || 'Search customers...'}
-                        {isLoading && <span className="ml-auto text-[10px] uppercase animate-pulse">Loading...</span>}
+                        {isLoading && (
+                            <span className="ml-auto animate-pulse text-[10px] uppercase">
+                                Loading...
+                            </span>
+                        )}
                     </Button>
                 </PopoverTrigger>
 
@@ -116,12 +131,12 @@ const CustomerSearchSelect = ({
                         <CommandList className="max-h-[300px]">
                             {/* Create New - Positioned Above List */}
                             {onCreateNew && searchQuery && (
-                                <div className="p-1 border-b">
+                                <div className="border-b p-1">
                                     <Button
                                         type="button"
                                         variant="ghost"
                                         size="sm"
-                                        className="w-full justify-start text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                        className="w-full justify-start text-xs font-medium text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                                         onClick={() => onCreateNew(searchQuery)}
                                     >
                                         + Create "{searchQuery}"
@@ -140,16 +155,19 @@ const CustomerSearchSelect = ({
                                     <CommandItem
                                         key={c.id}
                                         onSelect={() => handleSelect(c)}
-                                        className="flex flex-col items-start px-3 py-2 cursor-pointer"
+                                        className="flex cursor-pointer flex-col items-start px-3 py-2"
                                     >
-                                        <span className={cn(
-                                            "text-sm",
-                                            value === c.id && "font-bold text-primary"
-                                        )}>
+                                        <span
+                                            className={cn(
+                                                'text-sm',
+                                                value === c.id &&
+                                                    'font-bold text-primary',
+                                            )}
+                                        >
                                             {c.first_name} {c.last_name}
                                         </span>
                                         {c.company && (
-                                            <span className="text-[11px] text-muted-foreground line-clamp-1">
+                                            <span className="line-clamp-1 text-[11px] text-muted-foreground">
                                                 {c.company}
                                             </span>
                                         )}

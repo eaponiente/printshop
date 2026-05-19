@@ -43,13 +43,14 @@ class SublimationController extends Controller
         $query->where(function ($query) use ($filters, $specialBranches) {
             $user = auth()->user()->load('branch');
             $filterIds = (array) ($filters['branch_id'] ?? []);
-            $hasFilter = !empty($filterIds);
+            $hasFilter = ! empty($filterIds);
 
             // 1. SUPERADMIN: No restrictions unless filtering
             if ($user->role === UserRole::SUPERADMIN->value) {
                 if ($hasFilter) {
                     $query->whereIn('branch_id', $filterIds);
                 }
+
                 return;
             }
 
@@ -66,6 +67,7 @@ class SublimationController extends Controller
                 } else {
                     $query->whereIn('branch_id', $specialBranchesIds);
                 }
+
                 return;
             }
 
@@ -73,13 +75,13 @@ class SublimationController extends Controller
             $query->where('branch_id', $user->branch_id);
         });
 
-        $query->when($request->filled('status') && $request->status !== 'all', 
-            fn($q) => $q->whereIn('status', (array) $request->status)
+        $query->when($request->filled('status') && $request->status !== 'all',
+            fn ($q) => $q->whereIn('status', (array) $request->status)
         );
 
         $query->when(
             ! $request->boolean('include_completed'),
-            fn($q) => $q->where('status', '!=', 'completed'),
+            fn ($q) => $q->where('status', '!=', 'completed'),
         );
 
         // handle unassigned
@@ -111,8 +113,6 @@ class SublimationController extends Controller
                 ->get();
         }
 
-
-
         return Inertia::render('sublimations/list', [
             'sublimations' => $query->paginate(30)->withQueryString(),
             'availableTags' => Tag::all(['id', 'name', 'color']),
@@ -134,7 +134,7 @@ class SublimationController extends Controller
 
             return redirect()->back()->with('success', 'Sublimation created successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to create sublimation: ' . $e->getMessage());
+            Log::error('Failed to create sublimation: '.$e->getMessage());
 
             return redirect()->back()->withErrors(['message' => 'An error occurred while creating the sublimation.']);
         }
@@ -167,7 +167,7 @@ class SublimationController extends Controller
 
             return redirect()->back()->with('success', 'Sublimation updated successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to update sublimation: ' . $e->getMessage());
+            Log::error('Failed to update sublimation: '.$e->getMessage());
 
             return redirect()->back()->withErrors(['message' => 'An error occurred while updating the sublimation.']);
         }
@@ -190,13 +190,12 @@ class SublimationController extends Controller
                 }
             }
 
-
             $sublimation->transaction()->delete();
             $sublimation->delete();
 
             return redirect()->back()->with('success', 'Sublimation deleted successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to delete sublimation: ' . $e->getMessage());
+            Log::error('Failed to delete sublimation: '.$e->getMessage());
 
             return redirect()->back()->withErrors(['message' => 'An error occurred while deleting the sublimation.']);
         }
@@ -205,7 +204,7 @@ class SublimationController extends Controller
     public function updateStatus(Request $request, Sublimation $sublimation): RedirectResponse
     {
         $newStatus = SublimationStatus::tryFrom($request->status);
-        if (!$newStatus) {
+        if (! $newStatus) {
             return back()->withErrors(['status' => 'Invalid status provided.']);
         }
 
@@ -216,7 +215,7 @@ class SublimationController extends Controller
                 ]);
             }
 
-            DB::transaction(function () use ($sublimation, $newStatus, $request) {
+            DB::transaction(function () use ($sublimation, $newStatus) {
                 if ($newStatus === SublimationStatus::WAITING_FOR_DP) {
                     // Check if a transaction already exists to prevent duplicates
                     if (! $sublimation->transaction()->exists()) {
@@ -227,7 +226,7 @@ class SublimationController extends Controller
                             'amount_total' => $sublimation->amount_total,
                             'particular' => 'Sublimation',
                             'staff_id' => auth()->id(),
-                            'transaction_date' => now()
+                            'transaction_date' => now(),
                         ]));
 
                         $sublimation->transaction_id = $transaction->id;
@@ -238,11 +237,9 @@ class SublimationController extends Controller
                 $sublimation->save();
             });
 
-
-
             return back()->with('success', 'Status updated.');
         } catch (\Exception $e) {
-            Log::error("Failed to update sublimation status #{$sublimation->id}: " . $e->getMessage());
+            Log::error("Failed to update sublimation status #{$sublimation->id}: ".$e->getMessage());
 
             return back()->withErrors(['status' => 'The status change is not allowed at this time.']);
         }
@@ -259,7 +256,7 @@ class SublimationController extends Controller
 
             return back()->with('success', 'Staff updated successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to update sublimation staff: ' . $e->getMessage());
+            Log::error('Failed to update sublimation staff: '.$e->getMessage());
 
             return back()->withErrors(['message' => 'An error occurred while updating the sublimation staff.']);
         }
@@ -276,7 +273,7 @@ class SublimationController extends Controller
 
             return back()->with('success', 'Due date updated successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to update sublimation due date: ' . $e->getMessage());
+            Log::error('Failed to update sublimation due date: '.$e->getMessage());
 
             return back()->withErrors(['message' => 'An error occurred while updating the sublimation due date.']);
         }
