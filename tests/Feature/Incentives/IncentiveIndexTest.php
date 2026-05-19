@@ -38,7 +38,7 @@ it('superadmin can view incentives index', function () {
         ->get(route('incentives.index'));
 
     $response->assertOk();
-    $response->assertInertia(fn($page) => $page->component('incentives/list'));
+    $response->assertInertia(fn ($page) => $page->component('incentives/list'));
 });
 
 it('admin cannot view incentives index', function () {

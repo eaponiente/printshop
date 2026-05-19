@@ -14,20 +14,23 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
     AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import EndorsementDialog from '@/pages/endorsements/endorsements-dialog';
 import type { BreadcrumbItem } from '@/types';
 import type { Endorsement, EndorsementsList } from '@/types/endorsements';
-import { formatCurrency } from '@/utils/formatters';
 import { toManilaTime } from '@/utils/dateHelper';
+import { formatCurrency } from '@/utils/formatters';
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Endorsements', href: '/endorsements' },
 ];
 
-export default function EndorsementIndex({ endorsements, branches }: EndorsementsList) {
+export default function EndorsementIndex({
+    endorsements,
+    branches,
+}: EndorsementsList) {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 
     const [getEndorsement, setEndorsement] = useState<any | null>(null);
@@ -38,9 +41,12 @@ export default function EndorsementIndex({ endorsements, branches }: Endorsement
 
     const deleteEndorsement = (endorsement: Endorsement) => {
         router.delete(`/endorsements/${endorsement.id}`, {
-            onSuccess: () => toast.success('Endorsement deleted', { position: 'top-center' }),
+            onSuccess: () =>
+                toast.success('Endorsement deleted', {
+                    position: 'top-center',
+                }),
         });
-    }
+    };
 
     const columns: ColumnDef<unknown, any>[] = [
         {
@@ -48,7 +54,7 @@ export default function EndorsementIndex({ endorsements, branches }: Endorsement
             header: 'Amount',
             cell: ({ row }: CellContext<any, any>) => {
                 return formatCurrency(row.original.amount);
-            }
+            },
         },
         {
             accessorKey: 'branch.name',
@@ -63,37 +69,56 @@ export default function EndorsementIndex({ endorsements, branches }: Endorsement
             header: 'Created At',
             cell: ({ row }: CellContext<any, any>) => {
                 return toManilaTime(row.original.created_at);
-            }
+            },
         },
         {
             header: 'Actions',
             cell: ({ row }: CellContext<any, any>) => {
                 return (
                     <>
-                        <Button variant="ghost" size="sm" onClick={() => openEditForm(row.original)}><Pencil /></Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditForm(row.original)}
+                        >
+                            <Pencil />
+                        </Button>
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="sm"><Trash2 /></Button>
+                                <Button variant="ghost" size="sm">
+                                    <Trash2 />
+                                </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                                 <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                    <AlertDialogTitle>
+                                        Are you absolutely sure?
+                                    </AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        This action cannot be undone. This will permanently delete your
-                                        user from our servers.
+                                        This action cannot be undone. This will
+                                        permanently delete your user from our
+                                        servers.
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => deleteEndorsement(row.original)}>Continue</AlertDialogAction>
+                                    <AlertDialogCancel>
+                                        Cancel
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                        onClick={() =>
+                                            deleteEndorsement(row.original)
+                                        }
+                                    >
+                                        Continue
+                                    </AlertDialogAction>
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
                     </>
-                )
-            }
-        }
-    ]
+                );
+            },
+        },
+    ];
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -102,8 +127,12 @@ export default function EndorsementIndex({ endorsements, branches }: Endorsement
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-xl font-semibold">Endorsement Management</h1>
-                        <p className="text-sm text-muted-foreground">Manage your endorsement.</p>
+                        <h1 className="text-xl font-semibold">
+                            Endorsement Management
+                        </h1>
+                        <p className="text-sm text-muted-foreground">
+                            Manage your endorsement.
+                        </p>
                     </div>
 
                     <Button onClick={() => openEditForm(null)}>
@@ -117,9 +146,13 @@ export default function EndorsementIndex({ endorsements, branches }: Endorsement
                 </div>
             </div>
             {isDialogOpen && (
-                <EndorsementDialog open={isDialogOpen} branches={branches} setOpen={setIsDialogOpen} endorsement={getEndorsement} />
+                <EndorsementDialog
+                    open={isDialogOpen}
+                    branches={branches}
+                    setOpen={setIsDialogOpen}
+                    endorsement={getEndorsement}
+                />
             )}
-
         </AppLayout>
     );
 }

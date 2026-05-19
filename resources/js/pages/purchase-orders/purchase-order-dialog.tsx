@@ -1,26 +1,29 @@
 import { useForm, usePage } from '@inertiajs/react';
 import { format } from 'date-fns';
 import { Trash2, Plus } from 'lucide-react';
-import { toast } from "sonner";
+import { toast } from 'sonner';
 import { route } from 'ziggy-js';
 import InputError from '@/components/input-error';
-import { Button } from "@/components/ui/button";
+import SearchCustomersField from '@/components/shared/search-customers-field';
+import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+    NativeSelect,
+    NativeSelectOption,
+} from '@/components/ui/native-select';
 import { Spinner } from '@/components/ui/spinner';
 import type { Branch } from '@/types/branches';
 import type {
     PurchaseOrder,
-    PurchaseOrderDetail
+    PurchaseOrderDetail,
 } from '@/types/purchase-order';
-import SearchCustomersField from '@/components/shared/search-customers-field';
 
 interface PODialogProps {
     order?: PurchaseOrder | null;
@@ -29,7 +32,12 @@ interface PODialogProps {
     branches: Branch[];
 }
 
-export default function PurchaseOrderDialog({ open, setOpen, order, branches }: PODialogProps) {
+export default function PurchaseOrderDialog({
+    open,
+    setOpen,
+    order,
+    branches,
+}: PODialogProps) {
     const isEdit = !!order;
 
     const { auth } = usePage().props;
@@ -40,7 +48,9 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches }: 
         branch_id: order?.branch_id ?? auth.user.branch_id,
         customer_id: order?.customer_id ?? '',
         user_id: order?.user_id ?? '',
-        due_at: order?.due_at ? format(new Date(order.due_at), 'yyyy-MM-dd') : '',
+        due_at: order?.due_at
+            ? format(new Date(order.due_at), 'yyyy-MM-dd')
+            : '',
         received_at: format(
             order?.received_at ? new Date(order.received_at) : new Date(),
             'yyyy-MM-dd',
@@ -65,12 +75,12 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches }: 
             },
             onError: () => {
                 // Optional: specifically handle validation failures
-                toast.error("Please check the form for errors.");
+                toast.error('Please check the form for errors.');
             },
             // This runs whether it failed or succeeded
             onFinish: () => {
                 // Useful for toggling manual loading states if not using {processing}
-            }
+            },
         };
 
         if (isEdit) {
@@ -81,7 +91,11 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches }: 
     };
 
     // Helper to update specific item in the array
-    const updateItem = (index: number, field: keyof PurchaseOrderDetail, value: any) => {
+    const updateItem = (
+        index: number,
+        field: keyof PurchaseOrderDetail,
+        value: any,
+    ) => {
         const newItems = [...data.details];
         newItems[index] = { ...newItems[index], [field]: value };
         setData('details', newItems);
@@ -178,7 +192,9 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches }: 
                     {/* --- Items Table --- */}
                     <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                            <Label className="text-lg font-bold">Line Items</Label>
+                            <Label className="text-lg font-bold">
+                                Line Items
+                            </Label>
                             <Button
                                 type="button"
                                 variant="outline"
@@ -186,7 +202,11 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches }: 
                                 onClick={() =>
                                     setData('details', [
                                         ...data.details,
-                                        { item_name: '', quantity: 1, unit_price: 0 },
+                                        {
+                                            item_name: '',
+                                            quantity: 1,
+                                            unit_price: 0,
+                                        },
                                     ])
                                 }
                             >
@@ -202,35 +222,71 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches }: 
                                 {/* Changed grid-cols-12 to accommodate the Total column */}
                                 <div className="grid flex-1 grid-cols-12 gap-3">
                                     <div className="col-span-5 grid gap-1.5">
-                                        <Label className="text-xs">Item Description</Label>
+                                        <Label className="text-xs">
+                                            Item Description
+                                        </Label>
                                         <Input
                                             value={item.item_name}
-                                            onChange={(e) => updateItem(index, 'item_name', e.target.value)}
+                                            onChange={(e) =>
+                                                updateItem(
+                                                    index,
+                                                    'item_name',
+                                                    e.target.value,
+                                                )
+                                            }
                                         />
                                     </div>
                                     <div className="col-span-2 grid gap-1.5">
                                         <Label className="text-xs">Qty</Label>
                                         <Input
                                             type="number"
-                                            className={errors[`details.${index}.quantity`] ? 'border-destructive' : ''}
+                                            className={
+                                                errors[
+                                                    `details.${index}.quantity`
+                                                ]
+                                                    ? 'border-destructive'
+                                                    : ''
+                                            }
                                             value={item.quantity}
-                                            onChange={(e) => updateItem(index, 'quantity', e.target.value)}
+                                            onChange={(e) =>
+                                                updateItem(
+                                                    index,
+                                                    'quantity',
+                                                    e.target.value,
+                                                )
+                                            }
                                         />
                                     </div>
                                     <div className="col-span-2 grid gap-1.5">
-                                        <Label className="text-xs">Unit Price</Label>
+                                        <Label className="text-xs">
+                                            Unit Price
+                                        </Label>
                                         <Input
                                             type="number"
-                                            className={errors[`details.${index}.unit_price`] ? 'border-destructive' : ''}
+                                            className={
+                                                errors[
+                                                    `details.${index}.unit_price`
+                                                ]
+                                                    ? 'border-destructive'
+                                                    : ''
+                                            }
                                             value={item.unit_price}
-                                            onChange={(e) => updateItem(index, 'unit_price', e.target.value)}
+                                            onChange={(e) =>
+                                                updateItem(
+                                                    index,
+                                                    'unit_price',
+                                                    e.target.value,
+                                                )
+                                            }
                                         />
                                     </div>
                                     {/* Row Total Column */}
                                     <div className="col-span-3 grid gap-1.5 text-right">
                                         <Label className="text-xs">Total</Label>
                                         <div className="flex h-10 items-center justify-end px-3 font-medium">
-                                            {(item.quantity * item.unit_price).toLocaleString()}
+                                            {(
+                                                item.quantity * item.unit_price
+                                            ).toLocaleString()}
                                         </div>
                                     </div>
                                 </div>
@@ -240,7 +296,14 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches }: 
                                     variant="ghost"
                                     size="icon"
                                     className="mb-0.5 text-destructive"
-                                    onClick={() => setData('details', data.details.filter((_, i) => i !== index))}
+                                    onClick={() =>
+                                        setData(
+                                            'details',
+                                            data.details.filter(
+                                                (_, i) => i !== index,
+                                            ),
+                                        )
+                                    }
                                 >
                                     <Trash2 className="h-4 w-4" />
                                 </Button>
@@ -252,14 +315,24 @@ export default function PurchaseOrderDialog({ open, setOpen, order, branches }: 
                             <div className="flex w-full max-w-[200px] justify-between text-lg font-bold">
                                 <span>Subtotal:</span>
                                 <span className="text-primary">
-                                    {data.details.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0).toLocaleString()}
+                                    {data.details
+                                        .reduce(
+                                            (sum, item) =>
+                                                sum +
+                                                item.quantity * item.unit_price,
+                                            0,
+                                        )
+                                        .toLocaleString()}
                                 </span>
                             </div>
                         </div>
 
-                        {Object.keys(errors).some((key) => key.startsWith('details')) && (
-                            <p className="text-sm font-medium text-destructive text-right">
-                                There are errors in your line items. Please check the quantities and prices.
+                        {Object.keys(errors).some((key) =>
+                            key.startsWith('details'),
+                        ) && (
+                            <p className="text-right text-sm font-medium text-destructive">
+                                There are errors in your line items. Please
+                                check the quantities and prices.
                             </p>
                         )}
                     </div>

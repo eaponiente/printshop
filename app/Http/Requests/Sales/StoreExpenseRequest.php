@@ -3,7 +3,6 @@
 namespace App\Http\Requests\Sales;
 
 use App\Enums\Expenses\ExpenseTypeOfPaymentEnum;
-use App\Enums\Sales\TransactionTypeOfPaymentEnum;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -24,7 +23,7 @@ class StoreExpenseRequest extends FormRequest
             'payment_type' => ['required', Rule::in(ExpenseTypeOfPaymentEnum::cases())],
             'branch_id' => ['required', 'exists:branches,id'],
             'debtor_branch_id' => [
-                Rule::requiredIf(fn() => $this->input('payment_type') === ExpenseTypeOfPaymentEnum::CREDIT->value),
+                Rule::requiredIf(fn () => $this->input('payment_type') === ExpenseTypeOfPaymentEnum::CREDIT->value),
                 'nullable',
                 'exists:branches,id',
                 'different:branch_id',

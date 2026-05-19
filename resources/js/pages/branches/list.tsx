@@ -12,7 +12,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
     AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
     Table,
@@ -20,7 +20,7 @@ import {
     TableCell,
     TableHead,
     TableHeader,
-    TableRow
+    TableRow,
 } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import BranchDialog from '@/pages/branches/branches-dialog';
@@ -43,9 +43,10 @@ export default function BranchIndex({ branches }: BranchesList) {
 
     const deleteBranch = (branch: Branch) => {
         router.delete(`/branches/${branch.id}`, {
-            onSuccess: () => toast.success('Branch deleted', { position: 'top-center'}),
+            onSuccess: () =>
+                toast.success('Branch deleted', { position: 'top-center' }),
         });
-    }
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -54,8 +55,12 @@ export default function BranchIndex({ branches }: BranchesList) {
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-xl font-semibold">Branch Management</h1>
-                        <p className="text-sm text-muted-foreground">Manage your branch.</p>
+                        <h1 className="text-xl font-semibold">
+                            Branch Management
+                        </h1>
+                        <p className="text-sm text-muted-foreground">
+                            Manage your branch.
+                        </p>
                     </div>
 
                     {/* Create Staff Button */}
@@ -70,7 +75,9 @@ export default function BranchIndex({ branches }: BranchesList) {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Name</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
+                                <TableHead className="text-right">
+                                    Actions
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -78,22 +85,45 @@ export default function BranchIndex({ branches }: BranchesList) {
                                 <TableRow key={branch.id}>
                                     <TableCell>{branch.name}</TableCell>
                                     <TableCell className="text-right">
-                                        <Button variant="ghost" size="sm" onClick={() => openEditForm(branch)}><Pencil /></Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => openEditForm(branch)}
+                                        >
+                                            <Pencil />
+                                        </Button>
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
-                                                <Button variant="ghost" size="sm"><Trash2 /></Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                >
+                                                    <Trash2 />
+                                                </Button>
                                             </AlertDialogTrigger>
                                             <AlertDialogContent>
                                                 <AlertDialogHeader>
-                                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                                    <AlertDialogTitle>
+                                                        Are you absolutely sure?
+                                                    </AlertDialogTitle>
                                                     <AlertDialogDescription>
-                                                        This action cannot be undone. This will permanently delete your
+                                                        This action cannot be
+                                                        undone. This will
+                                                        permanently delete your
                                                         branch from our servers.
                                                     </AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter>
-                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => deleteBranch(branch)}>Continue</AlertDialogAction>
+                                                    <AlertDialogCancel>
+                                                        Cancel
+                                                    </AlertDialogCancel>
+                                                    <AlertDialogAction
+                                                        onClick={() =>
+                                                            deleteBranch(branch)
+                                                        }
+                                                    >
+                                                        Continue
+                                                    </AlertDialogAction>
                                                 </AlertDialogFooter>
                                             </AlertDialogContent>
                                         </AlertDialog>
@@ -105,9 +135,12 @@ export default function BranchIndex({ branches }: BranchesList) {
                 </div>
             </div>
             {isDialogOpen && (
-                <BranchDialog open={isDialogOpen} setOpen={setIsDialogOpen} branch={getBranch} />
+                <BranchDialog
+                    open={isDialogOpen}
+                    setOpen={setIsDialogOpen}
+                    branch={getBranch}
+                />
             )}
-
         </AppLayout>
     );
 }

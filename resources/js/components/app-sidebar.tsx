@@ -50,16 +50,16 @@ export function AppSidebar() {
         // 1. Users/Customers: Admin/SuperAdmin only
         ...(isAdmin
             ? [
-                {
-                    title: 'Users',
-                    href: '#',
-                    icon: Users,
-                    items: [
-                        { title: 'Users', url: '/users' },
-                        { title: 'Customers', url: '/customers' },
-                    ],
-                },
-            ]
+                  {
+                      title: 'Users',
+                      href: '#',
+                      icon: Users,
+                      items: [
+                          { title: 'Users', url: '/users' },
+                          { title: 'Customers', url: '/customers' },
+                      ],
+                  },
+              ]
             : []),
 
         // 2. Sales: Everyone
@@ -72,26 +72,28 @@ export function AppSidebar() {
         // 3. Expenses & Purchase Orders: Admin/SuperAdmin only
         ...(isAdmin
             ? [
-                {
-                    title: 'Expenses',
-                    href: expenses.index(),
-                    icon: NotebookPen,
-                },
-                {
-                    title: 'Purchase Orders',
-                    href: purchaseOrders.index(),
-                    icon: ShoppingCart,
-                },
-            ]
+                  {
+                      title: 'Expenses',
+                      href: expenses.index(),
+                      icon: NotebookPen,
+                  },
+                  {
+                      title: 'Purchase Orders',
+                      href: purchaseOrders.index(),
+                      icon: ShoppingCart,
+                  },
+              ]
             : []),
 
-        ...(isSuperAdmin ? [
-            {
-                title: 'Incentives',
-                href: '/incentives',
-                icon: Banknote,
-            },
-        ] : []),
+        ...(isSuperAdmin
+            ? [
+                  {
+                      title: 'Incentives',
+                      href: '/incentives',
+                      icon: Banknote,
+                  },
+              ]
+            : []),
 
         // 4. Sublimation: Everyone
         {
@@ -103,30 +105,30 @@ export function AppSidebar() {
         // 5. Endorsements: Admin/SuperAdmin only
         ...(isAdmin
             ? [
-                {
-                    title: 'Endorsements',
-                    href: endorsements.index(),
-                    icon: Newspaper,
-                },
-            ]
+                  {
+                      title: 'Endorsements',
+                      href: endorsements.index(),
+                      icon: Newspaper,
+                  },
+              ]
             : []),
 
         // 6. Settings: Filter specific sub-items
         ...(isAdmin
             ? [
-                {
-                    title: 'Settings',
-                    href: '#',
-                    icon: Cog,
-                    items: [
-                        { title: 'Tags', url: '/tags' },
-                        // Only SuperAdmin sees Branches
-                        ...(userRole === 'superadmin'
-                            ? [{ title: 'Branches', url: '/branches' }]
-                            : []),
-                    ],
-                },
-            ]
+                  {
+                      title: 'Settings',
+                      href: '#',
+                      icon: Cog,
+                      items: [
+                          { title: 'Tags', url: '/tags' },
+                          // Only SuperAdmin sees Branches
+                          ...(userRole === 'superadmin'
+                              ? [{ title: 'Branches', url: '/branches' }]
+                              : []),
+                      ],
+                  },
+              ]
             : []),
     ];
 

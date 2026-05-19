@@ -26,7 +26,7 @@ class FileUploadService
         return Cache::remember(
             $cacheKey,
             $expiresAt = now()->addHours(3),
-            fn() => Storage::disk('s3')->temporaryUrl($s3Path, $expiresAt)
+            fn () => Storage::disk('s3')->temporaryUrl($s3Path, $expiresAt)
         );
     }
 

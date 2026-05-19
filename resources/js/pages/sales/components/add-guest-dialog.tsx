@@ -45,10 +45,13 @@ export function AddGuestModal({
                 company: '',
             });
         }
+
         wasOpen.current = open;
     }, [form.setData, open, searchQuery]);
 
-    const handleAddCustomerSubmit = (e?: React.FormEvent | React.MouseEvent) => {
+    const handleAddCustomerSubmit = (
+        e?: React.FormEvent | React.MouseEvent,
+    ) => {
         // Essential: prevent both default behavior and event bubbling to parent form
         if (e) {
             e.preventDefault();
@@ -58,6 +61,7 @@ export function AddGuestModal({
         form.post(route('customers.store'), {
             onSuccess: (page) => {
                 const newCustomer = (page.props as any).flash?.new_customer;
+
                 if (newCustomer) {
                     onCustomerCreated(newCustomer);
                     form.reset();
@@ -98,7 +102,9 @@ export function AddGuestModal({
                             <Input
                                 id="first_name"
                                 value={form.data.first_name}
-                                onChange={(e) => form.setData('first_name', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData('first_name', e.target.value)
+                                }
                             />
                             <InputError message={form.errors.first_name} />
                         </div>
@@ -108,7 +114,9 @@ export function AddGuestModal({
                             <Input
                                 id="last_name"
                                 value={form.data.last_name}
-                                onChange={(e) => form.setData('last_name', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData('last_name', e.target.value)
+                                }
                             />
                             <InputError message={form.errors.last_name} />
                         </div>
@@ -118,7 +126,9 @@ export function AddGuestModal({
                             <Input
                                 id="company"
                                 value={form.data.company}
-                                onChange={(e) => form.setData('company', e.target.value)}
+                                onChange={(e) =>
+                                    form.setData('company', e.target.value)
+                                }
                             />
                             <InputError message={form.errors.company} />
                         </div>

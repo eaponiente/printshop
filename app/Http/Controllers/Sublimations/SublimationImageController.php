@@ -23,10 +23,10 @@ class SublimationImageController extends Controller
             $signedUrl = $this->resolveTemporaryUrl($image->id, $image->url);
 
             return [
-                'id'       => $image->id,
-                'url'      => $signedUrl,
+                'id' => $image->id,
+                'url' => $signedUrl,
                 'raw_path' => $image->url,
-                'name'     => basename($image->url),
+                'name' => basename($image->url),
             ];
         });
 
@@ -45,7 +45,7 @@ class SublimationImageController extends Controller
         return Cache::remember(
             $cacheKey,
             now()->addMinutes(self::URL_CACHE_TTL_MINUTES),
-            fn() => Storage::disk('s3')->temporaryUrl($s3Path, $expiresAt)
+            fn () => Storage::disk('s3')->temporaryUrl($s3Path, $expiresAt)
         );
     }
 
@@ -67,15 +67,15 @@ class SublimationImageController extends Controller
             $file = $request->file('image');
 
             // Log the attempt so you see it in Railway
-            Log::info("Starting upload for: " . $file->getClientOriginalName());
+            Log::info('Starting upload for: '.$file->getClientOriginalName());
 
             try {
                 $path = $file->store('sublimation_images', [
                     'disk' => 's3',
-                    'visibility' => 'public'
+                    'visibility' => 'public',
                 ]);
             } catch (\Throwable $sdkException) {
-                Log::error("S3 SDK EXCEPTION during store()", [
+                Log::error('S3 SDK EXCEPTION during store()', [
                     'aws_error' => $sdkException->getMessage(),
                     'exception_class' => get_class($sdkException),
                     'file' => $sdkException->getFile(),
@@ -85,8 +85,8 @@ class SublimationImageController extends Controller
                 throw $sdkException;
             }
 
-            if (!$path) {
-                throw new \Exception("File could not be saved to S3 - path returned null.");
+            if (! $path) {
+                throw new \Exception('File could not be saved to S3 - path returned null.');
             }
 
             $image = $sublimation->images()->create([
@@ -99,22 +99,22 @@ class SublimationImageController extends Controller
 
             return response()->json([
                 'success' => true,
-                'id'      => $image->id,
-                'url'     => $signedUrl,
-                'name'    => basename($path),
+                'id' => $image->id,
+                'url' => $signedUrl,
+                'name' => basename($path),
             ], 201);
         } catch (\Exception $e) {
             Log::error('S3 upload failed', [
                 'sublimation_id' => $sublimation->id,
-                'filename'       => $request->file('image')?->getClientOriginalName(),
-                'error'          => $e->getMessage(),
-                'trace'          => substr($e->getTraceAsString(), 0, 500),
+                'filename' => $request->file('image')?->getClientOriginalName(),
+                'error' => $e->getMessage(),
+                'trace' => substr($e->getTraceAsString(), 0, 500),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Upload failed.',
-                'debug'   => config('app.debug') ? $e->getMessage() : 'Check server logs',
+                'debug' => config('app.debug') ? $e->getMessage() : 'Check server logs',
             ], 500);
         }
     }

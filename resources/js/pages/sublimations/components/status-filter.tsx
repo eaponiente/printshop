@@ -38,7 +38,6 @@ export function StatusFilter({ filters, statuses, handleFilterChange }: any) {
             newValues.add(value);
         }
 
-
         handleFilterChange(Array.from(newValues), 'status');
     };
 

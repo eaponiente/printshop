@@ -3,13 +3,12 @@
 namespace App\Http\Controllers\Sublimations;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\AddSublimationTagRequest;
 use App\Models\Sublimation;
 use App\Models\Tag;
-use App\Http\Requests\Settings\AddSublimationTagRequest;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Http\Request;
 
 class SublimationTagController extends Controller
 {
@@ -22,7 +21,8 @@ class SublimationTagController extends Controller
 
             return back()->with('success', 'Tag added successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to add tag: ' . $e->getMessage());
+            Log::error('Failed to add tag: '.$e->getMessage());
+
             return back()->withErrors(['error' => 'An error occurred while adding the tag.']);
         }
     }
@@ -31,9 +31,11 @@ class SublimationTagController extends Controller
     {
         try {
             $sublimation->tags()->detach($tag->id);
+
             return back()->with('success', 'Tag removed successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to remove tag: ' . $e->getMessage());
+            Log::error('Failed to remove tag: '.$e->getMessage());
+
             return back()->withErrors(['error' => 'An error occurred while removing the tag.']);
         }
     }

@@ -41,7 +41,7 @@ class SaleController extends Controller
         $cashOnHand = $this->salesService->getCashOnHandTotal($request->input('branch_id', auth()->user()->branch_id));
 
         $branches = Branch::query()
-            ->when(auth()->user()->isStaff() || auth()->user()->isAdmin(), fn($q) => $q->where('id', auth()->user()->branch_id))
+            ->when(auth()->user()->isStaff() || auth()->user()->isAdmin(), fn ($q) => $q->where('id', auth()->user()->branch_id))
             ->get(['id', 'name']);
 
         if ($isUnpaidTab) {
@@ -87,7 +87,7 @@ class SaleController extends Controller
             $tx = $payment->transaction;
 
             return [
-                $tx?->customer ? ($tx->customer->first_name . ' ' . ($tx->customer->last_name ?? '')) : '',
+                $tx?->customer ? ($tx->customer->first_name.' '.($tx->customer->last_name ?? '')) : '',
                 $tx?->particular ?? '',
                 $tx?->branch?->name ?? '',
                 number_format($tx?->amount_total ?? 0, 2),
@@ -95,7 +95,7 @@ class SaleController extends Controller
                 ucfirst($payment->payment_type),
                 number_format($tx?->balance ?? 0, 2),
                 ucfirst($tx?->status ?? ''),
-                $tx?->user ? ($tx->user->first_name . ' ' . $tx->user->last_name) : '',
+                $tx?->user ? ($tx->user->first_name.' '.$tx->user->last_name) : '',
                 Carbon::parse($payment->created_at)->setTimezone('Asia/Manila')->format('M d, Y'),
             ];
         })->values()->toArray();
@@ -114,7 +114,7 @@ class SaleController extends Controller
 
             return back()->with('success', 'Sale created successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to create sale: ' . $e->getMessage());
+            Log::error('Failed to create sale: '.$e->getMessage());
 
             return back()->withErrors(['message' => 'An error occurred while creating the sale.']);
         }
@@ -162,7 +162,7 @@ class SaleController extends Controller
 
             return back()->with('success', 'Payment updated.');
         } catch (\Exception $e) {
-            Log::error('Failed to update payment: ' . $e->getMessage());
+            Log::error('Failed to update payment: '.$e->getMessage());
 
             return back()->withErrors(['amount_paid' => $e->getMessage()]);
         }
@@ -188,7 +188,7 @@ class SaleController extends Controller
 
             return back()->with('success', 'Full refund recorded.');
         } catch (\Exception $e) {
-            Log::error('Failed to refund payment: ' . $e->getMessage());
+            Log::error('Failed to refund payment: '.$e->getMessage());
 
             return back()->withErrors(['payment_type' => $e->getMessage()]);
         }
@@ -212,7 +212,7 @@ class SaleController extends Controller
 
             return back()->with('success', 'Attachment saved.');
         } catch (\Exception $e) {
-            Log::error('Failed to upload sale attachment: ' . $e->getMessage());
+            Log::error('Failed to upload sale attachment: '.$e->getMessage());
 
             return back()->withErrors(['attachment' => 'Could not upload attachment.']);
         }
@@ -232,7 +232,7 @@ class SaleController extends Controller
 
             return back()->with('success', 'Attachment removed.');
         } catch (\Exception $e) {
-            Log::error('Failed to delete sale attachment: ' . $e->getMessage());
+            Log::error('Failed to delete sale attachment: '.$e->getMessage());
 
             return back()->withErrors(['attachment' => 'Could not remove attachment.']);
         }
@@ -265,7 +265,7 @@ class SaleController extends Controller
 
             return back()->with('success', 'Sale deleted successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to delete sale: ' . $e->getMessage());
+            Log::error('Failed to delete sale: '.$e->getMessage());
 
             return back()->withErrors(['message' => 'An error occurred while deleting the sale.']);
         }

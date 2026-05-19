@@ -3,6 +3,8 @@
 namespace Database\Factories;
 
 use App\Models\Payment;
+use App\Models\Transaction;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class PaymentFactory extends Factory
@@ -12,10 +14,10 @@ class PaymentFactory extends Factory
     public function definition(): array
     {
         return [
-            'transaction_id' => \App\Models\Transaction::factory(),
+            'transaction_id' => Transaction::factory(),
             'amount' => $this->faker->randomFloat(2, 10, 100),
             'payment_type' => 'cash',
-            'staff_id' => \App\Models\User::factory(),
+            'staff_id' => User::factory(),
         ];
     }
 }

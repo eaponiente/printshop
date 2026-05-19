@@ -4,13 +4,9 @@ import { Pencil, Plus, Trash2 } from 'lucide-react';
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/data-table';
-import { Button } from '@/components/ui/button';
-import AppLayout from '@/layouts/app-layout';
-import UserDialog from '@/pages/users/users-dialog';
-import type { BreadcrumbItem } from '@/types';
-import type { User, UsersList } from '@/types/user';
 import {
-    AlertDialog, AlertDialogAction,
+    AlertDialog,
+    AlertDialogAction,
     AlertDialogCancel,
     AlertDialogContent,
     AlertDialogDescription,
@@ -19,6 +15,11 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import AppLayout from '@/layouts/app-layout';
+import UserDialog from '@/pages/users/users-dialog';
+import type { BreadcrumbItem } from '@/types';
+import type { User, UsersList } from '@/types/user';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -36,9 +37,10 @@ export default function UserIndex({ users, branches }: UsersList) {
 
     const deleteUser = (user: User) => {
         router.delete(`/users/${user.id}`, {
-            onSuccess: () => toast.success('User deleted', { position: 'top-center' }),
+            onSuccess: () =>
+                toast.success('User deleted', { position: 'top-center' }),
         });
-    }
+    };
 
     const columns: ColumnDef<unknown, any>[] = [
         {

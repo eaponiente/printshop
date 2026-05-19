@@ -22,7 +22,9 @@ export default function TransactionDetailsDialog({
     setOpen,
     transaction,
 }: TransactionDetailsDialogProps) {
-    if (!transaction) return null;
+    if (!transaction) {
+        return null;
+    }
 
     const statusConfig = {
         paid: 'bg-green-100 border-green-200 text-green-700',

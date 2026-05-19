@@ -20,7 +20,7 @@ return new class extends Migration
                 'check',
                 'bank_transfer',
                 'gcash',
-                'credit'
+                'credit',
             ])->nullable()->change();
         });
     }

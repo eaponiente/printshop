@@ -11,7 +11,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 
 class Transaction extends Model
 {
@@ -38,6 +37,7 @@ class Transaction extends Model
         }
 
         $service = app(FileUploadService::class);
+
         return $service->getSignedUrl($this->attachment_path);
     }
 
@@ -90,7 +90,7 @@ class Transaction extends Model
 
             $sequence = $lastSequence + 1;
 
-            return $prefix . str_pad($sequence, 5, '0', STR_PAD_LEFT);
+            return $prefix.str_pad($sequence, 5, '0', STR_PAD_LEFT);
         });
     }
 
@@ -157,7 +157,7 @@ class Transaction extends Model
         return DB::transaction(function () {
             $fresh = self::lockForUpdate()->find($this->id);
 
-            if (!in_array($fresh->status, [TransactionStatus::PARTIAL->value, TransactionStatus::PAID->value])) {
+            if (! in_array($fresh->status, [TransactionStatus::PARTIAL->value, TransactionStatus::PAID->value])) {
                 throw new \Exception('Only partial/paid transactions can be refunded.');
             }
 
@@ -169,7 +169,7 @@ class Transaction extends Model
 
             $totalsByType = $positivePayments
                 ->groupBy('payment_type')
-                ->map(fn($group) => $group->sum('amount'));
+                ->map(fn ($group) => $group->sum('amount'));
 
             foreach ($totalsByType as $type => $amount) {
                 $fresh->payments()->create([
@@ -201,11 +201,11 @@ class Transaction extends Model
             }
         }
         // 2. Admin Logic: Restrict to their own branch
-        else if ($user->isAdmin()) {
+        elseif ($user->isAdmin()) {
             $query->where('branch_id', $user->branch_id);
         }
         // 3. Staff Logic: Restrict to their own records
-        else if ($user->isStaff()) {
+        elseif ($user->isStaff()) {
             $query->where('staff_id', $user->id);
         }
     }

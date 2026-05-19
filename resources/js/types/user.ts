@@ -26,7 +26,7 @@ export type Customer = {
     full_name: string;
     company: string;
     mobile: string;
-}
+};
 
 export type CustomersList = {
     customers: PaginatedResponse<Customer>;

@@ -2,20 +2,21 @@ import { router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 
 export const useSalesFilters = (initialFilters: any) => {
-    const [searchTerm, setSearchTerm] = useState(initialFilters.search || "");
-    const [mode, setMode] = useState(initialFilters.mode || "daily");
+    const [searchTerm, setSearchTerm] = useState(initialFilters.search || '');
+    const [mode, setMode] = useState(initialFilters.mode || 'daily');
     const [filters, setFilters] = useState({
-        date: initialFilters.date || "",
-        status: initialFilters.status || "all",
+        date: initialFilters.date || '',
+        status: initialFilters.status || 'all',
     });
 
     // Handle Search Debounce
     useEffect(() => {
         const delayDebounceFn = setTimeout(() => {
-            if (searchTerm !== (initialFilters.search || "")) {
-                router.get('/sales',
+            if (searchTerm !== (initialFilters.search || '')) {
+                router.get(
+                    '/sales',
                     { ...initialFilters, search: searchTerm, page: 1 },
-                    { preserveState: true, replace: true }
+                    { preserveState: true, replace: true },
                 );
             }
         }, 300);
@@ -29,7 +30,7 @@ export const useSalesFilters = (initialFilters: any) => {
         if (type === 'mode') {
             setMode(value);
             params.mode = value;
-            params.date = ""; // Reset date on mode change
+            params.date = ''; // Reset date on mode change
         } else if (type === 'status') {
             params.status = value;
         } else if (type === 'date') {
@@ -40,10 +41,17 @@ export const useSalesFilters = (initialFilters: any) => {
     };
 
     const clearFilters = () => {
-        setSearchTerm("");
-        setMode("daily");
+        setSearchTerm('');
+        setMode('daily');
         router.get('/sales', {}, { replace: true });
     };
 
-    return { searchTerm, setSearchTerm, mode, filters, handleFilterChange, clearFilters };
+    return {
+        searchTerm,
+        setSearchTerm,
+        mode,
+        filters,
+        handleFilterChange,
+        clearFilters,
+    };
 };

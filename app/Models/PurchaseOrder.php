@@ -3,13 +3,12 @@
 namespace App\Models;
 
 use App\Concerns\SaleFilterTrait;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class PurchaseOrder extends Model
 {
-    use SoftDeletes, SaleFilterTrait;
+    use SaleFilterTrait, SoftDeletes;
 
     protected $guarded = ['id'];
 

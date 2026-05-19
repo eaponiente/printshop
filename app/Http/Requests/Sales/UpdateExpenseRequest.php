@@ -6,7 +6,6 @@ use App\Enums\Expenses\ExpenseStatus;
 use App\Enums\Expenses\ExpenseTypeOfPaymentEnum;
 use App\Models\Expense;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class UpdateExpenseRequest extends FormRequest
 {

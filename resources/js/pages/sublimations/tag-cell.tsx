@@ -1,27 +1,37 @@
-import { router } from '@inertiajs/react'
-import { useState } from 'react'
-import TagSelector from '@/components/shared/tag-selector'
+import { router } from '@inertiajs/react';
+import { useState } from 'react';
+import TagSelector from '@/components/shared/tag-selector';
 
-export const TagCell = ({ sublimation, allTags }: { sublimation: any; allTags: any[] }) => {
-    const [loading, setLoading] = useState(false)
+export const TagCell = ({
+    sublimation,
+    allTags,
+}: {
+    sublimation: any;
+    allTags: any[];
+}) => {
+    const [loading, setLoading] = useState(false);
 
     const handleAdd = (tagId: number) => {
-        setLoading(true)
-        router.post(`/sublimations/${sublimation.id}/tags`, {
-            tag_id: tagId
-        }, {
-            preserveScroll: true,
-            onFinish: () => setLoading(false),
-        })
-    }
+        setLoading(true);
+        router.post(
+            `/sublimations/${sublimation.id}/tags`,
+            {
+                tag_id: tagId,
+            },
+            {
+                preserveScroll: true,
+                onFinish: () => setLoading(false),
+            },
+        );
+    };
 
     const handleRemove = (tagId: number) => {
-        setLoading(true)
+        setLoading(true);
         router.delete(`/sublimations/${sublimation.id}/tags/${tagId}`, {
             preserveScroll: true,
             onFinish: () => setLoading(false),
-        })
-    }
+        });
+    };
 
     return (
         <TagSelector
@@ -32,5 +42,5 @@ export const TagCell = ({ sublimation, allTags }: { sublimation: any; allTags: a
             layout="col"
             loading={loading}
         />
-    )
-}
+    );
+};

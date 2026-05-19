@@ -41,11 +41,17 @@ export const StatusCell = ({ item, statuses }: StatusCellProps) => {
 
         // 2. Phase 1: Pre-Payment Setup
         // Goal: Show setup statuses + the 'downpayment_complete' option
-        const prePaymentKeys = ['for_approval', 'done_layout', 'waiting_for_dp'];
+        const prePaymentKeys = [
+            'for_approval',
+            'done_layout',
+            'waiting_for_dp',
+        ];
 
         if (prePaymentKeys.includes(currentStatus)) {
-            return statuses.filter((s) =>
-                prePaymentKeys.includes(s.key) || s.key === 'downpayment_complete'
+            return statuses.filter(
+                (s) =>
+                    prePaymentKeys.includes(s.key) ||
+                    s.key === 'downpayment_complete',
             );
         }
 
@@ -82,7 +88,8 @@ export const StatusCell = ({ item, statuses }: StatusCellProps) => {
             },
             {
                 preserveScroll: true,
-                onSuccess: () => toast.success(`Moved to ` + formatStatus(newStatus)),
+                onSuccess: () =>
+                    toast.success(`Moved to ` + formatStatus(newStatus)),
                 onError: (err) =>
                     toast.error(Object.values(err)[0] || 'Update failed'),
                 onFinish: () => setIsUpdating(false),
@@ -144,7 +151,6 @@ export const StatusCell = ({ item, statuses }: StatusCellProps) => {
                     ))}
                 </SelectContent>
             </Select>
-
         </div>
     );
 };

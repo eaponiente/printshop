@@ -1,42 +1,73 @@
 import { Head, router } from '@inertiajs/react';
+import {
+    DropdownMenu,
+    DropdownMenuTrigger,
+    DropdownMenuContent,
+    DropdownMenuItem,
+} from '@radix-ui/react-dropdown-menu';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
-import { ArrowUpDown, Check, ChevronDown, ExternalLink, Pencil, Plus, Trash2, XCircle } from 'lucide-react';
+import { format } from 'date-fns';
+import {
+    ArrowUpDown,
+    Check,
+    ChevronDown,
+    ExternalLink,
+    Pencil,
+    Plus,
+    Trash2,
+    XCircle,
+} from 'lucide-react';
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { route } from 'ziggy-js';
 import { DataTable } from '@/components/data-table';
 import {
-    AlertDialog, AlertDialogAction, AlertDialogCancel,
-    AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger
+    AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import PurchaseOrderDialog from '@/pages/purchase-orders/purchase-order-dialog';
 import type { BreadcrumbItem } from '@/types';
 import type { PurchaseOrder, PurchaseOrdersList } from '@/types/purchase-order';
+import { readableDate, toManilaTime } from '@/utils/dateHelper';
 import { formatCurrency } from '@/utils/formatters';
 import { sortBy } from '@/utils/helpers';
-import { readableDate, toManilaTime } from '@/utils/dateHelper';
 import CreatePoTransactionDialog from './components/create-po-transaction-dialog';
-import { Checkbox } from '@/components/ui/checkbox';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@radix-ui/react-dropdown-menu';
-import { format } from 'date-fns';
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Purchase Orders', href: '/purchase-orders' },
 ];
 
-export default function PurchaseOrderIndex({ purchase_orders, branches, statuses, filters }: PurchaseOrdersList) {
+export default function PurchaseOrderIndex({
+    purchase_orders,
+    branches,
+    filters,
+}: PurchaseOrdersList) {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [isMakeTransactionDialogOpen, setIsMakeTransactionDialogOpen] = useState(false);
+    const [isMakeTransactionDialogOpen, setIsMakeTransactionDialogOpen] =
+        useState(false);
     const [mode, setMode] = useState(filters.mode || 'monthly');
 
-    const [getPurchaseOrder, setPurchaseOrder] = useState<PurchaseOrder | null>(null);
+    const [getPurchaseOrder, setPurchaseOrder] = useState<PurchaseOrder | null>(
+        null,
+    );
     const openEditForm = (purchaseOrder: PurchaseOrder | null) => {
         setPurchaseOrder(purchaseOrder);
         setIsDialogOpen(true);
@@ -44,7 +75,13 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
 
     const handleFilterChange = (
         value: string,
-        type: 'branch_id' | 'date' | 'mode' | 'date_field' | 'po_number' | 'include_released',
+        type:
+            | 'branch_id'
+            | 'date'
+            | 'mode'
+            | 'date_field'
+            | 'po_number'
+            | 'include_released',
     ) => {
         const params = { ...filters };
 
@@ -75,9 +112,12 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
 
     const deletePurchaseOrder = (purchaseOrder: PurchaseOrder) => {
         router.delete(`/purchase-orders/${purchaseOrder.id}`, {
-            onSuccess: () => toast.success('Purchase Order deleted', { position: 'top-center' }),
+            onSuccess: () =>
+                toast.success('Purchase Order deleted', {
+                    position: 'top-center',
+                }),
         });
-    }
+    };
 
     const clearFilters = () => {
         router.get(route('purchase-orders.index'), {}, { replace: true });
@@ -86,42 +126,56 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
     const showMakeTransactionDialog = (po: PurchaseOrder) => {
         setPurchaseOrder(po);
         setIsMakeTransactionDialogOpen(true);
-    }
+    };
 
     const onMakeTransaction = (purchaseOrder: PurchaseOrder) => {
-        router.post(route('purchase-orders.make-transaction', purchaseOrder.id), {}, {
-            onSuccess: () => toast.success('Transaction created successfully', { position: 'top-center' }),
-        });
-    }
+        router.post(
+            route('purchase-orders.make-transaction', purchaseOrder.id),
+            {},
+            {
+                onSuccess: () =>
+                    toast.success('Transaction created successfully', {
+                        position: 'top-center',
+                    }),
+            },
+        );
+    };
 
     const columns: ColumnDef<unknown, any>[] = [
         {
             accessorKey: 'po_number',
-            header: 'PO #'
+            header: 'PO #',
         },
         {
             accessorKey: 'Customer',
             header: 'Customer',
             cell: ({ row }: CellContext<any, any>) => {
-                const customerName = row.original.customer?.first_name ? `${row.original.customer?.full_name}` : row.original.customer?.company;
+                const customerName = row.original.customer?.first_name
+                    ? `${row.original.customer?.full_name}`
+                    : row.original.customer?.company;
+
                 return (
-                    <div className="max-w-[120px] truncate" title={customerName}>
+                    <div
+                        className="max-w-[120px] truncate"
+                        title={customerName}
+                    >
                         {customerName}
                     </div>
                 );
-            }
+            },
         },
         {
             accessorKey: 'branch.name',
             header: 'Branch',
             cell: ({ row }: CellContext<any, any>) => {
                 const branchName = row.original.branch?.name;
+
                 return (
                     <div className="max-w-[150px] truncate" title={branchName}>
                         {branchName}
                     </div>
                 );
-            }
+            },
         },
         {
             accessorKey: 'grand_total',
@@ -134,31 +188,55 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
             accessorKey: 'status',
             header: 'Status',
             cell: ({ row }: CellContext<any, any>) => {
-                const currentStatus = (row.original.status || 'pending').toLowerCase();
+                const currentStatus = (
+                    row.original.status || 'pending'
+                ).toLowerCase();
 
                 const statusConfig = {
-                    pending: { label: 'Pending', dot: 'bg-amber-500', styles: 'bg-amber-50 text-amber-700 border-amber-200' },
-                    active: { label: 'Active', dot: 'bg-blue-500', styles: 'bg-blue-50 text-blue-700 border-blue-200' },
-                    finished: { label: 'Finished', dot: 'bg-emerald-500', styles: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-                    released: { label: 'Released', dot: 'bg-slate-500', styles: 'bg-slate-50 text-slate-700 border-slate-200' },
+                    pending: {
+                        label: 'Pending',
+                        dot: 'bg-amber-500',
+                        styles: 'bg-amber-50 text-amber-700 border-amber-200',
+                    },
+                    active: {
+                        label: 'Active',
+                        dot: 'bg-blue-500',
+                        styles: 'bg-blue-50 text-blue-700 border-blue-200',
+                    },
+                    finished: {
+                        label: 'Finished',
+                        dot: 'bg-emerald-500',
+                        styles: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                    },
+                    released: {
+                        label: 'Released',
+                        dot: 'bg-slate-500',
+                        styles: 'bg-slate-50 text-slate-700 border-slate-200',
+                    },
                 };
 
-                const config = statusConfig[currentStatus as keyof typeof statusConfig] || statusConfig.pending;
+                const config =
+                    statusConfig[currentStatus as keyof typeof statusConfig] ||
+                    statusConfig.pending;
 
                 return (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <button className={`
-                        group inline-flex items-center justify-between w-32 px-3 py-1.5 
-                        rounded-md border text-xs font-semibold 
-                        transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500
-                        ${config.styles}
-                    `}>
+                            <button
+                                className={`group inline-flex w-32 items-center justify-between rounded-md border px-3 py-1.5 text-xs font-semibold transition-all duration-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none ${config.styles} `}
+                            >
                                 <div className="flex items-center gap-2">
-                                    <span className={`h-1.5 w-1.5 rounded-full ${config.dot}`} />
-                                    <span className="capitalize">{config.label}</span>
+                                    <span
+                                        className={`h-1.5 w-1.5 rounded-full ${config.dot}`}
+                                    />
+                                    <span className="capitalize">
+                                        {config.label}
+                                    </span>
                                 </div>
-                                <ChevronDown size={14} className="opacity-50 group-hover:opacity-100" />
+                                <ChevronDown
+                                    size={14}
+                                    className="opacity-50 group-hover:opacity-100"
+                                />
                             </button>
                         </DropdownMenuTrigger>
 
@@ -168,22 +246,42 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                         <DropdownMenuContent
                             align="start"
                             sideOffset={4}
-                            className="z-50 min-w-[8rem] overflow-hidden rounded-md border bg-white p-1 shadow-md animate-in fade-in-0 zoom-in-95"
+                            className="z-50 min-w-[8rem] animate-in overflow-hidden rounded-md border bg-white p-1 shadow-md fade-in-0 zoom-in-95"
                         >
-                            <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            <div className="px-2 py-1.5 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
                                 Update Status
                             </div>
-                            {Object.entries(statusConfig).map(([key, value]) => (
-                                <DropdownMenuItem
-                                    key={key}
-                                    onClick={() => router.patch(route('purchase-orders.status.update', row.original.id), { status: key }, { preserveScroll: true })}
-                                    className="flex items-center gap-2 rounded px-2 py-2 text-sm cursor-pointer outline-none hover:bg-slate-100 focus:bg-slate-100 transition-colors"
-                                >
-                                    <span className={`h-2 w-2 rounded-full ${value.dot}`} />
-                                    <span className="flex-1 font-medium text-slate-700">{value.label}</span>
-                                    {currentStatus === key && <Check size={14} className="text-indigo-600" />}
-                                </DropdownMenuItem>
-                            ))}
+                            {Object.entries(statusConfig).map(
+                                ([key, value]) => (
+                                    <DropdownMenuItem
+                                        key={key}
+                                        onClick={() =>
+                                            router.patch(
+                                                route(
+                                                    'purchase-orders.status.update',
+                                                    row.original.id,
+                                                ),
+                                                { status: key },
+                                                { preserveScroll: true },
+                                            )
+                                        }
+                                        className="flex cursor-pointer items-center gap-2 rounded px-2 py-2 text-sm transition-colors outline-none hover:bg-slate-100 focus:bg-slate-100"
+                                    >
+                                        <span
+                                            className={`h-2 w-2 rounded-full ${value.dot}`}
+                                        />
+                                        <span className="flex-1 font-medium text-slate-700">
+                                            {value.label}
+                                        </span>
+                                        {currentStatus === key && (
+                                            <Check
+                                                size={14}
+                                                className="text-indigo-600"
+                                            />
+                                        )}
+                                    </DropdownMenuItem>
+                                ),
+                            )}
                         </DropdownMenuContent>
                     </DropdownMenu>
                 );
@@ -195,12 +293,13 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
             header: 'Staff',
             cell: ({ row }: CellContext<any, any>) => {
                 const staffName = row.original.user?.fullname;
+
                 return (
                     <div className="max-w-[150px] truncate" title={staffName}>
                         {staffName}
                     </div>
                 );
-            }
+            },
         },
         {
             accessorKey: 'received_at',
@@ -269,33 +368,40 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                 const status = transaction?.status;
 
                 const colors = {
-                    paid: "bg-emerald-500 text-emerald-600 border-emerald-100",
-                    pending: "bg-amber-500 text-amber-600 border-amber-100",
-                    partial: "bg-blue-500 text-blue-600 border-blue-100",
-                    none: "bg-slate-300 text-slate-400 border-slate-100",
+                    paid: 'bg-emerald-500 text-emerald-600 border-emerald-100',
+                    pending: 'bg-amber-500 text-amber-600 border-amber-100',
+                    partial: 'bg-blue-500 text-blue-600 border-blue-100',
+                    none: 'bg-slate-300 text-slate-400 border-slate-100',
                 };
 
-                const theme = colors[status as keyof typeof colors] || colors.none;
+                const theme =
+                    colors[status as keyof typeof colors] || colors.none;
 
                 return (
-                    <div className="flex items-center gap-3 min-w-[200px]">
+                    <div className="flex min-w-[200px] items-center gap-3">
                         {/* 1. Slim Status Indicator */}
-                        <div className="flex flex-col items-center gap-1 shrink-0">
-                            <div className={`h-8 w-1 rounded-full ${theme.split(' ')[0]}`} />
+                        <div className="flex shrink-0 flex-col items-center gap-1">
+                            <div
+                                className={`h-8 w-1 rounded-full ${theme.split(' ')[0]}`}
+                            />
                         </div>
 
                         <div className="flex flex-1 items-center justify-between">
                             {/* 2. Info Block */}
                             <div className="flex flex-col">
-                                <span className={`text-[10px] font-bold uppercase tracking-widest ${theme.split(' ')[1]}`}>
+                                <span
+                                    className={`text-[10px] font-bold tracking-widest uppercase ${theme.split(' ')[1]}`}
+                                >
                                     {status || 'No Sale'}
                                 </span>
                                 {transaction ? (
-                                    <span className="text-sm font-semibold text-slate-700 tracking-tight">
+                                    <span className="text-sm font-semibold tracking-tight text-slate-700">
                                         {transaction.invoice_number}
                                     </span>
                                 ) : (
-                                    <span className="text-xs text-slate-400 italic">Pending Entry</span>
+                                    <span className="text-xs text-slate-400 italic">
+                                        Pending Entry
+                                    </span>
                                 )}
                             </div>
 
@@ -304,18 +410,27 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                                     <a
                                         href={route('sales.index', {
                                             search: transaction.invoice_number,
-                                            tab: transaction?.payments_count || 0 > 0 ? 'payments' : 'unpaid',
+                                            tab:
+                                                transaction?.payments_count ||
+                                                0 > 0
+                                                    ? 'payments'
+                                                    : 'unpaid',
                                         })}
                                         target="_blank"
-                                        className="group flex h-8 items-center gap-2 rounded-md px-2 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-all"
+                                        className="group flex h-8 items-center gap-2 rounded-md px-2 text-xs font-bold text-slate-500 transition-all hover:bg-slate-50 hover:text-indigo-600"
                                     >
                                         <span>VIEW</span>
-                                        <ExternalLink size={12} className="opacity-0 group-hover:opacity-100 transition-all -translate-x-1 group-hover:translate-x-0" />
+                                        <ExternalLink
+                                            size={12}
+                                            className="-translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100"
+                                        />
                                     </a>
                                 ) : (
                                     <button
-                                        onClick={() => showMakeTransactionDialog(po)}
-                                        className="flex h-8 items-center gap-1.5 rounded-md border border-blue-200 bg-white px-3 text-xs font-bold text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+                                        onClick={() =>
+                                            showMakeTransactionDialog(po)
+                                        }
+                                        className="flex h-8 items-center gap-1.5 rounded-md border border-blue-200 bg-white px-3 text-xs font-bold text-blue-600 shadow-sm transition-all hover:bg-blue-600 hover:text-white"
                                     >
                                         <Plus size={14} strokeWidth={2.5} />
                                         CREATE
@@ -352,9 +467,9 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                                             Are you absolutely sure?
                                         </AlertDialogTitle>
                                         <AlertDialogDescription>
-                                            This action cannot be undone. This will
-                                            permanently delete your user from our
-                                            servers.
+                                            This action cannot be undone. This
+                                            will permanently delete your user
+                                            from our servers.
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
@@ -363,7 +478,9 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                                         </AlertDialogCancel>
                                         <AlertDialogAction
                                             onClick={() =>
-                                                deletePurchaseOrder(row.original)
+                                                deletePurchaseOrder(
+                                                    row.original,
+                                                )
                                             }
                                         >
                                             Continue
@@ -410,7 +527,12 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                                 placeholder="Search PO Number..."
                                 className="h-10 w-[200px] bg-white text-sm shadow-sm"
                                 value={filters.po_number || ''}
-                                onChange={(e) => handleFilterChange(e.target.value, 'po_number')}
+                                onChange={(e) =>
+                                    handleFilterChange(
+                                        e.target.value,
+                                        'po_number',
+                                    )
+                                }
                             />
                         </div>
 
@@ -421,15 +543,22 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                             </label>
                             <Select
                                 value={filters.branch_id || 'all'}
-                                onValueChange={(v) => handleFilterChange(v, 'branch_id')}
+                                onValueChange={(v) =>
+                                    handleFilterChange(v, 'branch_id')
+                                }
                             >
                                 <SelectTrigger className="h-10 w-[180px] bg-white text-sm shadow-sm">
                                     <SelectValue placeholder="All Branches" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">All Branches</SelectItem>
+                                    <SelectItem value="all">
+                                        All Branches
+                                    </SelectItem>
                                     {branches.map((branch) => (
-                                        <SelectItem key={branch.id} value={String(branch.id)}>
+                                        <SelectItem
+                                            key={branch.id}
+                                            value={String(branch.id)}
+                                        >
                                             {branch.name}
                                         </SelectItem>
                                     ))}
@@ -444,15 +573,23 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                             </label>
                             <Select
                                 value={filters.date_field || 'due_at'}
-                                onValueChange={(v) => handleFilterChange(v, 'date_field')}
+                                onValueChange={(v) =>
+                                    handleFilterChange(v, 'date_field')
+                                }
                             >
                                 <SelectTrigger className="h-10 w-[180px] bg-white text-sm shadow-sm">
                                     <SelectValue placeholder="Select Date Field" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">Select Date Field</SelectItem>
-                                    <SelectItem value="due_at">Due Date</SelectItem>
-                                    <SelectItem value="received_at">Received Date</SelectItem>
+                                    <SelectItem value="all">
+                                        Select Date Field
+                                    </SelectItem>
+                                    <SelectItem value="due_at">
+                                        Due Date
+                                    </SelectItem>
+                                    <SelectItem value="received_at">
+                                        Received Date
+                                    </SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -464,15 +601,23 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                             </label>
                             <Select
                                 value={mode}
-                                onValueChange={(v) => handleFilterChange(v, 'mode')}
+                                onValueChange={(v) =>
+                                    handleFilterChange(v, 'mode')
+                                }
                             >
                                 <SelectTrigger className="h-10 w-[140px] bg-white text-sm shadow-sm">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="weekly">Weekly</SelectItem>
-                                    <SelectItem value="monthly">Monthly</SelectItem>
-                                    <SelectItem value="yearly">Yearly</SelectItem>
+                                    <SelectItem value="weekly">
+                                        Weekly
+                                    </SelectItem>
+                                    <SelectItem value="monthly">
+                                        Monthly
+                                    </SelectItem>
+                                    <SelectItem value="yearly">
+                                        Yearly
+                                    </SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -487,7 +632,12 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                                     <Input
                                         type="date"
                                         value={filters.date || ''}
-                                        onChange={(e) => handleFilterChange(e.target.value, 'date')}
+                                        onChange={(e) =>
+                                            handleFilterChange(
+                                                e.target.value,
+                                                'date',
+                                            )
+                                        }
                                         className="h-10 w-[180px] bg-white text-sm shadow-sm"
                                     />
                                 )}
@@ -495,7 +645,12 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                                     <Input
                                         type="week"
                                         value={filters.date || ''}
-                                        onChange={(e) => handleFilterChange(e.target.value, 'date')}
+                                        onChange={(e) =>
+                                            handleFilterChange(
+                                                e.target.value,
+                                                'date',
+                                            )
+                                        }
                                         className="h-10 w-[200px] bg-white text-sm shadow-sm"
                                     />
                                 )}
@@ -503,19 +658,39 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                                     <Input
                                         type="month"
                                         value={filters.date || ''}
-                                        onChange={(e) => handleFilterChange(e.target.value, 'date')}
+                                        onChange={(e) =>
+                                            handleFilterChange(
+                                                e.target.value,
+                                                'date',
+                                            )
+                                        }
                                         className="h-10 w-[180px] bg-white text-sm shadow-sm"
                                     />
                                 )}
                                 {mode === 'yearly' && (
                                     <select
-                                        value={filters.date ? filters.date.substring(0, 4) : new Date().getFullYear()}
-                                        onChange={(e) => handleFilterChange(e.target.value, 'date')}
+                                        value={
+                                            filters.date
+                                                ? filters.date.substring(0, 4)
+                                                : new Date().getFullYear()
+                                        }
+                                        onChange={(e) =>
+                                            handleFilterChange(
+                                                e.target.value,
+                                                'date',
+                                            )
+                                        }
                                         className="h-10 w-[180px] rounded-md border bg-white px-3 py-2 text-sm shadow-sm focus:ring-2 focus:ring-ring focus:outline-none"
                                     >
                                         {Array.from({ length: 6 }, (_, i) => {
-                                            const year = new Date().getFullYear() - i;
-                                            return <option key={year} value={year}>{year}</option>;
+                                            const year =
+                                                new Date().getFullYear() - i;
+
+                                            return (
+                                                <option key={year} value={year}>
+                                                    {year}
+                                                </option>
+                                            );
                                         })}
                                     </select>
                                 )}
@@ -526,9 +701,15 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
                         <div className="flex h-10 items-center space-x-2 px-2 pb-0.5">
                             <Checkbox
                                 id="include_released"
-                                checked={filters.include_released === 'true' || filters.include_released === true}
+                                checked={
+                                    filters.include_released === 'true' ||
+                                    filters.include_released === true
+                                }
                                 onCheckedChange={(checked) =>
-                                    handleFilterChange(checked ? 'true' : 'false', 'include_released')
+                                    handleFilterChange(
+                                        checked ? 'true' : 'false',
+                                        'include_released',
+                                    )
                                 }
                             />
                             <label
@@ -557,7 +738,6 @@ export default function PurchaseOrderIndex({ purchase_orders, branches, statuses
             {isDialogOpen && (
                 <PurchaseOrderDialog
                     open={isDialogOpen}
-                    statuses={statuses}
                     setOpen={setIsDialogOpen}
                     order={getPurchaseOrder}
                     branches={branches}

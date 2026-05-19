@@ -1,20 +1,32 @@
-import { useState } from 'react';
 import { useForm } from '@inertiajs/react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { route } from 'ziggy-js';
-import type { PurchaseOrder } from '@/types/purchase-order';
+import { useState } from 'react';
 import { toast } from 'sonner';
+import { route } from 'ziggy-js';
+import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import type { PurchaseOrder } from '@/types/purchase-order';
 
-export default function CreatePoTransactionDialog({ open, setOpen, purchaseOrder }: { open: boolean, setOpen: (open: boolean) => void, purchaseOrder: PurchaseOrder }) {
-
+export default function CreatePoTransactionDialog({
+    open,
+    setOpen,
+    purchaseOrder,
+}: {
+    open: boolean;
+    setOpen: (open: boolean) => void;
+    purchaseOrder: PurchaseOrder;
+}) {
     const { data, setData, post, processing, errors, reset } = useForm({
         amount_total: '',
     });
 
-    const submit = (e) => {
+    const submit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         post(route('purchase-orders.transactions.store', purchaseOrder.id), {
             onSuccess: () => {
@@ -31,14 +43,20 @@ export default function CreatePoTransactionDialog({ open, setOpen, purchaseOrder
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Create Transaction for {purchaseOrder?.po_number}</DialogTitle>
+                        <DialogTitle>
+                            Create Transaction for {purchaseOrder?.po_number}
+                        </DialogTitle>
                     </DialogHeader>
 
                     <form onSubmit={submit} className="space-y-6">
                         {/* Amount Field Group */}
                         <div className="flex flex-col gap-1.5">
-                            <Label htmlFor="amount_total" className="font-medium">
-                                Net Amount (Current Total Amount: {purchaseOrder.grand_total})
+                            <Label
+                                htmlFor="amount_total"
+                                className="font-medium"
+                            >
+                                Net Amount (Current Total Amount:{' '}
+                                {purchaseOrder.grand_total})
                             </Label>
                             <div className="relative">
                                 <Input
@@ -49,8 +67,11 @@ export default function CreatePoTransactionDialog({ open, setOpen, purchaseOrder
                                     onChange={(e) =>
                                         setData('amount_total', e.target.value)
                                     }
-                                    className={`focus-visible:ring-indigo-500 ${errors.amount_total ? 'border-red-500' : ''
-                                        }`}
+                                    className={`focus-visible:ring-indigo-500 ${
+                                        errors.amount_total
+                                            ? 'border-red-500'
+                                            : ''
+                                    }`}
                                 />
                             </div>
                             {errors.amount_total && (

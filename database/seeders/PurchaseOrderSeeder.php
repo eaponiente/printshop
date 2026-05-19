@@ -2,8 +2,11 @@
 
 namespace Database\Seeders;
 
+use App\Models\Customer;
 use App\Models\PurchaseOrder;
+use App\Models\Transaction;
 use App\Models\User;
+use App\Services\Sales\SalesService;
 use Carbon\Carbon;
 use Faker\Factory;
 use Illuminate\Database\Seeder;
@@ -41,7 +44,7 @@ class PurchaseOrderSeeder extends Seeder
 
             $user = $users->random();
             $orderedAt = Carbon::now()->subDays(rand(0, 30));
-            $dueAt = Carbon::parse($orderedAt)->addDays(rand(4,8));
+            $dueAt = Carbon::parse($orderedAt)->addDays(rand(4, 8));
             $status = $faker->randomElement(['pending', 'active', 'finished', 'released']);
 
             // Create the Parent PO
@@ -54,7 +57,7 @@ class PurchaseOrderSeeder extends Seeder
                 'due_at' => $dueAt,
                 'user_id' => $user->id,
                 'branch_id' => $user->branch_id,
-                'customer_id' => \App\Models\Customer::inRandomOrder()->first()->id,
+                'customer_id' => Customer::inRandomOrder()->first()->id,
                 'transaction_id' => null, // Will update below if needed
                 'created_at' => $orderedAt,
                 'updated_at' => $orderedAt,
@@ -88,11 +91,11 @@ class PurchaseOrderSeeder extends Seeder
 
             // Create Transaction conditionally (e.g. if active, finished, released)
             if (in_array($status, ['active', 'finished', 'released'])) {
-                $transaction = app(\App\Services\Sales\SalesService::class)->createTransaction([
-                    'description' => 'Purchase Order: ' . $po->po_number,
+                $transaction = app(SalesService::class)->createTransaction([
+                    'description' => 'Purchase Order: '.$po->po_number,
                     'branch_id' => $po->branch_id,
                     'customer_id' => $po->customer_id,
-                    'invoice_number' => \App\Models\Transaction::generateNumber(),
+                    'invoice_number' => Transaction::generateNumber(),
                     'amount_total' => $runningTotal,
                     'particular' => 'Purchase Order',
                     'staff_id' => $po->user_id,

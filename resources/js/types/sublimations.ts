@@ -6,13 +6,13 @@ import type { Customer, User } from '@/types/user';
 export type SublimationsList = {
     sublimations: Sublimation[];
     availableTags: Tag[];
-}
+};
 
 export type SublimationStatus = {
     key: string;
     value: string;
     color: string;
-}
+};
 
 export type Sublimation = {
     id: number;

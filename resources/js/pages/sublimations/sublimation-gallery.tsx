@@ -2,8 +2,8 @@ import axios from 'axios';
 import type { ChangeEvent, DragEvent } from 'react';
 import React, { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
-import type { UploadedImage } from '@/types/images';
 import { route } from 'ziggy-js';
+import type { UploadedImage } from '@/types/images';
 
 export default function SublimationGallery({
     sublimationId,
@@ -26,10 +26,14 @@ export default function SublimationGallery({
 
         const fetchImages = async () => {
             setIsLoading(true);
+
             try {
-                const response = await axios.get(route('sublimations.images.index', sublimationId), {
-                    signal: controller.signal
-                });
+                const response = await axios.get(
+                    route('sublimations.images.index', sublimationId),
+                    {
+                        signal: controller.signal,
+                    },
+                );
                 setImages(response.data);
             } catch (err) {
                 if (!axios.isCancel(err)) {
@@ -41,7 +45,8 @@ export default function SublimationGallery({
         };
 
         fetchImages();
-        return () => controller.abort();  // Cleanup on unmount
+
+        return () => controller.abort(); // Cleanup on unmount
     }, [sublimationId]);
 
     const handleFiles = async (files: FileList | null) => {
@@ -145,12 +150,12 @@ export default function SublimationGallery({
         <div className="flex w-full flex-col gap-4">
             {/* Dropzone */}
             <div
-                className={`mb-2 flex w-full cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-700 p-8 text-center transition-colors duration-200 sm:p-12 ${isUploading ? 'pointer-events-none opacity-50' : 'hover:border-zinc-500 hover:bg-white-800/50'}`}
+                className={`mb-2 flex w-full cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-700 p-8 text-center transition-colors duration-200 sm:p-12 ${isUploading ? 'pointer-events-none opacity-50' : 'hover:bg-white-800/50 hover:border-zinc-500'}`}
                 onClick={() => !isUploading && fileInputRef.current?.click()}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
             >
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-zinc-700 bg-white-800 shadow-sm">
+                <div className="bg-white-800 mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-zinc-700 shadow-sm">
                     {isUploading ? (
                         <div className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-400 border-t-transparent"></div>
                     ) : (
@@ -261,7 +266,7 @@ export default function SublimationGallery({
                     ))}
                 </div>
             ) : (
-                <div className="rounded-xl border border-dashed border-zinc-700 bg-white-900/50 py-12 text-center">
+                <div className="bg-white-900/50 rounded-xl border border-dashed border-zinc-700 py-12 text-center">
                     <p className="text-sm text-zinc-500">
                         No images uploaded yet.
                     </p>

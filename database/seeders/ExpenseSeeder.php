@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\Expenses\ExpenseStatus;
 use App\Enums\Expenses\ExpenseTypeOfPaymentEnum;
 use App\Models\Branch;
 use App\Models\Expense;
@@ -9,7 +10,6 @@ use App\Models\User;
 use App\Services\Sales\CashOnHandService;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 class ExpenseSeeder extends Seeder
 {
@@ -32,7 +32,7 @@ class ExpenseSeeder extends Seeder
             $date = Carbon::now()->addDays(random_int(-7, 7))->format('Y-m-d');
 
             $isVoid = rand(1, 100) <= 10; // 10% chance to be voided
-            $status = $isVoid ? \App\Enums\Expenses\ExpenseStatus::VOID : \App\Enums\Expenses\ExpenseStatus::PAID;
+            $status = $isVoid ? ExpenseStatus::VOID : ExpenseStatus::PAID;
 
             $expense = Expense::create([
                 'description' => $descriptions[array_rand($descriptions)],
@@ -52,7 +52,7 @@ class ExpenseSeeder extends Seeder
                 'updated_at' => $date,
             ]);
 
-            if ($expense->status === \App\Enums\Expenses\ExpenseStatus::PAID && $expense->payment_type === ExpenseTypeOfPaymentEnum::CASH->value) {
+            if ($expense->status === ExpenseStatus::PAID && $expense->payment_type === ExpenseTypeOfPaymentEnum::CASH->value) {
                 app(CashOnHandService::class)->adjustBalance(
                     $expense->branch_id,
                     $expense->amount,

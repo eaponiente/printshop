@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { SidebarInset } from '@/components/ui/sidebar';
-import { Toaster } from "@/components/ui/sonner"
+import { Toaster } from '@/components/ui/sonner';
 import type { AppVariant } from '@/types';
 
 type Props = React.ComponentProps<'main'> & {

@@ -3,14 +3,13 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
-use App\Models\Branch;
-use App\Models\Tag;
-use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use App\Http\Requests\Settings\StoreTagRequest;
 use App\Http\Requests\Settings\UpdateTagRequest;
+use App\Models\Tag;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -35,7 +34,8 @@ class TagController extends Controller
 
             return redirect()->back()->with('success', 'Tag created successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to create tag: ' . $e->getMessage());
+            Log::error('Failed to create tag: '.$e->getMessage());
+
             return redirect()->back()->withErrors(['error' => 'An error occurred while creating the tag.']);
         }
     }
@@ -49,7 +49,8 @@ class TagController extends Controller
 
             return redirect()->back()->with('success', 'Tag updated successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to update tag: ' . $e->getMessage());
+            Log::error('Failed to update tag: '.$e->getMessage());
+
             return redirect()->back()->withErrors(['error' => 'An error occurred while updating the tag.']);
         }
     }
@@ -60,9 +61,11 @@ class TagController extends Controller
 
         try {
             $tag->delete();
+
             return redirect()->back()->with('success', 'Tag deleted successfully.');
         } catch (\Exception $e) {
-            Log::error('Failed to delete tag: ' . $e->getMessage());
+            Log::error('Failed to delete tag: '.$e->getMessage());
+
             return redirect()->back()->withErrors(['error' => 'An error occurred while deleting the tag.']);
         }
     }

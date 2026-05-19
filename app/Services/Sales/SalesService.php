@@ -35,10 +35,10 @@ class SalesService
                     });
                 }
             })
-            ->when($filters['status'] ?? null, fn($q, $s) => $s !== 'all' ? $q->where('status', $s) : $q)
+            ->when($filters['status'] ?? null, fn ($q, $s) => $s !== 'all' ? $q->where('status', $s) : $q)
             ->when($filters['payment_type'] ?? null, function ($q, $s) {
                 if ($s !== 'all') {
-                    $q->whereHas('payments', fn($sq) => $sq->where('payment_type', $s));
+                    $q->whereHas('payments', fn ($sq) => $sq->where('payment_type', $s));
                 }
             });
 
@@ -87,7 +87,7 @@ class SalesService
             })
             ->when($filters['status'] ?? null, function ($q, $s) {
                 if ($s !== 'all') {
-                    $q->whereHas('transaction', fn($sq) => $sq->where('status', $s));
+                    $q->whereHas('transaction', fn ($sq) => $sq->where('status', $s));
                 }
             })
             ->when($filters['payment_type'] ?? null, function ($q, $s) {
@@ -122,7 +122,7 @@ class SalesService
 
         // Staff restriction
         if ($user->role === UserRole::STAFF->value) {
-            $query->whereHas('transaction', fn($q) => $q->where('staff_id', $user->id));
+            $query->whereHas('transaction', fn ($q) => $q->where('staff_id', $user->id));
         }
 
         // Sorting
@@ -172,7 +172,7 @@ class SalesService
     public function getCashOnHandTotal(?string $branchId): float
     {
         return (float) CashOnHand::query()
-            ->when($branchId && $branchId !== 'all', fn($q) => $q->where('branch_id', $branchId))
+            ->when($branchId && $branchId !== 'all', fn ($q) => $q->where('branch_id', $branchId))
             ->sum('amount');
     }
 
@@ -202,7 +202,7 @@ class SalesService
     public function searchCustomers(?string $search)
     {
         return Customer::query()
-            ->when($search, fn($q, $t) => $q->whereAny(['first_name', 'last_name', 'company'], 'like', "%{$t}%"))
+            ->when($search, fn ($q, $t) => $q->whereAny(['first_name', 'last_name', 'company'], 'like', "%{$t}%"))
             ->limit(10)->get();
     }
 

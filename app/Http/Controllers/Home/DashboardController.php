@@ -67,7 +67,7 @@ class DashboardController extends Controller
             'pending_jobs' => [
                 'value' => $totalPending,
                 'added_today' => $pendingAddedToday,
-            ]
+            ],
         ];
 
         // 5. Recent Transactions
@@ -123,6 +123,7 @@ class DashboardController extends Controller
         if ($previous == 0) {
             return $current > 0 ? 100 : 0;
         }
+
         return round((($current - $previous) / $previous) * 100, 1);
     }
 }
