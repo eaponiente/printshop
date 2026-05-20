@@ -66,3 +66,8 @@ export const readableDate = (dateInput: string | Date) => {
         className: 'text-slate-500',
     };
 };
+
+export const toDateInput = (value: string | null | undefined): string => {
+    if (!value) return '';
+    return value.substring(0, 10);
+};

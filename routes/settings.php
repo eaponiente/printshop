@@ -19,6 +19,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
+use Payroll\Audit\Controllers\AuditLogController;
 use Payroll\Employee\Controllers\EmployeeController;
 
 Route::get('/add-user', function () {
@@ -98,6 +99,8 @@ Route::middleware(['auth'])->group(function () {
         Route::put('employees/{employee}', [EmployeeController::class, 'update'])->name('employees.update');
         Route::delete('employees/{employee}', [EmployeeController::class, 'destroy'])->name('employees.destroy');
         Route::post('employees/{employee}/rehire', [EmployeeController::class, 'rehire'])->name('employees.rehire');
+
+        Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit.index');
     });
 
     Route::prefix('api')->group(function () {

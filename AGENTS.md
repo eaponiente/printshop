@@ -93,7 +93,6 @@ Domains: `sales`, `expenses`, `sublimations`, `purchase-orders`, `customers`, `e
 ## Gotchas
 
 - **Local DB is SQLite** (`database/database.sqlite`). MySQL-native functions like `YEARWEEK()` won't work in local/test environments.
-- **CarbonImmutable** is used project-wide (set in `AppServiceProvider`). Don't use mutable Carbon.
 - **DB destructive commands are prohibited in production** (`DB::prohibitDestructiveCommands`).
 - **Sail** is configured via `compose.yaml` for Docker-based local dev with MySQL.
 - **Generated route types** come from Wayfinder/Laravel Vite Plugin — routes are resolved at build time, so run `npm run dev` or build after adding routes.
@@ -116,7 +115,9 @@ Domains: `sales`, `expenses`, `sublimations`, `purchase-orders`, `customers`, `e
 - On tsx files, if a component is deemed too big (exceeds 100 lines), split it into smaller components.
 - Always run lint and artisan test when committing files.
 - Always run `composer lint` and `npm run lint` before committing PHP/JS changes.
+- All date displays in frontend must use `toManilaTime()` from `@/utils/dateHelper` — never use `new Date().toLocaleString()` or raw date strings.
 - Make sure admin can employee records within their branch.
 - Staff can only access their own records.
 - Superadmin can access everything.
 - For every endpoint that has mutation, make sure there is an audit log.
+- If the value is an enum, make a type ts for that.

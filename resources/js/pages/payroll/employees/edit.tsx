@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import PayrollLayout from '@/layouts/payroll/payroll-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Employee } from '@/types/employee';
+import { toDateInput } from '@/utils/dateHelper';
 
 interface EditProps {
     employee: Employee;
@@ -41,13 +42,13 @@ export default function EmployeeEdit({
         email: employee.email ?? '',
         phone: employee.phone ?? '',
         address: employee.address ?? '',
-        birth_date: employee.birth_date ?? '',
-        hire_date: employee.hire_date,
-        end_date: employee.end_date ?? '',
+        birth_date: toDateInput(employee.birth_date),
+        hire_date: toDateInput(employee.hire_date),
+        end_date: toDateInput(employee.end_date),
         branch_id: String(employee.branch_id),
         position: employee.position,
         status: employee.status,
-        daily_rate: employee.current_daily_rate,
+        daily_rate: Number(employee.current_daily_rate),
         sss_number: employee.sss_number ?? '',
         philhealth_number: employee.philhealth_number ?? '',
         pagibig_number: employee.pagibig_number ?? '',
@@ -202,7 +203,10 @@ export default function EmployeeEdit({
                                 id="position"
                                 value={data.position}
                                 onChange={(e) =>
-                                    setData('position', e.target.value)
+                                    setData(
+                                        'position',
+                                        e.target.value as Employee['position'],
+                                    )
                                 }
                             >
                                 {positions.map((p) => (
@@ -222,7 +226,10 @@ export default function EmployeeEdit({
                                 id="status"
                                 value={data.status}
                                 onChange={(e) =>
-                                    setData('status', e.target.value)
+                                    setData(
+                                        'status',
+                                        e.target.value as Employee['status'],
+                                    )
                                 }
                             >
                                 {statuses.map((s) => (
@@ -306,6 +313,17 @@ export default function EmployeeEdit({
                                     }
                                 />
                                 <InputError message={errors.pagibig_number} />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="tin_number">TIN Number</Label>
+                                <Input
+                                    id="tin_number"
+                                    value={data.tin_number}
+                                    onChange={(e) =>
+                                        setData('tin_number', e.target.value)
+                                    }
+                                />
+                                <InputError message={errors.tin_number} />
                             </div>
                         </div>
                     </div>

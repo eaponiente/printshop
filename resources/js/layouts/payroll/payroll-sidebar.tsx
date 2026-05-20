@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { LayoutGrid, UserRound } from 'lucide-react';
+import { LayoutGrid, ScrollText, UserRound } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
@@ -28,6 +28,11 @@ export function PayrollSidebar() {
             title: 'Employees',
             href: '/payroll/employees',
             icon: UserRound,
+        },
+        {
+            title: 'Audit Logs',
+            href: '/payroll/audit-logs',
+            icon: ScrollText,
         },
     ];
 

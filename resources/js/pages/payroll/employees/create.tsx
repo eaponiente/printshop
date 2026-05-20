@@ -288,6 +288,17 @@ export default function EmployeeCreate({
                                 />
                                 <InputError message={errors.pagibig_number} />
                             </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="tin_number">TIN Number</Label>
+                                <Input
+                                    id="tin_number"
+                                    value={data.tin_number}
+                                    onChange={(e) =>
+                                        setData('tin_number', e.target.value)
+                                    }
+                                />
+                                <InputError message={errors.tin_number} />
+                            </div>
                         </div>
                     </div>
 

@@ -4,6 +4,7 @@ use App\Models\Branch;
 use App\Models\Payroll\Employee;
 use App\Models\Payroll\Salary;
 use App\Models\User;
+use Payroll\Audit\Models\AuditLog;
 use Payroll\Employee\Enums\EmployeePosition;
 use Payroll\Employee\Enums\EmployeeStatus;
 
@@ -229,24 +230,76 @@ it('admin can update employee in same branch', function () {
     $employee = Employee::create([
         'first_name' => 'Updatable',
         'last_name' => 'Employee',
-        'hire_date' => now()->toDateString(),
+        'middle_name' => 'Old',
+        'email' => 'old@example.com',
+        'phone' => '09111111111',
+        'address' => 'Old Address',
+        'birth_date' => '1990-01-01',
+        'hire_date' => '2020-01-01',
         'branch_id' => $this->branchA->id,
+        'position' => EmployeePosition::REGULAR->value,
+        'status' => EmployeeStatus::ACTIVE->value,
         'current_daily_rate' => 500,
+        'sss_number' => '00-0000000-0',
+        'philhealth_number' => '00-000000000-0',
+        'pagibig_number' => '0000-0000-0000',
+        'tin_number' => '000-000-000-000',
+        'notes' => 'Old notes',
     ]);
+
+    Salary::createForEmployee($employee, 500, '2020-01-01');
 
     $this->actingAs($this->adminA)
         ->put(route('payroll.employees.update', $employee), [
             'first_name' => 'Updated',
-            'last_name' => 'Employee',
-            'hire_date' => now()->toDateString(),
+            'last_name' => 'Changed',
+            'middle_name' => 'New',
+            'email' => 'new@example.com',
+            'phone' => '09222222222',
+            'address' => 'New Address',
+            'birth_date' => '1992-02-02',
+            'hire_date' => '2021-01-01',
             'branch_id' => $this->branchA->id,
-            'position' => EmployeePosition::REGULAR->value,
+            'position' => EmployeePosition::CONTRACTUAL->value,
             'status' => EmployeeStatus::ACTIVE->value,
             'daily_rate' => 500,
+            'sss_number' => '99-9999999-9',
+            'philhealth_number' => '99-999999999-9',
+            'pagibig_number' => '9999-9999-9999',
+            'tin_number' => '999-999-999-999',
+            'notes' => 'Updated notes',
         ])
         ->assertRedirect();
 
-    expect(Employee::find($employee->id)->first_name)->toBe('Updated');
+    $employee->refresh();
+
+    expect($employee->first_name)->toBe('Updated');
+    expect($employee->last_name)->toBe('Changed');
+    expect($employee->middle_name)->toBe('New');
+    expect($employee->email)->toBe('new@example.com');
+    expect($employee->phone)->toBe('09222222222');
+    expect($employee->address)->toBe('New Address');
+    expect($employee->birth_date->toDateString())->toBe('1992-02-02');
+    expect($employee->hire_date->toDateString())->toBe('2021-01-01');
+    expect($employee->position->value)->toBe('contractual');
+    expect($employee->sss_number)->toBe('99-9999999-9');
+    expect($employee->philhealth_number)->toBe('99-999999999-9');
+    expect($employee->pagibig_number)->toBe('9999-9999-9999');
+    expect($employee->tin_number)->toBe('999-999-999-999');
+    expect($employee->notes)->toBe('Updated notes');
+
+    $log = AuditLog::where('model_id', $employee->id)
+        ->where('action', 'updated')
+        ->first();
+
+    expect($log)->not->toBeNull();
+    expect($log->before)->toBeArray();
+    expect($log->after)->toBeArray();
+
+    expect($log->before['hire_date'])->toMatch('/^\d{4}-\d{2}-\d{2}$/');
+    expect($log->after['hire_date'])->toMatch('/^\d{4}-\d{2}-\d{2}$/');
+    expect($log->before['birth_date'])->toMatch('/^\d{4}-\d{2}-\d{2}$/');
+    expect($log->after['birth_date'])->toMatch('/^\d{4}-\d{2}-\d{2}$/');
 });
 
 it('admin cannot update employee in other branch', function () {

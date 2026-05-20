@@ -11,6 +11,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Log;
+use Payroll\Audit\Traits\Auditable;
 use Payroll\Employee\Enums\EmployeePosition;
 use Payroll\Employee\Enums\EmployeeStatus;
 use Payroll\Employee\Requests\RehireEmployeeRequest;
@@ -19,6 +20,7 @@ use Payroll\Employee\Requests\UpdateEmployeeRequest;
 
 class EmployeeController extends Controller
 {
+    use Auditable;
     use AuthorizesRequests;
 
     protected array $filterable = [
@@ -107,7 +109,7 @@ class EmployeeController extends Controller
     public function store(StoreEmployeeRequest $request)
     {
         try {
-            DB::transaction(function () use ($request) {
+            $employee = DB::transaction(function () use ($request) {
                 $validated = $request->validated();
                 $dailyRate = $validated['daily_rate'];
                 unset($validated['daily_rate']);
@@ -117,7 +119,11 @@ class EmployeeController extends Controller
                 $employee = Employee::create($validated);
 
                 Salary::createForEmployee($employee, $dailyRate, $request->hire_date, 'Initial salary on hire');
+
+                return $employee;
             });
+
+            $this->audit('created', $employee, [], $employee->getAttributes());
 
             return redirect()->route('payroll.employees.index')
                 ->with('success', 'Employee created successfully.');
@@ -175,6 +181,8 @@ class EmployeeController extends Controller
     {
         $this->authorize('update', $employee);
 
+        $before = $employee->getAttributes();
+
         try {
             DB::transaction(function () use ($request, $employee) {
                 $validated = $request->validated();
@@ -197,6 +205,9 @@ class EmployeeController extends Controller
                 }
             });
 
+            $employee->refresh();
+            $this->audit('updated', $employee, $before, $employee->getAttributes());
+
             return redirect()->route('payroll.employees.index')
                 ->with('success', 'Employee updated successfully.');
         } catch (\Exception $e) {
@@ -210,8 +221,13 @@ class EmployeeController extends Controller
     {
         $this->authorize('delete', $employee);
 
+        $before = $employee->getAttributes();
+
         try {
             $employee->delete();
+            $employee->refresh();
+
+            $this->audit('deleted', $employee, $before, $employee->getAttributes());
 
             return back()->with('success', 'Employee deleted successfully.');
         } catch (\Exception $e) {
@@ -224,6 +240,8 @@ class EmployeeController extends Controller
     public function rehire(RehireEmployeeRequest $request, Employee $employee)
     {
         $this->authorize('update', $employee);
+
+        $before = $employee->getAttributes();
 
         try {
             DB::transaction(function () use ($request, $employee) {
@@ -246,6 +264,9 @@ class EmployeeController extends Controller
                     $validated['notes'] ?? 'Rehired',
                 );
             });
+
+            $employee->refresh();
+            $this->audit('rehired', $employee, $before, $employee->getAttributes());
 
             return redirect()->route('payroll.employees.index')
                 ->with('success', 'Employee rehired successfully.');

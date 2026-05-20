@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Payroll\Audit\Models\AuditLog;
+use Payroll\Audit\Policies\AuditLogPolicy;
 use Payroll\Employee\Policies\EmployeePolicy as PayrollEmployeePolicy;
 
 class AppServiceProvider extends ServiceProvider
@@ -37,6 +39,7 @@ class AppServiceProvider extends ServiceProvider
 
         Gate::policy(Expense::class, ExpensePolicy::class);
         Gate::policy(Employee::class, PayrollEmployeePolicy::class);
+        Gate::policy(AuditLog::class, AuditLogPolicy::class);
     }
 
     /**

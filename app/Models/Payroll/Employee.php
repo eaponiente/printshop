@@ -23,9 +23,9 @@ class Employee extends Model
     protected function casts(): array
     {
         return [
-            'hire_date' => 'date',
-            'end_date' => 'date',
-            'birth_date' => 'date',
+            'hire_date' => 'date:Y-m-d',
+            'end_date' => 'date:Y-m-d',
+            'birth_date' => 'date:Y-m-d',
             'status' => EmployeeStatus::class,
             'position' => EmployeePosition::class,
             'current_daily_rate' => 'decimal:2',

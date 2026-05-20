@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import PayrollLayout from '@/layouts/payroll/payroll-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Employee } from '@/types/employee';
+import { toManilaTime } from '@/utils/dateHelper';
 import { formatCurrency } from '@/utils/formatters';
 
 interface ShowProps {
@@ -90,7 +91,11 @@ export default function EmployeeShow({ employee }: ShowProps) {
                             />
                             <InfoRow
                                 label="Birth Date"
-                                value={employee.birth_date ?? '--'}
+                                value={
+                                    employee.birth_date
+                                        ? toManilaTime(employee.birth_date)
+                                        : '--'
+                                }
                             />
                         </dl>
                     </div>
@@ -130,11 +135,15 @@ export default function EmployeeShow({ employee }: ShowProps) {
                             />
                             <InfoRow
                                 label="Hire Date"
-                                value={employee.hire_date}
+                                value={toManilaTime(employee.hire_date)}
                             />
                             <InfoRow
                                 label="End Date"
-                                value={employee.end_date ?? '--'}
+                                value={
+                                    employee.end_date
+                                        ? toManilaTime(employee.end_date)
+                                        : '--'
+                                }
                             />
                             <InfoRow
                                 label="Daily Rate"
@@ -194,8 +203,9 @@ export default function EmployeeShow({ employee }: ShowProps) {
                                             )}
                                         </div>
                                         <div className="text-xs text-muted-foreground">
-                                            {s.effective_date}
-                                            {s.end_date && ` — ${s.end_date}`}
+                                            {toManilaTime(s.effective_date)}
+                                            {s.end_date &&
+                                                ` — ${toManilaTime(s.end_date)}`}
                                         </div>
                                     </div>
                                 ))}

@@ -16,8 +16,8 @@ class Salary extends Model
     {
         return [
             'daily_rate' => 'decimal:2',
-            'effective_date' => 'date',
-            'end_date' => 'date',
+            'effective_date' => 'date:Y-m-d',
+            'end_date' => 'date:Y-m-d',
         ];
     }
 
