@@ -56,8 +56,12 @@ const SalesTableFilters = React.memo(
         }, [filters.search]);
 
         const handleFilterChangeRef = React.useRef(handleFilterChange);
-        handleFilterChangeRef.current = handleFilterChange;
 
+        React.useEffect(() => {
+            handleFilterChangeRef.current = handleFilterChange;
+        });
+
+        /* eslint-disable react-hooks/refs */
         const debouncedSearch = React.useMemo(
             () =>
                 debounce((val: string) => {
@@ -65,6 +69,7 @@ const SalesTableFilters = React.memo(
                 }, 400),
             [],
         );
+        /* eslint-enable react-hooks/refs */
 
         return (
             <div className="mb-6 flex flex-wrap items-end gap-3 rounded-lg bg-slate-50/50 p-4">
