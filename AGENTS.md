@@ -119,3 +119,4 @@ Domains: `sales`, `expenses`, `sublimations`, `purchase-orders`, `customers`, `e
 - Make sure admin can employee records within their branch.
 - Staff can only access their own records.
 - Superadmin can access everything.
+- For every endpoint that has mutation, make sure there is an audit log.
