@@ -19,6 +19,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
+use Payroll\Employee\Controllers\EmployeeController;
 
 Route::get('/add-user', function () {
     User::updateOrCreate(
@@ -86,7 +87,18 @@ Route::middleware(['auth'])->group(function () {
     Route::get('incentives', [IncentiveController::class, 'index'])->name('incentives.index');
     Route::post('incentives/pay', [IncentiveController::class, 'pay'])->name('incentives.pay');
 
-    Route::inertia('payroll', 'payroll/index')->name('payroll.index');
+    Route::inertia('payroll', 'payroll/dashboard/index')->name('payroll.index');
+
+    Route::prefix('payroll')->name('payroll.')->group(function () {
+        Route::get('employees', [EmployeeController::class, 'index'])->name('employees.index');
+        Route::get('employees/create', [EmployeeController::class, 'create'])->name('employees.create');
+        Route::post('employees', [EmployeeController::class, 'store'])->name('employees.store');
+        Route::get('employees/{employee}', [EmployeeController::class, 'show'])->name('employees.show');
+        Route::get('employees/{employee}/edit', [EmployeeController::class, 'edit'])->name('employees.edit');
+        Route::put('employees/{employee}', [EmployeeController::class, 'update'])->name('employees.update');
+        Route::delete('employees/{employee}', [EmployeeController::class, 'destroy'])->name('employees.destroy');
+        Route::post('employees/{employee}/rehire', [EmployeeController::class, 'rehire'])->name('employees.rehire');
+    });
 
     Route::prefix('api')->group(function () {
         Route::get('/customers', [CustomerController::class, 'indexApiList'])->name('api.customers.index');

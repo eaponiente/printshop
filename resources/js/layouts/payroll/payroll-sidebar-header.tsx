@@ -4,7 +4,7 @@ import { Breadcrumbs } from '@/components/breadcrumbs';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import type { BreadcrumbItem as BreadcrumbItemType } from '@/types';
 
-export function AppSidebarHeader({
+export function PayrollSidebarHeader({
     breadcrumbs = [],
 }: {
     breadcrumbs?: BreadcrumbItemType[];
@@ -20,11 +20,11 @@ export function AppSidebarHeader({
             {auth.user.role !== 'staff' && (
                 <div className="ml-auto">
                     <Link
-                        href="/payroll"
+                        href="/dashboard"
                         className="inline-flex items-center gap-2 rounded-md border border-sidebar-border/70 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                     >
                         <Banknote className="size-4" />
-                        Payroll
+                        Sales
                     </Link>
                 </div>
             )}

@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\Expense;
+use App\Models\Payroll\Employee;
 use App\Policies\ExpensePolicy;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Payroll\Employee\Policies\EmployeePolicy as PayrollEmployeePolicy;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -34,6 +36,7 @@ class AppServiceProvider extends ServiceProvider
         }
 
         Gate::policy(Expense::class, ExpensePolicy::class);
+        Gate::policy(Employee::class, PayrollEmployeePolicy::class);
     }
 
     /**

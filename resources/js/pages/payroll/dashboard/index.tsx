@@ -1,5 +1,5 @@
 import { Head, usePage } from '@inertiajs/react';
-import PayrollLayout from '@/layouts/payroll-layout';
+import PayrollLayout from '@/layouts/payroll/payroll-layout';
 import { dashboard } from '@/routes';
 import type { BreadcrumbItem } from '@/types';
 

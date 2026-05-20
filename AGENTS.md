@@ -23,6 +23,12 @@ php artisan test
 # Run a single test file
 php artisan test --filter=SaleIndexTest
 
+# PHP lint (Pint — auto-fix)
+composer lint
+
+# PHP lint check only (no auto-fix, fails if issues found)
+composer lint:check
+
 # Frontend type check
 npm run types:check
 
@@ -109,3 +115,7 @@ Domains: `sales`, `expenses`, `sublimations`, `purchase-orders`, `customers`, `e
 - Use Tailwind CSS v4 for styling. No need for bootstrap or any other css framework.
 - On tsx files, if a component is deemed too big (exceeds 100 lines), split it into smaller components.
 - Always run lint and artisan test when committing files.
+- Always run `composer lint` and `npm run lint` before committing PHP/JS changes.
+- Make sure admin can employee records within their branch.
+- Staff can only access their own records.
+- Superadmin can access everything.
