@@ -209,50 +209,39 @@ export default function SaleIndex({
         [filters],
     );
 
-    const handleFilterChange = useCallback(
-        (
-            value: string,
-            type:
-                | 'mode'
-                | 'date'
-                | 'status'
-                | 'branch_id'
-                | 'payment_type'
-                | 'search',
-        ) => {
-            const params = { ...filters, tab: activeTab };
+    const handleFilterChange = (
+        value: string,
+        type:
+            | 'mode'
+            | 'date'
+            | 'status'
+            | 'branch_id'
+            | 'payment_type'
+            | 'search',
+    ) => {
+        const params = { ...filters, tab: activeTab };
 
-            if (type === 'search') {
-                params.search = value;
-            } else if (type === 'mode') {
-                setMode(value);
-                params.mode = value;
-                params.date = '';
-            } else if (type === 'status') {
-                params.status = value;
-            } else if (type === 'payment_type') {
-                params.payment_type = value;
-            } else if (type === 'branch_id') {
-                params.branch_id = value;
-            } else {
-                params.date = value;
-            }
+        if (type === 'search') {
+            params.search = value;
+        } else if (type === 'mode') {
+            setMode(value);
+            params.mode = value;
+            params.date = '';
+        } else if (type === 'status') {
+            params.status = value;
+        } else if (type === 'payment_type') {
+            params.payment_type = value;
+        } else if (type === 'branch_id') {
+            params.branch_id = value;
+        } else {
+            params.date = value;
+        }
 
-            if (type === 'search') {
-                router.get(
-                    route('sales.index'),
-                    { ...params, page: 1 },
-                    { preserveState: true, replace: true },
-                );
-            } else {
-                router.get(`/sales`, params, {
-                    preserveState: true,
-                    replace: true,
-                });
-            }
-        },
-        [filters, activeTab],
-    );
+        router.get(route('sales.index'), params, {
+            preserveState: true,
+            replace: true,
+        });
+    };
 
     const clearFilters = useCallback(() => {
         setMode('daily');
