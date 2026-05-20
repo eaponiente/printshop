@@ -10,6 +10,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import type { Branch } from '@/types/branches';
+import { debounce } from '@/utils/helpers';
 
 interface SalesTableFiltersProps {
     mode: string;
@@ -46,6 +47,30 @@ const SalesTableFilters = React.memo(
         branches,
         types_of_payment,
     }: SalesTableFiltersProps) => {
+        const [searchValue, setSearchValue] = React.useState(
+            filters.search || '',
+        );
+
+        React.useEffect(() => {
+            setSearchValue(filters.search || '');
+        }, [filters.search]);
+
+        const handleFilterChangeRef = React.useRef(handleFilterChange);
+
+        React.useEffect(() => {
+            handleFilterChangeRef.current = handleFilterChange;
+        });
+
+        /* eslint-disable react-hooks/refs */
+        const debouncedSearch = React.useMemo(
+            () =>
+                debounce((val: string) => {
+                    handleFilterChangeRef.current(val, 'search');
+                }, 400),
+            [],
+        );
+        /* eslint-enable react-hooks/refs */
+
         return (
             <div className="mb-6 flex flex-wrap items-end gap-3 rounded-lg bg-slate-50/50 p-4">
                 <div className="min-w-[250px] flex-1 space-y-1.5">
@@ -56,10 +81,12 @@ const SalesTableFilters = React.memo(
                         <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                             placeholder="Search customer..."
-                            value={filters.search || ''}
-                            onChange={(e) =>
-                                handleFilterChange(e.target.value, 'search')
-                            }
+                            value={searchValue}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setSearchValue(val);
+                                debouncedSearch(val);
+                            }}
                             className="bg-white pl-9"
                         />
                     </div>
