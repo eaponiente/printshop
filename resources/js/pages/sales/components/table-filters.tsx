@@ -1,5 +1,5 @@
 import { Search, X } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -10,6 +10,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import type { Branch } from '@/types/branches';
+import type { User } from '@/types/user';
+import { debounce } from '@/utils/helpers';
 
 interface SalesTableFiltersProps {
     mode: string;
@@ -19,6 +21,7 @@ interface SalesTableFiltersProps {
         date?: string;
         status?: string;
         branch_id?: string;
+        staff_id?: string;
         payment_type?: string;
     };
     handleFilterChange: (
@@ -28,12 +31,14 @@ interface SalesTableFiltersProps {
             | 'date'
             | 'status'
             | 'branch_id'
+            | 'staff_id'
             | 'payment_type'
             | 'search',
     ) => void;
     clearFilters: () => void;
     branches: Branch[];
     types_of_payment: { key: string; value: string }[];
+    users: User[];
 }
 
 const SalesTableFilters = React.memo(
@@ -45,34 +50,34 @@ const SalesTableFilters = React.memo(
         clearFilters,
         branches,
         types_of_payment,
+        users,
     }: SalesTableFiltersProps) => {
-        // 1. Local state for search to prevent re-rendering the whole page
-        const [localSearch, setLocalSearch] = useState(filters.search || '');
+        const [searchValue, setSearchValue] = React.useState(
+            filters.search || '',
+        );
 
-        // 2. Debounce effect inside the filter component
-        useEffect(() => {
-            const delayDebounceFn = setTimeout(() => {
-                if (localSearch !== (filters.search || '')) {
-                    handleFilterChange(localSearch, 'search');
-                }
-            }, 300);
+        React.useEffect(() => {
+            setSearchValue(filters.search || '');
+        }, [filters.search]);
 
-            return () => clearTimeout(delayDebounceFn);
-        }, [localSearch, filters.search, handleFilterChange]);
+        const handleFilterChangeRef = React.useRef(handleFilterChange);
 
-        // Sync local search if filters are cleared externally
-        useEffect(() => {
-            if (!filters.search && localSearch) {
-                const id = setTimeout(() => setLocalSearch(''), 0);
+        React.useEffect(() => {
+            handleFilterChangeRef.current = handleFilterChange;
+        });
 
-                return () => clearTimeout(id);
-            }
-        }, [filters.search, localSearch]);
+        /* eslint-disable react-hooks/refs */
+        const debouncedSearch = React.useMemo(
+            () =>
+                debounce((val: string) => {
+                    handleFilterChangeRef.current(val, 'search');
+                }, 400),
+            [],
+        );
+        /* eslint-enable react-hooks/refs */
 
-        // Map mode to HTML input types
         return (
             <div className="mb-6 flex flex-wrap items-end gap-3 rounded-lg bg-slate-50/50 p-4">
-                {/* 3. The New Search Input */}
                 <div className="min-w-[250px] flex-1 space-y-1.5">
                     <label className="ml-1 text-xs font-semibold text-muted-foreground uppercase">
                         Search
@@ -80,9 +85,13 @@ const SalesTableFilters = React.memo(
                     <div className="relative">
                         <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
-                            placeholder="Search guest..."
-                            value={localSearch}
-                            onChange={(e) => setLocalSearch(e.target.value)}
+                            placeholder="Search customer..."
+                            value={searchValue}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setSearchValue(val);
+                                debouncedSearch(val);
+                            }}
                             className="bg-white pl-9"
                         />
                     </div>
@@ -219,6 +228,49 @@ const SalesTableFilters = React.memo(
                         </SelectContent>
                     </Select>
                 </div>
+
+                {/* Staff Filter — only for superadmin when a specific branch is selected */}
+                {users.length > 0 &&
+                    filters.branch_id &&
+                    filters.branch_id !== 'all' && (
+                        <div className="space-y-1.5">
+                            <label className="ml-1 text-xs font-semibold text-muted-foreground uppercase">
+                                Staff
+                            </label>
+                            <Select
+                                value={filters.staff_id || 'all'}
+                                onValueChange={(v) =>
+                                    handleFilterChange(
+                                        v === 'all' ? '' : v,
+                                        'staff_id',
+                                    )
+                                }
+                            >
+                                <SelectTrigger className="w-[160px] bg-white text-sm">
+                                    <SelectValue placeholder="All Staff" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">
+                                        All Staff
+                                    </SelectItem>
+                                    {users
+                                        .filter(
+                                            (u) =>
+                                                String(u.branch_id) ===
+                                                filters.branch_id,
+                                        )
+                                        .map((u) => (
+                                            <SelectItem
+                                                key={u.id}
+                                                value={String(u.id)}
+                                            >
+                                                {u.fullname}
+                                            </SelectItem>
+                                        ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
 
                 {/* Payment Type Filter — only on payments tab */}
                 {is_payment_view && (
