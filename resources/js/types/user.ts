@@ -3,6 +3,7 @@ import type { PaginatedResponse } from '@/types/pagination';
 
 export type User = {
     id: number;
+    branch_id?: number;
     branch: Branch;
     fullname: string;
     username: string;

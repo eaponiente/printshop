@@ -27,6 +27,7 @@ class GetTransactionsRequest extends FormRequest
             'branch_id' => 'nullable',
             'payment_type' => ['nullable', 'string', 'in:'.implode(',', array_merge(array_map(fn ($c) => $c->value, TransactionTypeOfPaymentEnum::cases()), ['all']))],
             'customer' => 'nullable|string',
+            'staff_id' => 'nullable|string',
             'sort_field' => 'nullable|string|in:transaction_date,created_at',
             'sort_direction' => 'nullable|string|in:asc,desc',
         ];

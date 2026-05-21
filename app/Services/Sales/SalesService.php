@@ -40,6 +40,11 @@ class SalesService
                 if ($s !== 'all') {
                     $q->whereHas('payments', fn ($sq) => $sq->where('payment_type', $s));
                 }
+            })
+            ->when($filters['staff_id'] ?? null, function ($q, $s) {
+                if ($s !== 'all') {
+                    $q->where('staff_id', $s);
+                }
             });
 
         // 2. Sorting Logic
@@ -123,6 +128,12 @@ class SalesService
         // Staff restriction
         if ($user->role === UserRole::STAFF->value) {
             $query->whereHas('transaction', fn ($q) => $q->where('staff_id', $user->id));
+        }
+
+        // Optional staff_id filter (superadmin only)
+        $staffId = $filters['staff_id'] ?? null;
+        if ($staffId && $staffId !== 'all') {
+            $query->whereHas('transaction', fn ($q) => $q->where('staff_id', $staffId));
         }
 
         // Sorting
