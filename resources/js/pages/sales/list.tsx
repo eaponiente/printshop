@@ -80,6 +80,7 @@ interface SaleIndexProps {
     transactions: PaginatedResponse<Transaction | Payment>;
     filters: any;
     branches: any[];
+    users: User[];
     types_of_payment: TypeOfPayment[];
     total_sales: number;
     net_income: number;
@@ -105,6 +106,7 @@ export default function SaleIndex({
     transactions,
     filters,
     branches,
+    users = [],
     types_of_payment,
     total_sales = 0,
     net_income = 0,
@@ -216,6 +218,7 @@ export default function SaleIndex({
             | 'date'
             | 'status'
             | 'branch_id'
+            | 'staff_id'
             | 'payment_type'
             | 'search',
     ) => {
@@ -233,6 +236,9 @@ export default function SaleIndex({
             params.payment_type = value;
         } else if (type === 'branch_id') {
             params.branch_id = value;
+            params.staff_id = '';
+        } else if (type === 'staff_id') {
+            params.staff_id = value;
         } else {
             params.date = value;
         }
@@ -633,6 +639,7 @@ export default function SaleIndex({
                         clearFilters={clearFilters}
                         branches={branches}
                         types_of_payment={types_of_payment}
+                        users={users}
                     />
 
                     <div className="flex gap-1 px-4 pb-2">

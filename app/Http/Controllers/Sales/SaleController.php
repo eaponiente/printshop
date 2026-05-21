@@ -13,6 +13,7 @@ use App\Http\Requests\Transactions\UpdateTransactionPaymentRequest;
 use App\Http\Requests\Transactions\UpdateTransactionRequest;
 use App\Models\Branch;
 use App\Models\Transaction;
+use App\Models\User;
 use App\Services\Files\FileUploadService;
 use App\Services\Sales\CashOnHandService;
 use App\Services\Sales\SalesService;
@@ -44,12 +45,17 @@ class SaleController extends Controller
             ->when(auth()->user()->isStaff() || auth()->user()->isAdmin(), fn ($q) => $q->where('id', auth()->user()->branch_id))
             ->get(['id', 'name']);
 
+        $users = auth()->user()->isSuperAdmin() || auth()->user()->isAdmin()
+            ? User::whereIn('role', ['admin', 'staff'])->select('id', 'first_name', 'last_name', 'branch_id')->orderBy('first_name')->get()
+            : collect();
+
         if ($isUnpaidTab) {
             $query = $this->salesService->getTransactionQuery(array_merge($filters, ['status' => 'pending']));
 
             return Inertia::render('sales/list', [
                 'filters' => $filters,
                 'branches' => $branches,
+                'users' => $users,
                 'transactions' => $query->paginate(100)->withQueryString(),
                 'types_of_payment' => TransactionTypeOfPaymentEnum::map(),
                 'cash_on_hand_amount' => $cashOnHand,
@@ -64,6 +70,7 @@ class SaleController extends Controller
         return Inertia::render('sales/list', array_merge([
             'filters' => $filters,
             'branches' => $branches,
+            'users' => $users,
             'transactions' => $paymentQuery->paginate(100)->withQueryString(),
             'types_of_payment' => TransactionTypeOfPaymentEnum::map(),
             'cash_on_hand_amount' => $cashOnHand,

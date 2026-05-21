@@ -10,6 +10,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import type { Branch } from '@/types/branches';
+import type { User } from '@/types/user';
 import { debounce } from '@/utils/helpers';
 
 interface SalesTableFiltersProps {
@@ -20,6 +21,7 @@ interface SalesTableFiltersProps {
         date?: string;
         status?: string;
         branch_id?: string;
+        staff_id?: string;
         payment_type?: string;
     };
     handleFilterChange: (
@@ -29,12 +31,14 @@ interface SalesTableFiltersProps {
             | 'date'
             | 'status'
             | 'branch_id'
+            | 'staff_id'
             | 'payment_type'
             | 'search',
     ) => void;
     clearFilters: () => void;
     branches: Branch[];
     types_of_payment: { key: string; value: string }[];
+    users: User[];
 }
 
 const SalesTableFilters = React.memo(
@@ -46,6 +50,7 @@ const SalesTableFilters = React.memo(
         clearFilters,
         branches,
         types_of_payment,
+        users,
     }: SalesTableFiltersProps) => {
         const [searchValue, setSearchValue] = React.useState(
             filters.search || '',
@@ -223,6 +228,49 @@ const SalesTableFilters = React.memo(
                         </SelectContent>
                     </Select>
                 </div>
+
+                {/* Staff Filter — only for superadmin when a specific branch is selected */}
+                {users.length > 0 &&
+                    filters.branch_id &&
+                    filters.branch_id !== 'all' && (
+                        <div className="space-y-1.5">
+                            <label className="ml-1 text-xs font-semibold text-muted-foreground uppercase">
+                                Staff
+                            </label>
+                            <Select
+                                value={filters.staff_id || 'all'}
+                                onValueChange={(v) =>
+                                    handleFilterChange(
+                                        v === 'all' ? '' : v,
+                                        'staff_id',
+                                    )
+                                }
+                            >
+                                <SelectTrigger className="w-[160px] bg-white text-sm">
+                                    <SelectValue placeholder="All Staff" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">
+                                        All Staff
+                                    </SelectItem>
+                                    {users
+                                        .filter(
+                                            (u) =>
+                                                String(u.branch_id) ===
+                                                filters.branch_id,
+                                        )
+                                        .map((u) => (
+                                            <SelectItem
+                                                key={u.id}
+                                                value={String(u.id)}
+                                            >
+                                                {u.fullname}
+                                            </SelectItem>
+                                        ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
 
                 {/* Payment Type Filter — only on payments tab */}
                 {is_payment_view && (
