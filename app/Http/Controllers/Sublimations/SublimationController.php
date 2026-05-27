@@ -21,6 +21,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -215,6 +216,12 @@ class SublimationController extends Controller
                 ]);
             }
 
+            if ($newStatus === SublimationStatus::WAITING_FOR_DP && ! $sublimation->user_id) {
+                return back()->withErrors([
+                    'status' => 'A user must be assigned to the sublimation before marking it as Waiting for Downpayment.',
+                ]);
+            }
+
             DB::transaction(function () use ($sublimation, $newStatus) {
                 if ($newStatus === SublimationStatus::WAITING_FOR_DP) {
                     // Check if a transaction already exists to prevent duplicates
@@ -225,7 +232,7 @@ class SublimationController extends Controller
                             'invoice_number' => Transaction::generateNumber(),
                             'amount_total' => $sublimation->amount_total,
                             'particular' => 'Sublimation',
-                            'staff_id' => auth()->id(),
+                            'staff_id' => $sublimation->user_id,
                             'transaction_date' => now(),
                         ]));
 
@@ -258,7 +265,9 @@ class SublimationController extends Controller
         } catch (\Exception $e) {
             Log::error('Failed to update sublimation staff: '.$e->getMessage());
 
-            return back()->withErrors(['message' => 'An error occurred while updating the sublimation staff.']);
+            throw ValidationException::withMessages([
+                'message' => 'An error occurred while updating the sublimation staff.',
+            ]);
         }
     }
 

@@ -299,6 +299,15 @@ export default function SublimationIndex({
                         {
                             preserveScroll: true,
                             preserveState: true,
+                            onError: (errors) => {
+                                const message =
+                                    errors.user_id ??
+                                    Object.values(errors).flat()[0] ??
+                                    'An error occurred';
+                                toast.error(message, {
+                                    position: 'top-center',
+                                });
+                            },
                         },
                     );
                 };
