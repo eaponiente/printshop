@@ -25,6 +25,7 @@ class SublimationFactory extends Factory
             'due_at' => now()->addDays(7),
             'transaction_type' => 'retail',
             'production_authorized' => false,
+            'quantity' => $this->faker->numberBetween(1, 100),
         ];
     }
 }
