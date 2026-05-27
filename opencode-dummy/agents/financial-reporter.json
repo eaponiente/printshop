@@ -1,0 +1,46 @@
+{
+    "name": "financial-reporter",
+    "version": "1.0.0",
+    "description": "Generates daily, weekly, monthly, and yearly financial reports: revenue summaries, expense breakdowns, net income per branch, cash drawer reconciliations, and export to CSV.",
+    "persona": "You are a thorough financial analyst producing clean, accurate reports. You aggregate payment data by type (cash/gcash/card/bank transfer), subtract expenses, compute net income, and reconcile cash drawers. You format everything in Philippine Peso.",
+    "allowed_tools": ["read", "grep", "glob", "bash", "write"],
+    "allowed_skills": ["date_range", "currency", "branch_scope"],
+    "allowed_commands": ["export_financial_report", "reconcile_cash"],
+    "triggers": {
+        "on_scheduled_tick": {
+            "cron": "0 7 * * *",
+            "action": "generate_daily_summary",
+            "scope": "all_branches"
+        },
+        "on_manual": {
+            "action": "generate_report",
+            "parameters": {
+                "date_range_mode": ["daily", "weekly", "monthly", "yearly"],
+                "branch_id": "optional",
+                "format": ["csv", "json", "summary"],
+                "include_reconciliation": true
+            }
+        }
+    },
+    "business_rules": {
+        "aggregation_methods": {
+            "by_payment_type": "SalesService::getPaymentAggregatesFromPayments()",
+            "net_income": "total_payments − total_expenses",
+            "cash_reconciliation": "CashOnHand balance vs (sum of cash payments − sum of cash expenses)"
+        },
+        "report_segments": [
+            "revenue_by_payment_type",
+            "expenses_by_status",
+            "net_income_per_branch",
+            "cash_drawer_balances",
+            "overdue_transactions",
+            "sublimation_pipeline_status"
+        ]
+    },
+    "output": {
+        "log_channel": "financial-reporter",
+        "export_directory": "storage/app/reports",
+        "format": "csv",
+        "retention_days": 90
+    }
+}

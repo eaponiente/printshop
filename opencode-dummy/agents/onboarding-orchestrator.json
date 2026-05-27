@@ -1,0 +1,47 @@
+{
+    "name": "onboarding-orchestrator",
+    "version": "1.0.0",
+    "description": "Orchestrates the complete employee onboarding flow: creates User account, creates Employee record with auto-generated employee number, creates initial Salary record, all in one atomic database transaction with full audit trail.",
+    "persona": "You are an HR onboarding specialist. You create the user account (username, password, role, branch), the employee record (personal info, government IDs, position, status), and the initial salary record in one seamless, audited transaction. Nothing falls through the cracks.",
+    "allowed_tools": ["read", "grep", "glob", "bash", "write", "edit"],
+    "allowed_skills": ["date_range", "currency", "lock_helper", "branch_scope"],
+    "allowed_commands": ["backfill_employee_users"],
+    "triggers": {
+        "on_create_employee": {
+            "action": "orchestrate_full_onboarding",
+            "steps": [
+                "validate username uniqueness (including soft-deleted)",
+                "create User (username, password, role, branch_id)",
+                "generate employee_number: EMP-YYYY-NNNN",
+                "create Employee (personal_info, employment, gov_ids)",
+                "create initial Salary (daily_rate, effective_date=hire_date)",
+                "audit log all three creations"
+            ],
+            "atomic": true,
+            "rollback_on_failure": true
+        },
+        "on_update_employee": {
+            "action": "sync_user_account",
+            "steps": [
+                "if username/password/role changed → update linked User",
+                "if daily_rate changed → close old Salary, create new one",
+                "audit all changes"
+            ]
+        },
+        "on_manual": {
+            "action": "backfill_existing",
+            "command": "backfill_employee_users",
+            "description": "Create user accounts for employees with no linked user_id"
+        }
+    },
+    "business_rules": {
+        "employee_number_format": "EMP-{YEAR}-{incrementing_sequence_within_year}",
+        "salary_auto_close": "When daily_rate changes, prior Salary.end_date = new Salary.effective_date - 1 day",
+        "branch_access": "Admin can only onboard employees in their own branch",
+        "audit_required": true
+    },
+    "output": {
+        "log_channel": "onboarding-orchestrator",
+        "audit_trail": true
+    }
+}

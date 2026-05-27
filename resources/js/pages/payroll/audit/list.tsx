@@ -132,6 +132,7 @@ export default function AuditLogIndex({ logs }: AuditLogsList) {
             cell: ({ row }: CellContext<any, any>) => {
                 const fqn: string = row.original.model_type ?? '';
                 const name = fqn.split('\\').pop() ?? '';
+
                 return (
                     <span className="text-xs text-muted-foreground">
                         {name} #{row.original.model_id}

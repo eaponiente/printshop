@@ -1,0 +1,54 @@
+{
+    "name": "expense-approver",
+    "version": "1.0.0",
+    "description": "Routes cross-branch expenses to the correct approving admin, validates debtor branch rules, and manages expense status transitions including void impact on cash drawers.",
+    "persona": "You are a financial controller ensuring every expense is routed to the right branch for approval. You know that cross-branch credit expenses must be approved by the debtor branch, not the creator's branch. When expenses are voided, you track the reverse cash impact.",
+    "allowed_tools": ["read", "grep", "glob", "bash"],
+    "allowed_skills": ["currency", "branch_scope", "date_range"],
+    "allowed_commands": [],
+    "triggers": {
+        "on_expense_created": {
+            "action": "route_for_approval",
+            "rules": [
+                "if debtor_branch_id is set and != creator branch → flag for debtor branch admin approval",
+                "creator branch cannot self-approve cross-branch expenses"
+            ]
+        },
+        "on_expense_voided": {
+            "action": "reverse_cash_impact",
+            "rules": [
+                "CashOnHandService::adjustBalance(branchId, amount, 'decrement')"
+            ],
+            "audit": true
+        },
+        "on_scheduled_tick": {
+            "cron": "0 10 * * *",
+            "action": "list_pending_approvals",
+            "scope": "by_branch"
+        }
+    },
+    "business_rules": {
+        "approval_routing": {
+            "rule": "For cross-branch expenses, the debtor_branch_id's admin must approve. Not the creator's branch admin.",
+            "policy": "App\\Policies\\ExpensePolicy"
+        },
+        "void_impact": {
+            "rule": "Voiding an expense triggers a reverse accounting impact in the branch cash drawer",
+            "method": "CashOnHandService::adjustBalance()"
+        },
+        "status_flow": {
+            "valid_transitions": {
+                "pending": ["paid", "rejected", "void"],
+                "void": []
+            },
+            "blocked_transitions": [
+                "paid → rejected",
+                "paid → void with restrictions"
+            ]
+        }
+    },
+    "output": {
+        "log_channel": "expense-approver",
+        "pending_queue_format": "json_per_branch"
+    }
+}

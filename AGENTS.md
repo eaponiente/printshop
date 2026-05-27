@@ -1,106 +1,156 @@
 # AGENTS.md
 
-## Stack
-
-- **Backend**: Laravel 12, PHP 8.4, SQLite (local) / MySQL (Sail/prod)
-- **Frontend**: Inertia.js React, TypeScript, Vite, Tailwind CSS v4, Radix UI/shadcn-style
-- **Testing**: Pest (PHP), RefreshDatabase on Feature tests
-- **Auth**: Laravel Fortify
-- **Other**: Ziggy (route helpers), Wayfinder (generated types/actions/routes), babel-plugin-react-compiler (auto-memo)
-
-## Commands
-
-```bash
-# Full setup (install deps, generate key, migrate, build assets)
-composer setup
-
-# Start all dev servers (laravel serve + queue + pail + vite)
-composer dev
-
-# Run PHP tests
-php artisan test
-
-# Run a single test file
-php artisan test --filter=SaleIndexTest
-
-# PHP lint (Pint — auto-fix)
-composer lint
-
-# PHP lint check only (no auto-fix, fails if issues found)
-composer lint:check
-
-# Frontend type check
-npm run types:check
-
-# Run Pest directly (used in CI)
-./vendor/bin/pest
+## 1. Project Overview & Business Logic
+### What is this application?
+This is a **Printing Shop Management System** designed to track print operations, custom sublimation orders, customer accounts, store transactions (invoices, payments, and refunds), business expenses, cash-on-hand tracking, employee records, incentives, and payroll.
+### Core Business Domains & Workflows
+#### 1. Custom Sublimation Orders
+- **Status Lifecycle Phases**:
+  - **Pre-Payment Phase**: `FOR_APPROVAL` (for_approval) → `DONE_LAYOUT` (done_layout) → `WAITING_FOR_DP` (waiting_for_dp).
+  - **Production Phase**: `DOWNPAYMENT_COMPLETE` (downpayment_complete) → `FOR_SIZING` (for_sizing) → `DONE_SIZING` (done_sizing) → `PRINTED` (printed) → `CUT` (cut) → `SEWING` (sewing) → `SEWED` (sewed) → `CHECKED` (checked) → `READY_FOR_PICKUP` (ready_for_pickup) → `CLAIMED` (claimed) → `COMPLETED` (completed).
+- **Trigger Gates**:
+  - Transitioning status to `WAITING_FOR_DP` auto-creates a linked `Transaction` with a matching `amount_total`.
+  - Sublimations cannot proceed into the production phase (anything from `DOWNPAYMENT_COMPLETE` onwards) until downpayment is paid, or the sublimation is linked to a `PurchaseOrder`, or a Superadmin bypasses the check. Check validation is performed via `Sublimation::canMoveTo()`.
+#### 2. Transactions & Ledger
+- **Invoice Tracking**: Central ledger for all sales and customer billing.
+- **Transaction Status**: `PENDING` (pending) → `PARTIAL` (partial) → `PAID` (paid).
+- **Financial Lock**: A transaction's `amount_total` becomes **locked** and cannot be altered once payment records are attached.
+- **Refunds**: Payments can be partially or fully refunded. Refunds write negative amounts in the payments ledger to ensure aggregate calculations balance.
+#### 3. Expense Management
+- **Cash Outflow**: Track business operating costs.
+- **Expense Status**: `PENDING` (pending) → `PAID` (paid) | `REJECTED` (rejected) | `VOID` (void).
+- **Drawer Impact**: Voiding an expense triggers a reverse accounting impact in the branch cash drawer via `CashOnHandService`.
+#### 4. Payroll, Employees & Incentives
+- **Employee Lifecycle**: Manage employee positions, statuses (`ACTIVE` | `INACTIVE`), hire dates, rehiring events, and current daily salary rates.
+- **Incentive System**: Commission/incentive tracker for design/production work.
+- **Benefits & Projects**: Association of employees with active project work and benefit deductions.
+### Target Audience / Role-Based Access Control (RBAC)
+- **Superadmin**: Global dashboard access across all branches. Bypasses all validation gates, accesses database configuration checks, manages payroll records, and reviews system-wide Audit Logs.
+- **Admin**: Can view and manage employee records, expenses, and transactions within their assigned branch.
+  - *Special Group Branch Rule*: Admins from the special branches (`Babak`, `Peñaplata`, `Tibungco`) share access to records from other branches in this group.
+- **Staff**: Restricted to front-counter operations at their assigned branch. Staff can only access their own records and cannot view other employees' records.
+---
+## 2. Tech Stack & Architecture
+### Core Frameworks
+- **Backend**: Laravel 12 (PHP 8.4) with **Laravel Fortify** for authentication, **Ziggy** for frontend route binding, and **Wayfinder** for type and controller route/action code-generation.
+- **Frontend**: **React** + **TypeScript** powered by **Vite** and **Tailwind CSS v4** styling. Uses **Radix UI** primitives styled like shadcn.
+- **Auto-Memoization**: Frontend utilizes `babel-plugin-react-compiler` for automatic React component memoization. Manual `useMemo` and `useCallback` declarations are generally redundant.
+### State Management & Data Flow
+- **Monolithic Inertia.js**: Inertia.js acts as the bridge. Controllers return Inertia views with typed props.
+- **No Global Client-Side Store**: UI components rely on Inertia's page props and form helper states (`useForm`).
+- **Imports**: TypeScript imports resolve using the `@/` alias (mapping to the `resources/js/` directory).
+### Database & Storage
+- **Database**: **SQLite** is used locally (`database/database.sqlite`), while **MySQL** is configured for Sail (Docker) and production.
+- **Pessimistic Locking**: Key ledger mutations (payment logging, invoice generation) use pessimistic locking (`lockForUpdate()`) to prevent race conditions during concurrent requests.
+- **Storage**: Custom file/image uploads (like Sublimation blueprints) target AWS S3 (via `league/flysystem-aws-s3-v3`).
+  - Storage paths utilize signed temporary URLs (`Storage::disk('s3')->temporaryUrl(...)`) to secure raw file references.
+  - The local `public` disk is used for local fallbacks.
+### Testing
+- **PHP Unit/Feature Testing**: **Pest PHP** is configured.
+- **State Preservation**: Feature tests use the `RefreshDatabase` trait (declared in `tests/Pest.php`) and execute against an in-memory SQLite schema.
+---
+## 3. Directory Structure & Key Files
 ```
-
-## Architecture
-
-### Backend Flow
-`routes/settings.php` → Controller (`app/Http/Controllers`) → FormRequest (`app/Http/Requests`) → Service/Model logic
-
-- All routes are in `routes/settings.php` (required from `routes/web.php`). There is no typical `web.php` with many routes — just an Inertia login page and `require settings.php`.
-- Business logic lives in `app/Services/` (e.g. `CashOnHandService`, `SalesService`, `Files/`). Keep controllers thin.
-- Enums in `app/Enums/<Domain>/` — use them instead of raw status/payment strings. Key enums: `SublimationStatus`, `TransactionStatus`, `ExpenseStatus`, `UserRole`.
-- Reusable traits in `app/Concerns/` (`SaleFilterTrait`, `Sortable`).
-- Policies in `app/Policies/` — use `$this->authorize(...)` in controllers, not inline role checks.
-
-### Frontend Flow
-Inertia pages resolve from `resources/js/pages/<domain>/` matching route names. Props are typed in `resources/js/types/`.
-
-Domain-level component placement:
-- `resources/js/pages/<domain>/` — page entrypoints
-- `resources/js/pages/<domain>/components/` — domain-specific child components
-- `resources/js/components/` — shared/reusable UI
-- `resources/js/components/ui/` — **generated** shadcn primitives (do not edit)
-
-Domains: `sales`, `expenses`, `sublimations`, `purchase-orders`, `customers`, `endorsements`, `branches`, `tags`, `settings`, `home`.
-
-### Key Models & State Machines
-- **Transaction**: Central ledger for billable services. Status: `PENDING` → `PARTIAL` → `PAID`. Payments go through `$transaction->recordPayment()`. Total amount is locked once payments exist.
-- **Sublimation**: Custom orders with status phases (Pre-Payment → Production → Post-Production). Transition logic in `Sublimation::canMoveTo()`. When status reaches `DOWNPAYMENT_COMPLETE`, a linked Transaction is auto-created.
-- **Expense**: Cash outflows. Void pattern uses `ExpenseController@void` with reason; reverses cash impact through `CashOnHandService`.
-- **PurchaseOrder**: Links to Transactions and Sublimations. Acts as an override for sublimation phase gates.
-- **CashOnHandService**: Singleton tracking branch cash drawer balances — used by Sales, Expenses, and Sublimations.
-
-## Conventions
-
-### Must Follow
-- Use `route()` (Ziggy) for all frontend URL generation — never hard-code paths.
-- Use `@/` imports (resolves to `resources/js/`).
-- Use `import type` for type-only imports. No `any` in TypeScript.
-- Align frontend/backend naming by domain (same domain prefixes everywhere).
-- Wrap multi-write DB operations in `DB::transaction(...)`.
-- Every new page needs: named route, controller action, request validation, typed Inertia props, and focused Pest test(s).
-- Return Inertia responses with stable prop names. Update TypeScript types when prop shape changes.
-
-### Never
-- Do not add new dependencies unless the task explicitly requires them.
-- Do not use `$table->enum()` in migrations — use `$table->string()` and keep the enum only at the Eloquent model level (enum cast in `casts()`).
-- Do not modify generated code in `resources/js/components/ui/*`, `resources/js/routes/**`, `resources/js/wayfinder/**`, or `resources/js/actions/**`.
-- Do not change `resources/css/app.css` theme foundations or CSS tokens for feature requests.
-- Do not make broad refactors during a feature/fix — keep changes scoped.
-- Do not commit `.env` files.
-- Always write a descriptive commit message summarizing the changes based on `git diff`.
-
-### Formatting
-- 4-space indentation (`.editorconfig`, `.prettierrc`)
-- PHP: Pint with `laravel` preset
-- JS/TS: Prettier (single quotes, semicolons, 80 print width) + ESLint (curlies required, import ordering, brace-style 1tbs)
-
-## Gotchas
-
-- **Local DB is SQLite** (`database/database.sqlite`). MySQL-native functions like `YEARWEEK()` won't work in local/test environments.
-- **DB destructive commands are prohibited in production** (`DB::prohibitDestructiveCommands`).
-- **Sail** is configured via `compose.yaml` for Docker-based local dev with MySQL.
-- **Generated route types** come from Wayfinder/Laravel Vite Plugin — routes are resolved at build time, so run `npm run dev` or build after adding routes.
-- **SSR** is configured (`resources/js/ssr.tsx`, `bootstrap/ssr` in `.gitignore`). The `dev:ssr` script runs with Inertia SSR enabled.
-- **Feature tests use RefreshDatabase** (declared in `tests/Pest.php`). Tests run against in-memory SQLite.
-- **`.npmrc`** sets `public-hoist-pattern[]=@inertiajs/core` — needed for pnpm compatibility.
-- **`react-compiler`** is enabled via babel plugin in Vite config — React components get auto-memoized, so manual `useMemo`/`useCallback` may be redundant.
-- **The `/add-user` route** (in `routes/settings.php`) creates a superadmin user (`username: superadmin`, `password: password`) and seeds branches. Use this for initial setup.
+.
+├── app/                           # Core Laravel app namespace
+│   ├── Concerns/                  # Reusable Eloquent traits (e.g., SaleFilterTrait, Sortable)
+│   ├── Enums/                     # Castable Enums grouped by domain subdirectories
+│   │   ├── Expenses/              # ExpenseStatus, ExpenseTypeOfPaymentEnum
+│   │   ├── Sales/                 # TransactionStatus, TransactionTypeOfPaymentEnum
+│   │   └── Sublimations/          # SublimationStatus
+│   ├── Http/
+│   │   ├── Controllers/           # Controllers grouped by domain folders
+│   │   └── Requests/              # Request classes grouped by domain folders
+│   ├── Models/                    # Eloquent Database models
+│   ├── Policies/                  # Authorization policies (e.g., ExpensePolicy, UserPolicy)
+│   └── Services/                  # Core Business Services (SalesService, CashOnHandService)
+│
+├── payroll/                       # Isolated Domain Module (autoloaded PSR-4 Payroll\)
+│   ├── Audit/                     # Audit logger, Auditable trait, AuditLog model
+│   ├── Employee/                  # Employee-specific controllers, requests, and policies
+│   └── Services/                  # Salary & payroll computation services
+│
+├── resources/                     # Frontend assets
+│   ├── css/
+│   │   └── app.css                # Tailwind base CSS
+│   └── js/
+│       ├── components/            # Reusable React components
+│       │   └── ui/                # Read-only generated shadcn primitives (DO NOT EDIT)
+│       ├── layouts/               # Dashboard layouts
+│       ├── pages/                 # Inertia page entrypoints grouped by domain folders
+│       │   ├── sales/             # Page: list, components/collect-payment-dialog.tsx
+│       │   ├── sublimations/      # Page: list, components/sublimation-dialog.tsx
+│       │   └── payroll/           # Payroll dashboards and employee management
+│       ├── types/                 # TypeScript interfaces (e.g., transaction.ts)
+│       └── utils/                 # Frontend helper scripts (e.g., dateHelper.ts)
+│
+├── routes/
+│   ├── web.php                    # Application entrypoint
+│   └── settings.php               # Core settings, settings panel, domain, and API routes
+│
+└── tests/
+    └── Feature/                   # Pest test files grouped by domain
+```
+### Core Configuration / Entrypoint Files
+- `routes/settings.php`: Main router file containing all application page endpoints.
+- `resources/js/app.tsx`: Frontend bootstrap entrypoint.
+- `resources/js/ssr.tsx`: Server-Side Rendering entrypoint.
+- `vite.config.ts`: Vite compilation config.
+- `eslint.config.js` / `.prettierrc`: ESLint and Prettier rules.
+---
+## 4. Coding Standards & Conventions
+### Naming Conventions
+- **Backend (PHP)**:
+  - **Controllers & Requests**: Organized in separate subdirectories for each domain. If a domain component increases in size, break controllers into single-action classes under that folder (e.g., `App\Http\Controllers\Employee\CreateController.php`).
+  - **Models**: StudlyCase singular (e.g., `PurchaseOrderDetail.php`).
+  - **Database columns**: snake_case.
+- **Frontend (TS/React)**:
+  - **Components**: kebab-case filenames for dialogs and widgets (e.g., `collect-payment-dialog.tsx`), PascalCase folders matching Inertia router patterns.
+  - **Types**: Always use `import type` for type-only declarations. Avoid using the `any` type.
+### Design Patterns & Architectures
+- **Thin Controllers**: Controllers must only authorize the action, validate the request inputs, and return responses. All business operations, DB changes, and aggregate queries must be delegated to the **Service Layer** (e.g., `SalesService`).
+- **Form Request Validation**: Never perform raw inline validation inside controllers. Utilize FormRequest classes (`StoreEmployeeRequest`) to filter inputs.
+- **DB Transactions**: Wrap all operations modifying multiple models in a database transaction block:
+  ```php
+  DB::transaction(function () use ($data) {
+      // Create models...
+      // Update balances...
+  });
+  ```
+- **Audit Logging**: For every mutating action (create, update, delete, void, rehire), an audit log record must be generated.
+  - Use the `Payroll\Audit\Traits\Auditable` trait.
+  - Call `$this->audit('action_name', $model, $beforeAttributes, $afterAttributes)` within the mutating block.
+- **Inertia Props**: Always supply stable, filtered Inertia properties. Avoid over-fetching relationships (e.g., restrict user lists or branches to what the authenticated user is authorized to interact with).
+### Preferred Implementations
+- **Routing**: Always generate frontend paths using Ziggy's `route()` helper (e.g., `route('sales.index')`). Never hard-code URI paths.
+- **Timezones**: All date rendering in TSX views must use the `toManilaTime()` helper from `@/utils/dateHelper` to prevent local browser timezone shifts.
+- **Pessimistic DB Locks**: Use `lockForUpdate()` when reading rows that will be updated in the same request to prevent race conditions.
+- **Pest Assertions**: Write comprehensive Pest feature assertions (e.g., testing overpayment blocks, cross-branch leakage blocks, or invalid status progressions).
+---
+## 5. Critical Domain Rules & Constraints
+### ⚠️ Absolute "Must-Follows"
+#### 1. Database Migrations & Enums
+- **No SQLite-broken functions**: Never use MySQL-specific raw SQL statements like `YEARWEEK()` directly in concerns or scopes; compile date ranges programmatically via Carbon to prevent tests/SQLite environments from failing.
+- **String Enums**: Do NOT use `$table->enum()` in migrations. Keep migrations as `$table->string('status')` and bind/cast the state using standard PHP Backed Enums inside the Eloquent model casts array.
+- **Destructive Command Gate**: Destructive migrations are prohibited on production environments (handled automatically via `DB::prohibitDestructiveCommands()`).
+#### 2. Scope & Security
+- **Branch Scoping**: Staff can only access sublimations and transactions belonging to their own branch. Superadmins bypass this. Admins have access to their own branch (or their special group branches). Ensure query scopes enforce this filtering dynamically.
+- **Policy Enforcement**: Avoid checking roles manually inline using string comparison (e.g., `if (auth()->user()->role === 'superadmin')`). Instead, register a policy class and call `$this->authorize('action', $model)`.
+#### 3. Component Size Limits
+- On React (`.tsx`) files, if a component is deemed too large (exceeding 100 lines), it **MUST** be split into smaller, focused child components. Put these inside a `components/` subfolder in the corresponding page domain.
+#### 4. Pre-commit Code Verification
+- Before committing any changes, you must run:
+  ```bash
+  composer lint         # Run PHP Pint auto-formatter
+  npm run lint          # ESLint typescript/javascript checker
+  php artisan test      # Verify all backend feature suites pass
+  ```
+---
+## Gotchas & Architecture Caveats
+1. **Transaction Payments Lock**: The `amount_total` field on a `Transaction` becomes immutable once `payments` count > 0.
+2. **Sublimation Image Batching**: The backend expects single file validation uploads. Multi-file uploads must loop request posting from the client, or the backend schema must be updated with array uploads.
+3. **HandleInertiaRequests auth.user**: The shared Inertia session passes the logged-in user context. Ensure sensitive attributes (like passwords or unneeded relations) are hidden or filtered out during response serialization.
+4. **Wayfinder Generation**: Adding new routes or actions requires rebuilding generated types and hooks. Run `npm run dev` or a build pass to compile type outputs when route structures change.
 
 ## Notes
 - Payroll stuff should go into Payroll Domain namespace.
@@ -121,3 +171,6 @@ Domains: `sales`, `expenses`, `sublimations`, `purchase-orders`, `customers`, `e
 - Superadmin can access everything.
 - For every endpoint that has mutation, make sure there is an audit log.
 - If the value is an enum, make a type ts for that.
+- Use services when the process becomes too big.
+- If a method in a service becomes too big then split it to multiple methods so that its easier to maintain.
+- Dont use enum on migrations so that the column can be used by sqlite as well.

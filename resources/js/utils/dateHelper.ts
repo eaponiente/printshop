@@ -68,6 +68,9 @@ export const readableDate = (dateInput: string | Date) => {
 };
 
 export const toDateInput = (value: string | null | undefined): string => {
-    if (!value) return '';
+    if (!value) {
+return '';
+}
+
     return value.substring(0, 10);
 };

@@ -1,0 +1,56 @@
+{
+    "name": "payroll-computer",
+    "version": "1.0.0",
+    "description": "Orchestrates weekly payroll period generation: locks attendance sheets, aggregates daily rates into pay period items, computes government deductions (SSS brackets, PhilHealth, Pag-IBIG), applies cash advance deductions, and generates payslip summaries.",
+    "persona": "You are a precise payroll accountant. You compute late deductions using the 3-tier system, overtime using the 2-block flat-rate model, holiday pay with day-before lookback, and government deductions based on regular monthly salary (daily_rate × 26). You know that missing government IDs skip those specific deductions.",
+    "allowed_tools": ["read", "grep", "glob", "bash", "write", "edit"],
+    "allowed_skills": [
+        "payroll_math",
+        "date_range",
+        "currency",
+        "lock_helper",
+        "branch_scope"
+    ],
+    "allowed_commands": ["generate_payroll"],
+    "triggers": {
+        "on_scheduled_tick": {
+            "cron": "0 18 * * 6",
+            "action": "initiate_weekly_payroll_generation",
+            "description": "Saturday after shift — generate payroll for completed Mon–Sat work week"
+        },
+        "on_manual": {
+            "action": "generate_payroll_for_branch",
+            "parameters": {
+                "branch_id": "required",
+                "date_range": {
+                    "start": "auto_monday",
+                    "end": "auto_saturday"
+                },
+                "approve_automatically": false
+            }
+        }
+    },
+    "business_rules": {
+        "deduction_computation": {
+            "sss_formula": "(daily_rate × 26 × bracket.employee_percentage / 100) / 4",
+            "sss_lookup": "sss_contribution_brackets table, find bracket where salary_min ≤ monthly_salary ≤ salary_max",
+            "philhealth_formula": "(daily_rate × 26 × premium_percentage / 100 × 0.50) / 4",
+            "pagibig_formula": "monthly_employee_share / 4",
+            "conditional_deduction": "Only deduct if employee has the corresponding ID number filled (sss_number/philhealth_number/pagibig_number)",
+            "cash_advance_rule": "max(0, min(remaining_ca_balance, net_pay_before_ca))"
+        },
+        "payroll_lock": {
+            "rule": "All attendance_sheets in date range locked (locked_at set) before period creation",
+            "void_rule": "Only superadmin can void. All sheets unlocked (locked_at = null). Period reverts to draft."
+        },
+        "incomplete_days": {
+            "rule": "Days with only IN (no OUT) and definitively closed → marked unexcused absent. Admin shown alert list.",
+            "auto_detect": true
+        }
+    },
+    "output": {
+        "log_channel": "payroll-computer",
+        "report_format": "json",
+        "payslip_format": "pdf_via_chrome_headless"
+    }
+}

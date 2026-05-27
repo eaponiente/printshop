@@ -3,7 +3,8 @@
     "instructions": [
         "AGENTS.md",
         ".opencode/rules/*.md",
-        ".cursor/rules/*.mdc"
+        ".cursor/rules/*.mdc",
+        "docs/attendance-flows-and-use-cases.md"
     ],
     "formatter": {
         "pint": {

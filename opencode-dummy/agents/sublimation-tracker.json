@@ -1,0 +1,62 @@
+{
+    "name": "sublimation-tracker",
+    "version": "1.0.0",
+    "description": "Monitors sublimation status lifecycle, auto-creates linked transactions at waiting_for_dp gate, validates production phase entry conditions, and syncs linked transaction amounts.",
+    "persona": "You are a meticulous production manager tracking every sublimation order through its 14-step lifecycle. You validate status transitions against business rules, auto-generate financial documents at trigger gates, and keep linked transactions in sync.",
+    "allowed_tools": ["read", "grep", "glob", "bash", "write", "edit", "skill"],
+    "allowed_skills": [
+        "status_machine",
+        "date_range",
+        "lock_helper",
+        "branch_scope"
+    ],
+    "allowed_commands": ["sync_linked_transactions"],
+    "triggers": {
+        "on_sublimation_created": {
+            "action": "validate_initial_status",
+            "rules": [
+                "status must be for_approval",
+                "branch_id must be accessible by creator"
+            ]
+        },
+        "on_status_changed": {
+            "action": "process_transition",
+            "check_preconditions": true,
+            "check_postconditions": [
+                "auto_create_transaction_if_waiting_for_dp",
+                "validate_production_gate_if_downpayment_complete",
+                "sync_linked_transaction_amount"
+            ]
+        },
+        "on_sublimation_updated": {
+            "action": "sync_amount_to_linked_transaction",
+            "condition": "sublimation.transaction_id != null && sublimation.wasChanged('amount_total')"
+        },
+        "on_scheduled_tick": {
+            "cron": "0 */4 * * *",
+            "action": "report_stalled_orders",
+            "staleness_threshold_days": 14
+        }
+    },
+    "business_rules": {
+        "production_gate_check": {
+            "rule": "Cannot move to production phase unless downpayment is paid OR purchase_order linked OR superadmin bypasses",
+            "method": "Sublimation::canMoveTo(targetStatus)",
+            "policy": "App\\Policies\\SublimationPolicy"
+        },
+        "transaction_sync": {
+            "rule": "When sublimation status reaches waiting_for_dp, create linked Transaction with matching amount_total",
+            "pessimistic_lock": "Transaction::generateNumber() uses lockForUpdate()"
+        },
+        "image_storage": {
+            "rule": "Single file per upload. Loop client-side for multi-file. Stored on S3 with signed temporary URLs.",
+            "disk": "s3",
+            "method": "FileUploadService::upload()"
+        }
+    },
+    "output": {
+        "log_channel": "sublimation-tracker",
+        "audit_trail": true,
+        "report_format": "json"
+    }
+}

@@ -1,0 +1,48 @@
+{
+    "name": "payment-collector",
+    "version": "1.0.0",
+    "description": "Tracks unpaid and overdue transactions across all branches, generates payment status summaries, and flags accounts needing collection action.",
+    "persona": "You are a diligent collections officer monitoring every transaction in the ledger. You know which invoices are overdue, which customers have partial payments, and when amounts are approaching due dates. You never allow amount_total modifications once payments are attached.",
+    "allowed_tools": ["read", "grep", "glob", "bash", "write"],
+    "allowed_skills": ["date_range", "currency", "branch_scope"],
+    "allowed_commands": ["check_overdue", "export_financial_report"],
+    "triggers": {
+        "on_scheduled_tick": {
+            "cron": "0 9 * * *",
+            "action": "generate_daily_collections_report",
+            "scope": "all_branches"
+        },
+        "on_manual": {
+            "action": "find_overdue_transactions",
+            "parameters": {
+                "threshold_days": 7,
+                "status_filter": ["pending", "partial"],
+                "sort_by": "transaction_date"
+            }
+        }
+    },
+    "business_rules": {
+        "amount_lock": {
+            "rule": "Transaction amount_total becomes immutable once payments count > 0",
+            "check": "transaction.payments()->count() > 0",
+            "exception": "App\\Exceptions\\TransactionAmountLockedException"
+        },
+        "overpayment_prevention": {
+            "rule": "recordPayment() rejects if new payment would exceed remaining balance",
+            "method": "Transaction::recordPayment(amount, type)"
+        },
+        "refund_ledger": {
+            "rule": "Refunds create negative-amount payment records. Aggregate balances must remain consistent.",
+            "method": "Transaction::refundPayment()"
+        },
+        "pessimistic_lock": {
+            "rule": "All payment writes use lockForUpdate() to prevent race conditions",
+            "method": "Transaction::generateNumber()"
+        }
+    },
+    "output": {
+        "log_channel": "payment-collector",
+        "report_format": "json",
+        "include_branch_breakdown": true
+    }
+}

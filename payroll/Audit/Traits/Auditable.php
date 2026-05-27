@@ -16,7 +16,6 @@ trait Auditable
             $after = $this->normalizeValues($after);
             $changes = $this->diffChanges($before, $after);
 
-
             AuditLog::create([
                 'user_id' => auth()->id(),
                 'branch_id' => $this->resolveAuditBranch($model),

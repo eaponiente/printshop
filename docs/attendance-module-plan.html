@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Attendance Module — Architectural Implementation Plan</title>
+<style>
+  @page { margin: 2cm 2.2cm; size: A4; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 10.5pt; line-height: 1.65; color: #1a1a2e; max-width: 100%; }
+  h1 { font-size: 22pt; color: #0f172a; border-bottom: 3px solid #2563eb; padding-bottom: 8px; margin-top: 0; }
+  h2 { font-size: 14pt; color: #1e40af; border-bottom: 1.5px solid #93c5fd; padding-bottom: 4px; margin-top: 28px; page-break-after: avoid; }
+  h3 { font-size: 11.5pt; color: #1e3a5f; margin-top: 20px; page-break-after: avoid; }
+  h4 { font-size: 10.5pt; color: #334155; margin-top: 14px; }
+  p { margin: 6px 0; }
+  ul, ol { margin: 4px 0 4px 18px; padding: 0; }
+  li { margin: 3px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 9.5pt; page-break-inside: avoid; }
+  th { background: #2563eb; color: white; padding: 7px 9px; text-align: left; font-weight: 600; }
+  td { padding: 6px 9px; border-bottom: 1px solid #e2e8f0; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  code { font-family: "SF Mono", "Fira Code", monospace; background: #f1f5f9; padding: 1px 5px; border-radius: 3px; font-size: 9pt; }
+  pre { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px 14px; font-size: 8.5pt; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+  .meta { color: #64748b; font-size: 9pt; margin-bottom: 20px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 8pt; font-weight: 600; margin-right: 4px; }
+  .badge-green { background: #dcfce7; color: #166534; }
+  .badge-yellow { background: #fef9c3; color: #854d0e; }
+  .badge-red { background: #fce4ec; color: #c62828; }
+  .badge-blue { background: #dbeafe; color: #1e40af; }
+  .box { border: 1px solid #e2e8f0; border-left: 4px solid #2563eb; border-radius: 4px; padding: 12px 16px; margin: 12px 0; background: #f8fafc; }
+  .box-warn { border-left-color: #f59e0b; }
+  .box-info { border-left-color: #3b82f6; }
+  .cols { display: flex; gap: 16px; }
+  .col { flex: 1; }
+  .flow-step { display: inline-block; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 12px; margin: 3px; font-size: 9pt; background: #f1f5f9; }
+  .flow-arrow { display: inline-block; margin: 0 4px; color: #64748b; font-weight: bold; }
+  .page-break { page-break-before: always; }
+  .toc a { color: #2563eb; text-decoration: none; }
+  .toc li { margin: 5px 0; }
+  strong { color: #0f172a; }
+  .float-right { float: right; font-weight: normal; font-size: 9pt; color: #64748b; }
+</style>
+</head>
+<body>
+
+<h1>Attendance Module<br><span style="font-size:14pt;font-weight:normal;color:#64748b;">Architectural Implementation Plan — v2 Refined</span></h1>
+
+<div class="meta">
+  <strong>Project:</strong> Printing Shop Management System (PHP Payroll)<br>
+  <strong>Date:</strong> May 22, 2026 &nbsp;|&nbsp; <strong>Version:</strong> 2.0 (Refined)<br>
+  <strong>Technology:</strong> Laravel 12 · PHP 8.4 · SQLite/MySQL · React/Inertia · Tailwind CSS v4
+</div>
+
+<!-- ============================================================ -->
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#s1">Architectural Strategy — 3-Layer Data Approach</a></li>
+  <li><a href="#s2">Database Schema Design</a></li>
+  <li><a href="#s3">Enum Definitions</a></li>
+  <li><a href="#s4">Business Rules &amp; Computation Logic</a></li>
+  <li><a href="#s5">Workflows</a></li>
+  <li><a href="#s6">Authorization Matrix</a></li>
+  <li><a href="#s7">Route Structure</a></li>
+  <li><a href="#s8">Frontend Page Plan</a></li>
+  <li><a href="#s9">Integration Points</a></li>
+  <li><a href="#s10">Implementation Sequence</a></li>
+  <li><a href="#s11">Edge Cases &amp; Error Handling</a></li>
+  <li><a href="#s12">Refinements from v1</a></li>
+</ol>
+
+<!-- ============================================================ -->
+<h2 id="s1">1. Architectural Strategy — 3-Layer Data Approach</h2>
+
+<p>We decouple raw time logs from final payroll calculations using a strict 3-layer data model. Each layer is independently verifiable, hash-verified for tamper detection, and locked once consumed downstream.</p>
+
+<table>
+  <tr><th>Layer</th><th>Table</th><th>Role</th><th>Mutability</th></tr>
+  <tr>
+    <td><strong>1. Raw Ledger</strong></td>
+    <td><code>time_logs</code></td>
+    <td>Immutable punch records: IN/OUT with timestamp, source, and optional duplicate-of self-reference. Corrections append new rows — never update existing ones.</td>
+    <td><span class="badge badge-red">Immutable</span></td>
+  </tr>
+  <tr>
+    <td><strong>2. Daily Worksheets</strong></td>
+    <td><code>attendance_sheets</code></td>
+    <td>Computed daily evaluation: reads time_logs, compares against the employee's scheduled shift, applies grace periods, overtime rules, holiday overrides, and leave blending. Each row has a <code>computation_hash</code> (SHA-256 of all inputs).</td>
+    <td><span class="badge badge-yellow">Re-computable</span> until <code>locked_at</code> is set</td>
+  </tr>
+  <tr>
+    <td><strong>3. Period Summaries</strong></td>
+    <td><code>payroll_period_items</code></td>
+    <td>Aggregate summaries for a 15-day or 30-day payroll cutoff period. Generated from locked attendance sheets. Feeds the payroll run engine for final net pay computation.</td>
+    <td><span class="badge badge-green">Locked</span> once period is approved/paid</td>
+  </tr>
+</table>
+
+<div class="box box-info">
+  <strong>Design Principle:</strong> Raw data is never overwritten. Corrections create new audit-trailed records. Computed sheets can be regenerated by re-running <code>processDailyAttendance()</code> as long as they haven't been consumed by a payroll period. Once a payroll period is approved, all constituent sheets are permanently locked — requiring full period voidal to make changes.
+</div>
+
+<h3>1.1 Supported Punch Sources</h3>
+<table>
+  <tr><th>Source</th><th>Initiator</th><th>Requires Approval?</th><th>Description</th></tr>
+  <tr><td><code>self_service</code></td><td>Employee</td><td>No</td><td>Employee punches via their self-service portal</td></tr>
+  <tr><td><code>biometric</code></td><td>Hardware device</td><td>No</td><td>Automated biometric/fingerprint scanner</td></tr>
+  <tr><td><code>manual</code></td><td>Admin (trusted)</td><td>No</td><td>Admin directly creates a time_log (e.g., biometric was down, supervisor verified attendance in person)</td></tr>
+  <tr><td><code>correction</code></td><td>System (auto)</td><td>Pre-approved</td><td>Created automatically when an <code>attendance_correction_request</code> is approved. Links back to the request.</td></tr>
+</table>
+
+<h3>1.2 Duplicate Punch Throttling</h3>
+<p>Multiple punches of the same type (IN/IN or OUT/OUT) within a <strong>5-minute window</strong> are throttled: the <strong>earliest</strong> punch is kept as the canonical record. Subsequent duplicate punches are created as database rows but marked with a <code>duplicate_of</code> self-reference pointing to the canonical record. This preserves the full audit trail while ensuring computation uses only one punch per type.</p>
+
+<!-- ============================================================ -->
+<h2 id="s2" class="page-break">2. Database Schema Design</h2>
+
+<p>All new tables use <strong>UUIDs</strong> as primary keys (<code>Str::orderedUuid()</code>) for index-friendly ordering. Foreign key references to existing tables (<code>employees</code>, <code>branches</code>, <code>users</code>) remain standard big integers to match the existing schema.</p>
+
+<h3>2.1 &nbsp; company_configurations</h3>
+<p>Key-value table for all admin-configurable system parameters. Supports branch-level overrides via optional <code>branch_id</code> FK (null = system-wide default). Typed values prevent string coercion errors.</p>
+
+<table>
+  <tr><th>Column</th><th>Type</th><th>Description</th></tr>
+  <tr><td>id (PK)</td><td>uuid</td><td>Ordered UUID, primary key</td></tr>
+  <tr><td>branch_id (FK)</td><td>bigint nullable</td><td>Branch override scope; null = global default</td></tr>
+  <tr><td>key</td><td>string(100)</td><td>Unique parameter key (unique per branch_id scope)</td></tr>
+  <tr><td>value</td><td>text</td><td>Parameter value as a string</td></tr>
+  <tr><td>type</td><td>string(20)</td><td>Coercion type: string, integer, boolean, decimal</td></tr>
+  <tr><td>group</td><td>string(50)</td><td>Grouping: attendance, payroll, general</td></tr>
+</table>
+
+<p><strong>Default Seed Values (Attendance Group):</strong></p>
+<table>
+  <tr><th>Key</th><th>Default</th><th>Type</th><th>Description</th></tr>
+  <tr><td>grace_period_minutes</td><td>15</td><td>integer</td><td>Free late allowance in minutes</td></tr>
+  <tr><td>forfeit_grace_period_on_exceed</td><td>true</td><td>boolean</td><td>PH standard: forfeit full grace if exceeded</td></tr>
+  <tr><td>ot_threshold_minutes</td><td>60</td><td>integer</td><td>Min consecutive minutes before OT qualifies</td></tr>
+  <tr><td>auto_lunch_deduction_minutes</td><td>60</td><td>integer</td><td>Unpaid lunch break auto-deduction</td></tr>
+  <tr><td>half_day_threshold_minutes</td><td>240</td><td>integer</td><td>4 hours = half-day cutoff</td></tr>
+  <tr><td>late_deduction_per_minute</td><td>10.00</td><td>decimal</td><td>Pesos per late minute</td></tr>
+  <tr><td>late_deduction_max_minutes</td><td>30</td><td>integer</td><td>Cap on late minutes chargeable per day</td></tr>
+  <tr><td>ot_rate_regular</td><td>1.25</td><td>decimal</td><td>Regular day OT multiplier</td></tr>
+  <tr><td>ot_rate_rest_day</td><td>1.30</td><td>decimal</td><td>Rest day OT multiplier</td></tr>
+  <tr><td>ot_rate_holiday_regular</td><td>2.60</td><td>decimal</td><td>Regular holiday OT multiplier</td></tr>
+  <tr><td>ot_rate_holiday_special</td><td>1.30</td><td>decimal</td><td>Special non-working day OT multiplier</td></tr>
+</table>
+
+<h3>2.2 &nbsp; employee_schedules</h3>
+<table>
+  <tr><th>Column</th><th>Type</th><th>Description</th></tr>
+  <tr><td>id (PK)</td><td>uuid</td><td>Ordered UUID</td></tr>
+  <tr><td>employee_id (FK)</td><td>bigint</td><td>→ employees.id, cascade on delete</td></tr>
+  <tr><td>branch_id (FK)</td><td>bigint</td><td>→ branches.id, denormalized for scoping</td></tr>
+  <tr><td>schedule_name</td><td>string(100)</td><td>e.g. 'Standard 8-5', 'Morning Shift'</td></tr>
+  <tr><td>scheduled_start</td><td>time</td><td>e.g. 08:00</td></tr>
+  <tr><td>scheduled_end</td><td>time</td><td>e.g. 17:00</td></tr>
+  <tr><td>work_days</td><td>json</td><td>[1,2,3,4,5] where 1=Monday, 7=Sunday</td></tr>
+  <tr><td>effective_from</td><td>date</td><td>Schedule effective start date</td></tr>
+  <tr><td>effective_to</td><td>date nullable</td><td>null = current/active schedule</td></tr>
+  <tr><td>is_active</td><td>boolean</td><td>Soft flag; can deactivate without deleting</td></tr>
+  <tr><td>is_default</td><td>boolean</td><td>Default schedule for new employees</td></tr>
+  <tr><td>rest_day_work_multiplier</td><td>decimal nullable</td><td>Override rest-day rate if called in</td></tr>
+</table>
+
+<h3>2.3 &nbsp; time_logs (Immutable Punch Ledger)</h3>
+<table>
+  <tr><th>Column</th><th>Type</th><th>Description</th></tr>
+  <tr><td>id (PK)</td><td>uuid</td><td>Ordered UUID</td></tr>
+  <tr><td>employee_id (FK)</td><td>bigint</td><td>→ employees.id</td></tr>
+  <tr><td>branch_id (FK)</td><td>bigint</td><td>→ branches.id (denormalized)</td></tr>
+  <tr><td>timestamp</td><td>datetime</td><td>Precise to seconds, when punch occurred</td></tr>
+  <tr><td>type</td><td>string(10)</td><td>IN or OUT</td></tr>
+  <tr><td>source</td><td>string(30)</td><td>self_service | biometric | manual | correction</td></tr>
+  <tr><td>metadata</td><td>json nullable</td><td>Device info, geo-location, admin note</td></tr>
+  <tr><td>duplicate_of</td><td>uuid nullable</td><td>Self-ref FK → time_logs.id for throttled dupes</td></tr>
+  <tr><td>created_by</td><td>bigint nullable</td><td>→ users.id</td></tr>
+  <tr><td>created_at</td><td>timestamp</td><td>Immutable — no updated_at column</td></tr>
+</table>
+
+<p><strong>Constraints:</strong> No <code>updated_at</code> column. No delete operations. Corrections append new rows. Indexed on <code>(employee_id, timestamp)</code>, <code>(branch_id, timestamp)</code>, and <code>(employee_id, DATE(timestamp), type)</code>.</p>
+
+<h3>2.4 &nbsp; attendance_correction_requests</h3>
+<table>
+  <tr><th>Column</th><th>Type</th><th>Description</th></tr>
+  <tr><td>id (PK)</td><td>uuid</td><td>Ordered UUID</td></tr>
+  <tr><td>employee_id (FK)</td><td>bigint</td><td>→ employees.id (whose record)</td></tr>
+  <tr><td>requested_by (FK)</td><td>bigint</td><td>→ users.id (who submitted)</td></tr>
+  <tr><td>branch_id (FK)</td><td>bigint</td><td>→ branches.id</td></tr>
+  <tr><td>attendance_date</td><td>date</td><td>Date being corrected</td></tr>
+  <tr><td>correction_type</td><td>string(25)</td><td>missed_punch_in | missed_punch_out | time_adjustment | absent_to_present</td></tr>
+  <tr><td>requested_time_in</td><td>time nullable</td><td>Proposed corrected IN time</td></tr>
+  <tr><td>requested_time_out</td><td>time nullable</td><td>Proposed corrected OUT time</td></tr>
+  <tr><td>original_time_in</td><td>time nullable</td><td>Old/wrong time (for time_adjustment)</td></tr>
+  <tr><td>original_time_out</td><td>time nullable</td><td>Old/wrong time (for time_adjustment)</td></tr>
+  <tr><td>reason</td><td>text</td><td>Required justification</td></tr>
+  <tr><td>status</td><td>string(20)</td><td>pending | approved | denied</td></tr>
+  <tr><td>reviewed_by</td><td>bigint nullable</td><td>→ users.id (approver)</td></tr>
+  <tr><td>denial_reason</td><td>text nullable</td><td>Required if denied</td></tr>
+  <tr><td>resolved_time_log_id</td><td>uuid nullable</td><td>→ time_logs.id created on approval</td></tr>
+</table>
+
+<p><strong>Approval Rules:</strong> Only one pending request per <code>(employee_id, attendance_date, correction_type)</code>. Submitter cannot self-approve. Submitter's role must be lower than reviewer's role (staff→admin, admin→superadmin).</p>
+
+<h3>2.5 &nbsp; overtime_requests</h3>
+<table>
+  <tr><th>Column</th><th>Type</th><th>Description</th></tr>
+  <tr><td>id (PK)</td><td>uuid</td><td>Ordered UUID</td></tr>
+  <tr><td>employee_id (FK)</td><td>bigint</td><td>→ employees.id</td></tr>
+  <tr><td>overtime_date</td><td>date</td><td>Date of planned OT</td></tr>
+  <tr><td>scheduled_end</td><td>time</td><td>Snapshot of shift end for audit</td></tr>
+  <tr><td>requested_hours</td><td>decimal(4,2)</td><td>e.g. 2.50</td></tr>
+  <tr><td>requested_minutes</td><td>integer</td><td>Computed: requested_hours × 60</td></tr>
+  <tr><td>shift_type</td><td>string(20)</td><td>regular_day | rest_day | regular_holiday | special_holiday</td></tr>
+  <tr><td>ot_rate</td><td>decimal(4,2) nullable</td><td>Snapshot of resolved rate at approval time</td></tr>
+  <tr><td>reason</td><td>text nullable</td><td>Business justification</td></tr>
+  <tr><td>status</td><td>string(20)</td><td>pending | approved | denied</td></tr>
+  <tr><td>approved_by</td><td>bigint nullable</td><td>→ users.id</td></tr>
+</table>
+
+<h3>2.6 &nbsp; leave_requests</h3>
+<table>
+  <tr><th>Column</th><th>Type</th><th>Description</th></tr>
+  <tr><td>id (PK)</td><td>uuid</td><td>Ordered UUID</td></tr>
+  <tr><td>employee_id (FK)</td><td>bigint</td><td>→ employees.id</td></tr>
+  <tr><td>leave_date</td><td>date</td><td>Single day</td></tr>
+  <tr><td>leave_type</td><td>string(30)</td><td>vacation | sick | emergency | maternity | paternity | bereavement | unpaid</td></tr>
+  <tr><td>duration</td><td>string(20)</td><td>full_day | half_day_morning | half_day_afternoon</td></tr>
+  <tr><td>is_paid</td><td>boolean</td><td>Default true; false for unpaid leave</td></tr>
+  <tr><td>status</td><td>string(20)</td><td>pending | approved | denied</td></tr>
+  <tr><td>reason</td><td>text nullable</td><td>Employee's reason</td></tr>
+  <tr><td>approved_by</td><td>bigint nullable</td><td>→ users.id</td></tr>
+</table>
+
+<h3>2.7 &nbsp; holidays</h3>
+<table>
+  <tr><th>Column</th><th>Type</th><th>Description</th></tr>
+  <tr><td>id (PK)</td><td>uuid</td><td>Ordered UUID</td></tr>
+  <tr><td>name</td><td>string(200)</td><td>e.g. 'Araw ng Kagitingan'</td></tr>
+  <tr><td>holiday_date</td><td>date</td><td>Calendar date</td></tr>
+  <tr><td>type</td><td>string(20)</td><td>regular | special_non_working</td></tr>
+  <tr><td>is_recurring_yearly</td><td>boolean</td><td>Auto-roll to next year</td></tr>
+</table>
+
+<h3>2.8 &nbsp; attendance_sheets (Daily Worksheets)</h3>
+<table>
+  <tr><th>Column</th><th>Type</th><th>Description</th></tr>
+  <tr><td>id (PK)</td><td>uuid</td><td>Ordered UUID</td></tr>
+  <tr><td>employee_id (FK)</td><td>bigint</td><td>→ employees.id</td></tr>
+  <tr><td>branch_id (FK)</td><td>bigint</td><td>→ branches.id</td></tr>
+  <tr><td>date</td><td>date</td><td>Unique per (employee_id, date)</td></tr>
+  <tr><td>schedule_id (FK)</td><td>uuid nullable</td><td>→ employee_schedules.id active at time</td></tr>
+  <tr><td>schedule_start</td><td>time nullable</td><td>Shift start</td></tr>
+  <tr><td>schedule_end</td><td>time nullable</td><td>Shift end</td></tr>
+  <tr><td>first_time_in</td><td>datetime nullable</td><td>Earliest IN punch</td></tr>
+  <tr><td>last_time_out</td><td>datetime nullable</td><td>Latest OUT punch</td></tr>
+  <tr><td>raw_worked_minutes</td><td>integer</td><td>Total elapsed: IN→OUT</td></tr>
+  <tr><td>lunch_deducted_minutes</td><td>integer</td><td>60 or 0 per auto-lunch rule</td></tr>
+  <tr><td>actual_worked_minutes</td><td>integer</td><td>raw - lunch</td></tr>
+  <tr><td>late_minutes</td><td>integer</td><td>After grace period calc</td></tr>
+  <tr><td>late_deduction_amount</td><td>decimal(10,2)</td><td>late_minutes × rate, capped at 30min</td></tr>
+  <tr><td>undertime_minutes</td><td>integer</td><td>Early departure deduction</td></tr>
+  <tr><td>raw_overtime_minutes</td><td>integer</td><td>Actual stay past schedule_end</td></tr>
+  <tr><td>approved_overtime_minutes</td><td>integer</td><td>After lower-of-two cross-reference</td></tr>
+  <tr><td>ot_rate_applied</td><td>decimal(4,2) nullable</td><td>Multiplier used (1.25/1.30/2.60)</td></tr>
+  <tr><td>ot_amount</td><td>decimal(10,2)</td><td>Computed OT earnings</td></tr>
+  <tr><td>regular_hours</td><td>decimal(4,2)</td><td>e.g. 8.00 or 4.00 (half-day)</td></tr>
+  <tr><td>is_present</td><td>boolean</td><td>Worked or on approved paid leave</td></tr>
+  <tr><td>is_half_day</td><td>boolean</td><td>Exactly 4 hours credit</td></tr>
+  <tr><td>is_absent</td><td>boolean</td><td>No pay for the day</td></tr>
+  <tr><td>is_rest_day</td><td>boolean</td><td>Not in schedule's work_days</td></tr>
+  <tr><td>is_rest_day_worked</td><td>boolean</td><td>is_rest_day AND clocked in</td></tr>
+  <tr><td>absence_type</td><td>string(20) nullable</td><td>unexcused | approved_leave</td></tr>
+  <tr><td>holiday_type</td><td>string(20) nullable</td><td>regular | special_non_working</td></tr>
+  <tr><td>holiday_pay_percent</td><td>integer</td><td>0 | 100 | 130 | 200 | 260</td></tr>
+  <tr><td>leave_request_id</td><td>uuid nullable</td><td>→ leave_requests.id</td></tr>
+  <tr><td>approved_ot_request_id</td><td>uuid nullable</td><td>→ overtime_requests.id</td></tr>
+  <tr><td>daily_rate</td><td>decimal(10,2)</td><td>Snapshot of employee's rate on date</td></tr>
+  <tr><td>daily_wage</td><td>decimal(10,2)</td><td>Computed gross for the day</td></tr>
+  <tr><td>computation_hash</td><td>string(64)</td><td>SHA-256 of all inputs for change detection</td></tr>
+  <tr><td>computed_by</td><td>bigint nullable</td><td>→ users.id</td></tr>
+  <tr><td>locked_at</td><td>timestamp nullable</td><td>Set when consumed by payroll period</td></tr>
+</table>
+
+<h3>2.9 &nbsp; payroll_periods</h3>
+<table>
+  <tr><th>Column</th><th>Type</th><th>Description</th></tr>
+  <tr><td>id (PK)</td><td>uuid</td><td>Ordered UUID</td></tr>
+  <tr><td>branch_id (FK)</td><td>bigint</td><td>→ branches.id</td></tr>
+  <tr><td>period_start</td><td>date</td><td>Cutoff start</td></tr>
+  <tr><td>period_end</td><td>date</td><td>Cutoff end</td></tr>
+  <tr><td>period_type</td><td>string(10)</td><td>first_half (1–15) | second_half (16–EOM) | full</td></tr>
+  <tr><td>status</td><td>string(20)</td><td>draft | computed | approved | paid</td></tr>
+  <tr><td>created_by</td><td>bigint</td><td>→ users.id</td></tr>
+  <tr><td>approved_by</td><td>bigint nullable</td><td>→ users.id</td></tr>
+</table>
+
+<h3>2.10 &nbsp; payroll_period_items</h3>
+<table>
+  <tr><th>Column</th><th>Type</th><th>Description</th></tr>
+  <tr><td>id (PK)</td><td>uuid</td><td>Ordered UUID</td></tr>
+  <tr><td>payroll_period_id (FK)</td><td>uuid</td><td>→ payroll_periods.id</td></tr>
+  <tr><td>employee_id (FK)</td><td>bigint</td><td>→ employees.id</td></tr>
+  <tr><td>branch_id (FK)</td><td>bigint</td><td>→ branches.id</td></tr>
+  <tr><td>total_regular_days</td><td>decimal(4,2)</td><td>Sum of regular_hours / 8</td></tr>
+  <tr><td>total_half_days</td><td>decimal(4,2)</td><td>0.5 per half-day</td></tr>
+  <tr><td>total_absent_days</td><td>decimal(4,2)</td><td>Unexcused absences</td></tr>
+  <tr><td>total_late_minutes</td><td>integer</td><td>Period aggregate</td></tr>
+  <tr><td>total_undertime_minutes</td><td>integer</td><td>Period aggregate</td></tr>
+  <tr><td>total_overtime_minutes</td><td>integer</td><td>Approved OT only</td></tr>
+  <tr><td>total_holiday_pay_days</td><td>decimal(4,2)</td><td>Holiday day equivalents</td></tr>
+  <tr><td>total_leave_paid_days</td><td>decimal(4,2)</td><td>Paid leave day equivalents</td></tr>
+  <tr><td>daily_rate_snapshot</td><td>decimal(10,2)</td><td>Employee rate at period time</td></tr>
+  <tr><td>gross_pay</td><td>decimal(10,2)</td><td>Sum of all daily_wages</td></tr>
+  <tr><td>late_deduction</td><td>decimal(10,2)</td><td>Sum of late penalties</td></tr>
+  <tr><td>undertime_deduction</td><td>decimal(10,2)</td><td>Sum of undertime deductions</td></tr>
+  <tr><td>overtime_pay</td><td>decimal(10,2)</td><td>Sum of OT earnings</td></tr>
+  <tr><td>holiday_pay</td><td>decimal(10,2)</td><td>Holiday premium</td></tr>
+  <tr><td>government_deductions</td><td>decimal(10,2)</td><td>SSS + PhilHealth + Pag-IBIG</td></tr>
+  <tr><td>cash_advance_deduction</td><td>decimal(10,2)</td><td>Deducted CA</td></tr>
+  <tr><td>net_pay</td><td>decimal(10,2)</td><td>Final net pay</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s3" class="page-break">3. Enum Definitions</h2>
+
+<p>All string-based status/type columns use PHP Backed Enums for type safety. Enums live in <code>payroll/Attendance/Enums/</code>.</p>
+
+<table>
+  <tr><th>Enum Class</th><th>Values</th><th>Stored As</th></tr>
+  <tr><td>TimeLogType</td><td>IN, OUT</td><td>time_logs.type</td></tr>
+  <tr><td>TimeLogSource</td><td>self_service, biometric, manual, correction</td><td>time_logs.source</td></tr>
+  <tr><td>CorrectionType</td><td>missed_punch_in, missed_punch_out, time_adjustment, absent_to_present</td><td>attendance_correction_requests.correction_type</td></tr>
+  <tr><td>OvertimeRequestStatus</td><td>pending, approved, denied</td><td>overtime_requests.status</td></tr>
+  <tr><td>LeaveType</td><td>vacation, sick, emergency, maternity, paternity, bereavement, unpaid</td><td>leave_requests.leave_type</td></tr>
+  <tr><td>LeaveDuration</td><td>full_day, half_day_morning, half_day_afternoon</td><td>leave_requests.duration</td></tr>
+  <tr><td>HolidayType</td><td>regular, special_non_working</td><td>holidays.type</td></tr>
+  <tr><td>AbsenceType</td><td>unexcused, approved_leave</td><td>attendance_sheets.absence_type</td></tr>
+  <tr><td>PayrollPeriodStatus</td><td>draft, computed, approved, paid</td><td>payroll_periods.status</td></tr>
+  <tr><td>OTShiftType</td><td>regular_day, rest_day, regular_holiday, special_holiday</td><td>overtime_requests.shift_type</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s4" class="page-break">4. Business Rules &amp; Computation Logic</h2>
+
+<h3>4.1 Shift &amp; Core Tracking Rules</h3>
+<ul>
+  <li><strong>No night/graveyard shifts:</strong> All standard shifts fall cleanly within a single calendar day.</li>
+  <li><strong>2-Punch Culture with Auto-Deduction:</strong> Employees clock IN once (arrival) and OUT once (departure). The system uses only the earliest IN and latest OUT — no summing of intermediate punch intervals. This is the standard Philippine practice for daily-paid workers.</li>
+  <li><strong>Only IN but no OUT:</strong> Treated as "incomplete." If the current time is still within business hours, no sheet is generated (marked as in-progress). If the day is fully closed (past midnight or processed the next day), flagged as absent.</li>
+  <li><strong>Only OUT but no IN:</strong> Flagged as an anomaly. Cannot determine worked duration. Warning added to sheet notes.</li>
+</ul>
+
+<h3>4.2 Lunch Break Rule</h3>
+<p>The system automatically subtracts exactly <strong>60 minutes</strong> for the unpaid lunch break, provided two conditions are met:</p>
+<ol>
+  <li>The total raw duration (IN→OUT) is <strong>≥ 5 hours (300 minutes)</strong>.</li>
+  <li>The work period actually <strong>spans the noon break window</strong> (12:00–13:00).</li>
+</ol>
+<p>If either condition is not met, lunch deduction is 0.</p>
+
+<h3>4.3 Grace Period &amp; Lateness</h3>
+
+<table>
+  <tr><th>Scenario</th><th>late_minutes</th></tr>
+  <tr><td>On time or early: time_in ≤ schedule_start</td><td>0</td></tr>
+  <tr><td>Late but within grace: total_late ≤ grace_period_minutes</td><td>0</td></tr>
+  <tr><td>Exceeds grace + forfeit_grace_period_on_exceed = <strong>true</strong> (PH standard)</td><td>Full total_late_minutes (grace forfeited)</td></tr>
+  <tr><td>Exceeds grace + forfeit_grace_period_on_exceed = false</td><td>total_late_minutes − grace_period_minutes (only excess)</td></tr>
+</table>
+
+<div class="box">
+  <strong>Late Deduction Formula:</strong><br>
+  <code>chargeable = min(late_minutes, late_deduction_max_minutes)</code> — capped at 30 minutes per day<br>
+  <code>deduction = chargeable × late_deduction_per_minute</code> — e.g. 30 × ₱10 = max ₱300/day
+</div>
+
+<p><strong>Early Bird Rule:</strong> Clocking in before the shift start time yields 0 regular hours or OT hours for that early period, unless an approved early OT record exists. The employee is simply marked as on time.</p>
+
+<h3>4.4 Undertime, Half-Day &amp; The 3-Hour Block Penalty</h3>
+
+<table>
+  <tr><th>Actual Worked Minutes</th><th>Classification</th><th>Pay</th></tr>
+  <tr><td>≥ scheduled shift minutes</td><td><span class="badge badge-green">Full Day</span></td><td>100% daily rate</td></tr>
+  <tr><td>> 240 and < scheduled shift</td><td><span class="badge badge-yellow">Partial Day with Undertime</span></td><td>Proportional: actual_minutes / scheduled_minutes × daily_rate</td></tr>
+  <tr><td>= 240 (exactly 4 hours)</td><td><span class="badge badge-blue">Half-Day</span></td><td>50% daily rate</td></tr>
+  <tr><td>1–239 (less than 4 hours)</td><td><span class="badge badge-red">Unexcused Absence</span></td><td>0% — <strong>3-Hour Block Penalty</strong></td></tr>
+  <tr><td>0 (no punches)</td><td><span class="badge badge-red">Absent</span></td><td>0%</td></tr>
+</table>
+
+<p><strong>The 3-Hour Rule (key in Philippine payroll):</strong> If an employee works less than 4 hours, they fail to complete a half-day block. The system automatically flags the day as an unexcused absence with 0 hours paid, <strong>unless</strong> an approved leave or undertime slip overrides it. Partially worked rest days are <strong>exempt</strong> from the 3-hour block — rest day work is paid for actual minutes at the rest day rate with no minimum threshold.</p>
+
+<h3>4.5 Overtime Rules</h3>
+
+<ol>
+  <li><strong>Approval-Driven:</strong> Actual extra time spent past the shift end time does <strong>not</strong> trigger auto-payment. The system cross-references actual stay duration against a supervisor-approved <code>overtime_request</code> record and awards the <strong>lower value</strong> of the two. Unapproved minutes are discarded.</li>
+  <li><strong>OT Threshold:</strong> Admin can set a minimum threshold (e.g., 60 consecutive minutes) before extra time qualifies as valid OT. Extra time below this threshold is discarded even if an approved request exists.</li>
+  <li><strong>Rate Selection:</strong> The OT rate is determined by the <code>shift_type</code> on the approved overtime request at processing time.</li>
+</ol>
+
+<h3>4.6 OT Rate Selection Matrix (PH DOLE Standard)</h3>
+<table>
+  <tr><th>Day Type</th><th>Worked?</th><th>OT Multiplier</th><th>Source</th></tr>
+  <tr><td>Regular work day</td><td>Yes</td><td>1.25</td><td>ot_rate_regular</td></tr>
+  <tr><td>Rest day</td><td>Yes</td><td>1.30</td><td>ot_rate_rest_day</td></tr>
+  <tr><td>Regular holiday</td><td>Yes</td><td>2.60</td><td>ot_rate_holiday_regular</td></tr>
+  <tr><td>Special non-working day</td><td>Yes</td><td>1.30</td><td>ot_rate_holiday_special</td></tr>
+  <tr><td>Rest day + regular holiday</td><td>Yes</td><td>2.60</td><td>Regular holiday rate applies</td></tr>
+  <tr><td>Rest day + special holiday</td><td>Yes</td><td>1.50</td><td>Standard special+rest day rate</td></tr>
+</table>
+
+<h3>4.7 Holiday Pay Rules (PH DOLE)</h3>
+
+<h4>Regular Holidays (Unworked)</h4>
+<p><strong>Day-Before Rule:</strong> Entitlement to 100% daily pay requires an automated check of the <strong>last scheduled working day</strong> immediately preceding the holiday. The system walks backward through the calendar, skipping rest days and Sundays, to find the last working day.</p>
+<table>
+  <tr><th>Day-Before Status</th><th>Unworked Holiday Pay</th></tr>
+  <tr><td>Present OR Approved Paid Leave</td><td>100% daily rate</td></tr>
+  <tr><td>Absent without leave</td><td>0%</td></tr>
+</table>
+
+<h4>Regular Holiday (Worked) — 200%</h4>
+<table>
+  <tr><th>Day Before</th><th>Worked Holiday Pay</th></tr>
+  <tr><td>Present or Leave</td><td>200% of daily rate for first 8 hours</td></tr>
+  <tr><td>Absent without leave</td><td>200% of daily rate for first 8 hours</td></tr>
+</table>
+
+<p><strong>Special Non-Working Days:</strong> Operates strictly on <strong>"No work, no pay"</strong> — 0% if unworked, 130% of daily rate if worked.</p>
+
+<h3>4.8 Leave Integration &amp; Blending</h3>
+
+<p>Partial leaves (e.g., 4-hour morning or afternoon) blend with actual hours worked to achieve a full day's base wage:</p>
+
+<table>
+  <tr><th>Leave Duration</th><th>Actual Worked</th><th>Result</th></tr>
+  <tr><td>Full day (paid)</td><td>Any (including 0)</td><td>Full day credited, 100% paid. Absence type = approved_leave.</td></tr>
+  <tr><td>Half-day morning</td><td>Afternoon ≥ 4 hours</td><td>Full day blended (4h leave + 4h+ worked). No half-day flag.</td></tr>
+  <tr><td>Half-day morning</td><td>Afternoon < 4 hours</td><td>Insufficient. Half-day leave credited only. Worked portion insufficient for half-day block → remainder unpaid.</td></tr>
+  <tr><td>Half-day afternoon</td><td>Morning ≥ 4 hours</td><td>Full day blended (4h+ worked + 4h leave). No half-day flag.</td></tr>
+  <tr><td>Half-day afternoon</td><td>Morning < 4 hours</td><td>Insufficient. Same handling as above — 3-hour rule applies to worked portion.</td></tr>
+  <tr><td>Full day (unpaid)</td><td>Any</td><td>Hours credited but daily_wage = 0 for those hours.</td></tr>
+</table>
+
+<h3>4.9 Daily Wage Computation Formula</h3>
+
+<div class="box">
+<strong>Regular Pay:</strong><br>
+<code>hourly_rate = daily_rate / scheduled_work_hours</code><br>
+<code>regular_pay = hourly_rate × regular_hours</code><br><br>
+
+<strong>Holiday Adjustment:</strong><br>
+If holiday_pay_percent > 100 (worked holiday): <code>regular_pay = regular_pay × (holiday_pay_percent / 100)</code><br>
+If holiday_pay_percent = 100 AND unworked: <code>regular_pay = daily_rate</code> (100% holiday pay)<br><br>
+
+<strong>Overtime Pay:</strong><br>
+<code>ot_pay = hourly_rate × ot_rate_applied × (approved_overtime_minutes / 60)</code><br><br>
+
+<strong>Deductions:</strong><br>
+<code>late_deduction = min(late_minutes, 30) × 10</code><br>
+<code>undertime_deduction = hourly_rate × (undertime_minutes / 60)</code><br><br>
+
+<strong>Total Daily Wage:</strong><br>
+<code>daily_wage = regular_pay + ot_pay − late_deduction − undertime_deduction</code>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s5" class="page-break">5. Workflows</h2>
+
+<h3>5.1 Daily Attendance Flow</h3>
+
+<div class="box">
+  <span class="flow-step">Employee punches IN / OUT</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">Self-service portal writes time_log (source=self_service)</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">5-min duplicate throttle check</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">AttendanceService::processDailyAttendance() runs</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">Loads: employee_schedule + company_config + OT requests + leave requests + holidays</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">Computes: late, undertime, OT (lower-of-two), holiday pay, leave blending</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">Persists attendance_sheet with computation_hash</span>
+</div>
+
+<h3>5.2 Manual Attendance Correction Flow (Approval-Gated)</h3>
+
+<div class="box">
+  <span class="flow-step">Staff/admin submits correction via portal</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">Attendance_correction_request created (status=pending)</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">Admin/superadmin reviews (superior-only: staff→admin, admin→superadmin)</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">If APPROVED: creates time_log(s) with source=correction</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">Re-runs processDailyAttendance() to regenerate sheet</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">If DENIED: stores denial_reason, notifies requester</span>
+</div>
+
+<p><strong>Duplicate Prevention:</strong> Only one pending correction request per <code>(employee_id, attendance_date, correction_type)</code> is allowed at any time.</p>
+
+<h3>5.3 Admin Direct Manual Log Flow (No Approval)</h3>
+
+<div class="box">
+  <span class="flow-step">Admin creates time_log with source=manual</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">Audit log auto-created via Auditable trait</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">processDailyAttendance() re-runs for that employee+date</span>
+</div>
+
+<p>Admin manual logs are trusted (admin has authority). Only available to admin and superadmin roles. Staff cannot create manual time_logs.</p>
+
+<h3>5.4 Payroll Period Generation Flow</h3>
+
+<div class="box">
+  <span class="flow-step">Admin selects cutoff period (1-15 or 16-EOM)</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">PayrollPeriodService locks all attendance_sheets in range</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">Creates payroll_period (status=draft)</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">Generates payroll_period_items per employee (aggregates from sheets)</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">Admin reviews → approves (status=approved)</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">Payroll run engine computes final net_pay</span>
+</div>
+
+<p><strong>Lockdown Rule:</strong> Once attendance_sheets have <code>locked_at IS NOT NULL</code>, they cannot be recomputed or edited. To make changes, the superadmin must <strong>void the entire payroll period</strong> (which unlocks all constituent sheets), make corrections, then regenerate.</p>
+
+<h3>5.5 Overtime Approval Flow</h3>
+
+<div class="box">
+  <span class="flow-step">Employee requests OT via portal (or admin requests on their behalf)</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">Overtime_request created (status=pending, shift_type determined by schedule+holiday)</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">Admin/superadmin reviews</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">If APPROVED: stores ot_rate snapshot + approved timestamp</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">Later: processDailyAttendance() cross-references this request (lower-of-two rule)</span>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s6" class="page-break">6. Authorization Matrix</h2>
+
+<table>
+  <tr><th>Operation</th><th>Staff</th><th>Admin (branch)</th><th>Superadmin</th></tr>
+  <tr><td>View own attendance / punch history</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+  <tr><td>Self-service punch IN / OUT</td><td>Yes (own only)</td><td>Yes (own only)</td><td>Yes (own only)</td></tr>
+  <tr><td>View branch attendance sheets</td><td>No</td><td>Yes (own branch)</td><td>Yes (all branches)</td></tr>
+  <tr><td>Submit correction request</td><td>Self only</td><td>Self + any in branch</td><td>Self + any</td></tr>
+  <tr><td>Approve correction request</td><td>No</td><td>Staff submissions only (not own, not admin)</td><td>Admin + staff submissions (not own superadmin)</td></tr>
+  <tr><td>Create manual time_log (source=manual)</td><td>No</td><td>Yes (own branch)</td><td>Yes (all branches)</td></tr>
+  <tr><td>Manage employee schedules</td><td>No</td><td>Yes (own branch)</td><td>Yes (all branches)</td></tr>
+  <tr><td>Manage holidays</td><td>No</td><td>No</td><td>Yes</td></tr>
+  <tr><td>Approve OT requests</td><td>No</td><td>Yes (own branch)</td><td>Yes (all branches)</td></tr>
+  <tr><td>Approve leave requests</td><td>No</td><td>Yes (own branch)</td><td>Yes (all branches)</td></tr>
+  <tr><td>Edit company configuration</td><td>No</td><td>No</td><td>Yes</td></tr>
+  <tr><td>Generate payroll period</td><td>No</td><td>Yes (own branch)</td><td>Yes (all branches)</td></tr>
+  <tr><td>Approve payroll period</td><td>No</td><td>Yes (own branch)</td><td>Yes (all branches)</td></tr>
+  <tr><td>Void payroll period</td><td>No</td><td>No</td><td>Yes</td></tr>
+</table>
+
+<p>All authorization is enforced through Laravel Policies; no inline role-string comparisons.</p>
+
+<!-- ============================================================ -->
+<h2 id="s7" class="page-break">7. Route Structure</h2>
+
+<h3>7.1 Self-Service Portal (all authenticated roles)</h3>
+<table>
+  <tr><th>Method</th><th>URI</th><th>Name</th><th>Description</th></tr>
+  <tr><td>GET</td><td>/payroll/my-attendance</td><td>payroll.attendance.my</td><td>Employee's own attendance + punch buttons</td></tr>
+  <tr><td>POST</td><td>/payroll/punch</td><td>payroll.attendance.punch</td><td>Self-service punch IN/OUT</td></tr>
+</table>
+
+<h3>7.2 Attendance Sheets (admin/superadmin only)</h3>
+<table>
+  <tr><th>Method</th><th>URI</th><th>Name</th><th>Description</th></tr>
+  <tr><td>GET</td><td>/payroll/attendance</td><td>payroll.attendance.index</td><td>Branch attendance sheet view</td></tr>
+  <tr><td>POST</td><td>/payroll/attendance/process/{branch}</td><td>payroll.attendance.process</td><td>Batch process all employees for a date</td></tr>
+</table>
+
+<h3>7.3 Corrections</h3>
+<table>
+  <tr><th>Method</th><th>URI</th><th>Name</th><th>Description</th></tr>
+  <tr><td>GET</td><td>/payroll/corrections</td><td>payroll.corrections.index</td><td>Review queue (badge: pending count)</td></tr>
+  <tr><td>POST</td><td>/payroll/corrections</td><td>payroll.corrections.store</td><td>Submit correction (staff/admin)</td></tr>
+  <tr><td>POST</td><td>/payroll/corrections/{id}/approve</td><td>payroll.corrections.approve</td><td>Approve (superior only)</td></tr>
+  <tr><td>POST</td><td>/payroll/corrections/{id}/deny</td><td>payroll.corrections.deny</td><td>Deny with reason</td></tr>
+</table>
+
+<h3>7.4 Schedules, OT, Leave, Holidays (admin/superadmin only)</h3>
+<table>
+  <tr><th>Resource</th><th>Prefix</th><th>Operations</th></tr>
+  <tr><td>Schedules</td><td>/payroll/schedules</td><td>index, store, update, destroy</td></tr>
+  <tr><td>Overtime</td><td>/payroll/overtime</td><td>index, store, update, destroy, approve, deny</td></tr>
+  <tr><td>Leaves</td><td>/payroll/leaves</td><td>index, store, update, destroy, approve, deny</td></tr>
+  <tr><td>Holidays</td><td>/payroll/holidays</td><td>index, store, update, destroy</td></tr>
+</table>
+
+<h3>7.5 Payroll Periods (admin/superadmin)</h3>
+<table>
+  <tr><th>Method</th><th>URI</th><th>Name</th><th>Description</th></tr>
+  <tr><td>GET</td><td>/payroll/periods</td><td>payroll.periods.index</td><td>List all periods</td></tr>
+  <tr><td>POST</td><td>/payroll/periods/generate</td><td>payroll.periods.generate</td><td>Generate new period from locked sheets</td></tr>
+  <tr><td>GET</td><td>/payroll/periods/{id}</td><td>payroll.periods.show</td><td>Period detail with line items</td></tr>
+  <tr><td>POST</td><td>/payroll/periods/{id}/approve</td><td>payroll.periods.approve</td><td>Approve period (locks items)</td></tr>
+  <tr><td>POST</td><td>/payroll/periods/{id}/void</td><td>payroll.periods.void</td><td>Superadmin: void period, unlock sheets</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s8">8. Frontend Page Plan</h2>
+
+<h3>8.1 Sidebar Navigation Update</h3>
+<p>Add <strong>Attendance</strong> dropdown between Employees and Audit Logs in the payroll sidebar. Expanded items visible based on role:</p>
+
+<table>
+  <tr><th>Nav Item</th><th>Staff</th><th>Admin</th><th>Superadmin</th></tr>
+  <tr><td>My Attendance</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+  <tr><td>Attendance Sheets</td><td>—</td><td>Yes</td><td>Yes</td></tr>
+  <tr><td>Corrections <span class="badge badge-yellow">pending count</span></td><td>—</td><td>Yes</td><td>Yes</td></tr>
+  <tr><td>Schedules</td><td>—</td><td>Yes</td><td>Yes</td></tr>
+  <tr><td>Overtime Requests</td><td>—</td><td>Yes</td><td>Yes</td></tr>
+  <tr><td>Leave Requests</td><td>—</td><td>Yes</td><td>Yes</td></tr>
+  <tr><td>Holidays</td><td>—</td><td>—</td><td>Yes</td></tr>
+</table>
+
+<h3>8.2 Page Descriptions</h3>
+
+<table>
+  <tr><th>Page</th><th>Route</th><th>Description</th></tr>
+  <tr><td>My Attendance</td><td>payroll/attendance/my-attendance/index.tsx</td><td>Today's punch status (IN/OUT buttons), current month calendar grid, recent punch history, pending correction requests. Shows: schedule for today, last punch time, daily summary (present/late/OT).</td></tr>
+  <tr><td>Attendance Sheets</td><td>payroll/attendance/sheets/index.tsx</td><td>Admin view: branch-scoped. Date picker, employee list with daily status (Present/Late/Absent/Holiday/On Leave). Click row to expand detail (time_in, time_out, late_mins, OT_mins, daily_wage). Manual override button per employee.</td></tr>
+  <tr><td>Corrections</td><td>payroll/attendance/corrections/index.tsx</td><td>Tabbed: Pending | Approved | Denied | All. Each row: employee name, date, correction type, reason, status badge, [Approve] [Deny] buttons. Deny modal requires denial_reason. Badge counter on sidebar for pending count.</td></tr>
+  <tr><td>Schedules</td><td>payroll/attendance/schedules/index.tsx</td><td>List view of all schedule templates. Form: schedule_name, start/end time, work_days (checkboxes Mon–Sun), effective_from/to. Assign to employee via searchable dropdown.</td></tr>
+  <tr><td>Overtime Requests</td><td>payroll/attendance/overtime/index.tsx</td><td>Tabbed: Pending | Approved | Denied. Form: employee search, date, hours, reason. Auto-resolves shift_type based on schedule+holiday data.</td></tr>
+  <tr><td>Leave Requests</td><td>payroll/attendance/leaves/index.tsx</td><td>Tabbed: Pending | Approved | Denied. Form: date, leave_type dropdown, duration (full/half morning/half afternoon), is_paid checkbox, reason.</td></tr>
+  <tr><td>Holidays</td><td>payroll/attendance/holidays/index.tsx</td><td>Superadmin only. Calendar view + list. Add/edit holiday: name, date, type (regular/special), recurring_yearly toggle.</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s9" class="page-break">9. Integration Points</h2>
+
+<table>
+  <tr><th>Integration</th><th>Detail</th></tr>
+  <tr><td><strong>Audit Logging</strong></td><td>Use existing <code>Payroll\Audit\Traits\Auditable</code> trait in all mutation controllers. Every create/update/approve/deny/void action generates an audit log record with before/after diffs.</td></tr>
+  <tr><td><strong>Branch Scoping</strong></td><td>Follow <code>EmployeePolicy</code> pattern. Superadmin = global. Admin = branch_id filter. Staff = own records only. All queries apply branch scope dynamically via policies, never inline role checks.</td></tr>
+  <tr><td><strong>DB Transactions</strong></td><td>All multi-table writes (log punch + process sheet, approve correction + create time_logs + re-process, generate period + lock sheets + create items) wrapped in <code>DB::transaction()</code>. Pessimistic locking (<code>lockForUpdate()</code>) on concurrent operations.</td></tr>
+  <tr><td><strong>Inertia.js</strong></td><td>All page responses use Inertia::render() with typed props matching TypeScript interfaces in <code>resources/js/types/</code>. Existing pattern: controllers return named props consumed by page components.</td></tr>
+  <tr><td><strong>Pagination</strong></td><td>Follow existing pattern: <code>paginate(50)->withQueryString()</code> on all list endpoints.</td></tr>
+  <tr><td><strong>Date Handling</strong></td><td>All date displays in TSX views use <code>toManilaTime()</code> from <code>@/utils/dateHelper</code>. All server-side computation uses <code>Asia/Manila</code> timezone via Carbon.</td></tr>
+  <tr><td><strong>Payroll Sidebar</strong></td><td>Add "Attendance" dropdown to <code>payroll-sidebar.tsx</code>. Update existing layout to accommodate new route group.</td></tr>
+  <tr><td><strong>Existing Employee > Salary Bridge</strong></td><td>ProcessDailyAttendance reads <code>employee.current_daily_rate</code> when computing daily_wage. The existing salary history tracking is not affected by attendance — it's read-only at computation time.</td></tr>
+  <tr><td><strong>Future: Payroll Run Engine</strong></td><td>Payroll_period_items table is designed to feed a subsequent payroll run engine that computes final net_pay including government deductions (SSS, PhilHealth, Pag-IBIG), cash advances, and 13th-month provisions.</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s10">10. Implementation Sequence</h2>
+
+<p>Build order organized by dependency. Each phase includes migrations, models, enums, controllers, requests, policies, services, routes, frontend pages, and Pest tests.</p>
+
+<table>
+  <tr><th>Phase</th><th>Scope</th><th>Key Deliverables</th></tr>
+  <tr><td><strong>Phase 1: Config</strong></td><td>company_configurations table + seeder + config editor page</td><td>All attendance/payroll parameters stored and admin-configurable via UI. Foundation for all later phases.</td></tr>
+  <tr><td><strong>Phase 2: Schedules</strong></td><td>employee_schedules table + CRUD + assignment UI</td><td>Admin can create shift templates and assign to employees with effective dates and work_days.</td></tr>
+  <tr><td><strong>Phase 3: Time Logs</strong></td><td>time_logs table + self-service punch portal + admin manual log + 5-min throttle</td><td>My Attendance page live. Staff can punch IN/OUT. Admin can manually create time_logs. Duplicate throttling active.</td></tr>
+  <tr><td><strong>Phase 4: Core Engine</strong></td><td>AttendanceService + attendance_sheets table + batch processing + admin sheets view</td><td>processDailyAttendance() fully implemented. Attendance sheets computed and viewable. Batch branch processing operational.</td></tr>
+  <tr><td><strong>Phase 5: Corrections</strong></td><td>attendance_correction_requests + submit/approve/deny + superior-only policy</td><td>Staff can submit correction requests. Admins review and approve. Approved corrections auto-create time_logs and re-process sheets.</td></tr>
+  <tr><td><strong>Phase 6: OT + Leave</strong></td><td>overtime_requests + leave_requests + approval workflows</td><td>OT requests with shift_type-based rate selection. Leave requests with full/half day duration. Both integrate into processDailyAttendance.</td></tr>
+  <tr><td><strong>Phase 7: Holidays</strong></td><td>holidays table + CRUD + integration into engine</td><td>Regular and special holidays with day-before rule. Holiday pay computed in processDailyAttendance.</td></tr>
+  <tr><td><strong>Phase 8: Payroll Run</strong></td><td>payroll_periods + payroll_period_items + period generation + void</td><td>Admin generates period, locks sheets, approves period. Superadmin can void. Period items feed future payroll computation engine.</td></tr>
+  <tr><td><strong>Phase 9: Tests</strong></td><td>Pest feature tests for all phases</td><td>Branch scoping, approval chain, grace period, 3-hour block, OT cross-reference, holiday day-before, leave blending, lockdown/void.</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s11" class="page-break">11. Edge Cases &amp; Error Handling</h2>
+
+<h3>11.1 Time Log Edge Cases</h3>
+<table>
+  <tr><th>Scenario</th><th>Behavior</th></tr>
+  <tr><td>Two IN punches within 5 minutes</td><td>Earliest kept as canonical. Later marked as duplicate_of → canonical. ProcessDailyAttendance uses non-duplicate logs only.</td></tr>
+  <tr><td>Two OUT punches within 5 minutes</td><td>Same throttling as above. Earliest OUT kept.</td></tr>
+  <tr><td>Only IN, no OUT (day still in progress)</td><td>No attendance sheet generated. "In progress" status shown on portal. Not flagged as absent.</td></tr>
+  <tr><td>Only IN, no OUT (day closed)</td><td>Flagged as unexcused absence. Attendance_sheet created with 0 hours, notes = "Missing OUT punch."</td></tr>
+  <tr><td>Only OUT, no IN</td><td>Anomaly. Sheet created with warning. Cannot determine worked duration — 0 hours credited.</td></tr>
+  <tr><td>Punch exactly at midnight</td><td>Assigned to the previous day since no night shifts in the system.</td></tr>
+  <tr><td>Punch on a rest day</td><td>Self-service punch blocked unless pre-approved OT exists. Admin can manually log rest day work.</td></tr>
+  <tr><td>Punch outside schedule bounds (>18h after start)</td><td>Flagged as anomaly for admin review. Still logged but sheet marked with warning.</td></tr>
+</table>
+
+<h3>11.2 Computation Edge Cases</h3>
+<table>
+  <tr><th>Scenario</th><th>Behavior</th></tr>
+  <tr><td>Late exactly at grace period boundary (e.g., 15 minutes late, grace = 15)</td><td>late_minutes = 0 (within grace).</td></tr>
+  <tr><td>Late at 16 minutes, grace = 15, forfeit = true</td><td>late_minutes = 16 (full forfeiture).</td></tr>
+  <tr><td>Late at 45 minutes, cap = 30</td><td>chargeable_late = 30. Deduction = 30 × 10 = ₱300 max.</td></tr>
+  <tr><td>Holiday on Monday, employee absent Friday</td><td>Check Friday (last working day before). If absent without leave on Friday → unworked holiday pay = 0%.</td></tr>
+  <tr><td>Holiday on Monday, Friday was also a holiday</td><td>Walk further back to Thursday (last non-holiday working day).</td></tr>
+  <tr><td>Rest day work, employee works 2 hours</td><td>Paid for 2 hours at rest day OT rate (1.30). No 3-hour block penalty on rest days.</td></tr>
+  <tr><td>OT approved for 3 hours, employee stays 2 hours</td><td>Lower-of-two rule: approved_overtime_minutes = min(180, 120) = 120 minutes.</td></tr>
+  <tr><td>OT approved for 1 hour, employee stays 2 hours</td><td>approved_overtime_minutes = min(60, 120) = 60 minutes. Extra 60 minutes discarded.</td></tr>
+  <tr><td>OT approved but OT < threshold (e.g., 45 min, threshold = 60)</td><td>approved_overtime_minutes = 0. Must meet minimum consecutive threshold.</td></tr>
+  <tr><td>Schedule change mid-week</td><td>Employee_schedules.effective_from/effective_to determines which schedule applies for each date. ProcessDailyAttendance uses the most recently effective schedule.</td></tr>
+  <tr><td>Correction for already-locked sheet (paid payroll period)</td><td>Blocked. User must request superadmin to void the payroll period first.</td></tr>
+  <tr><td>Duplicate correction request (same employee, date, type)</td><td>Blocked at application level. Only one pending correction per (employee_id, attendance_date, correction_type).</td></tr>
+  <tr><td>Self-approval attempt</td><td>Policy blocks: submitter role must be strictly lower than reviewer role.</td></tr>
+</table>
+
+<h3>11.3 Concurrency &amp; Locking</h3>
+<table>
+  <tr><th>Scenario</th><th>Behavior</th></tr>
+  <tr><td>Two admins approve same correction simultaneously</td><td><code>lockForUpdate()</code> on the correction request row ensures only one succeeds.</td></tr>
+  <tr><td>Payroll period generation running while sheets are being recomputed</td><td>Period generation locks sheets (<code>locked_at</code>) within a transaction. Any in-flight sheet recomputation fails if locked_at is already set.</td></tr>
+  <tr><td>Batch process for 200+ employees</td><td><code>chunk(50)</code> processing with per-employee isolation. A failure on one employee does not roll back the entire batch.</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="s12">12. Refinements from v1</h2>
+
+<table>
+  <tr><th>#</th><th>v1 Issue</th><th>v2 Resolution</th></tr>
+  <tr><td>1</td><td>Late deduction was uncapped (infinite ₱10/min)</td><td><strong>Cap at 30 minutes.</strong> Added late_deduction_max_minutes config. Max daily late penalty = ₱300.</td></tr>
+  <tr><td>2</td><td>No approval hierarchy on corrections</td><td><strong>Superior-only chain:</strong> staff→admin, admin→superadmin. Self-approval blocked. Role comparison enforced in policy.</td></tr>
+  <tr><td>3</td><td>Manual attendance scope unclear</td><td><strong>Staff: self-only. Admin: anyone in branch. Superadmin: anyone.</strong></td></tr>
+  <tr><td>4</td><td>Multiple punch pairs unspecified</td><td><strong>PH standard: single pair.</strong> First IN + last OUT only. No interval summing. Gaps = employee responsibility.</td></tr>
+  <tr><td>5</td><td>Holiday day-before rule naive (just check previous calendar day)</td><td><strong>Walk backward to last scheduled working day.</strong> Skip rest days, Sundays, and other holidays. Holiday on Monday → check Friday.</td></tr>
+  <tr><td>6</td><td>OT rates hardcoded (1.25 only)</td><td><strong>Moved to company_configurations.</strong> Four separate rates: regular (1.25), rest day (1.30), regular holiday (2.60), special holiday (1.30).</td></tr>
+  <tr><td>7</td><td>Only one OT field on attendance_sheets</td><td><strong>Split into raw_overtime_minutes + approved_overtime_minutes.</strong> Full audit trail of actual stay vs awarded OT.</td></tr>
+  <tr><td>8</td><td>Rest days not accounted for</td><td><strong>is_rest_day + is_rest_day_worked flags.</strong> Rest day work exempt from 3-hour penalty. Self-punch blocked on rest days.</td></tr>
+  <tr><td>9</td><td>Batch processing order dependency not addressed</td><td><strong>Process dates in ascending order.</strong> Ensures holiday day-before sheets exist when processing a holiday date.</td></tr>
+  <tr><td>10</td><td>Correction table missing requester field</td><td><strong>Added requested_by (FK→users.id).</strong> Separates "whose record" (employee_id) from "who submitted" (requested_by).</td></tr>
+  <tr><td>11</td><td>Leave blending not fully specified</td><td><strong>Detailed blending matrix.</strong> Half-day morning + worked afternoon ≥ 4hr = full day. Half-day + insufficient worked = partial.</td></tr>
+  <tr><td>12</td><td>OT shift_type and rate snapshot missing</td><td><strong>Added to overtime_requests.</strong> shift_type and ot_rate captured at approval time for audit trail.</td></tr>
+  <tr><td>13</td><td>Payroll lockdown ambiguity</td><td><strong>Permanently locked once consumed.</strong> Superadmin voids entire period (unlocking all sheets) to allow corrections. No individual sheet unlocking.</td></tr>
+  <tr><td>14</td><td>Rest day partial work penalty ambiguous</td><td><strong>Paid at rest day rate for actual minutes, no minimum.</strong> 3-hour block only applies to scheduled work days.</td></tr>
+</table>
+
+<hr style="margin-top: 30px;">
+
+<div class="meta" style="text-align: center; margin-top: 24px;">
+  <strong>End of Document</strong><br>
+  Attendance Module — Architectural Implementation Plan v2.0<br>
+  Printing Shop Management System · May 22, 2026
+</div>
+
+</body>
+</html>

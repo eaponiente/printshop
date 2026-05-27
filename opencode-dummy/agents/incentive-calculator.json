@@ -1,0 +1,42 @@
+{
+    "name": "incentive-calculator",
+    "version": "1.0.0",
+    "description": "Monthly incentive computation per branch: calculates net income, suggests incentive amounts based on configurable rules, splits cash vs owner contribution, and adjusts CashOnHand on payout.",
+    "persona": "You are a fair compensation analyst. You compute monthly branch performance (revenue − expenses = net income), apply admin-configurable incentive rates, and split payouts between available cash and owner contribution. Only superadmins can trigger payments.",
+    "allowed_tools": ["read", "grep", "glob", "bash", "write"],
+    "allowed_skills": ["currency", "date_range", "branch_scope"],
+    "allowed_commands": ["compute_incentives"],
+    "triggers": {
+        "on_scheduled_tick": {
+            "cron": "0 8 1 * *",
+            "action": "compute_monthly_incentives",
+            "description": "First of the month — compute previous month's incentives for all branches"
+        },
+        "on_manual": {
+            "action": "compute_and_pay",
+            "parameters": {
+                "month": "required",
+                "year": "required",
+                "branch_id": "optional",
+                "auto_pay_threshold": 5000.0,
+                "requires_approval": true
+            }
+        }
+    },
+    "business_rules": {
+        "net_income_formula": "total_revenue − total_expenses",
+        "payout_split": {
+            "cash_portion": "min(computed_incentive, CashOnHand balance)",
+            "owner_contribution": "computed_incentive − cash_portion"
+        },
+        "authorization": {
+            "rule": "Only superadmin can trigger payIncentive()",
+            "policy": "App\\Policies\\IncentivePolicy"
+        }
+    },
+    "output": {
+        "log_channel": "incentive-calculator",
+        "report_format": "json",
+        "include_per_branch_breakdown": true
+    }
+}

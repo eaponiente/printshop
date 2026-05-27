@@ -1,0 +1,101 @@
+{
+    "application": "printing-shop-management",
+    "version": "1.0.0",
+    "database": {
+        "default": "sqlite",
+        "connection": "testing"
+    },
+    "rate_limits": {
+        "duplicate_punch_window_minutes": 5,
+        "max_agents_concurrent": 4,
+        "payroll_lock_timeout_seconds": 30
+    },
+    "branch_scoping": {
+        "special_group": ["Babak", "Peñaplata", "Tibungco"],
+        "cross_branch_approval_required_for": ["expense_credit"],
+        "superadmin_bypass": true
+    },
+    "sublimation": {
+        "statuses": [
+            "for_approval",
+            "done_layout",
+            "waiting_for_dp",
+            "downpayment_complete",
+            "for_sizing",
+            "done_sizing",
+            "printed",
+            "cut",
+            "sewing",
+            "sewed",
+            "checked",
+            "ready_for_pickup",
+            "claimed",
+            "completed"
+        ],
+        "pre_payment_phase": ["for_approval", "done_layout", "waiting_for_dp"],
+        "production_phase": [
+            "downpayment_complete",
+            "for_sizing",
+            "done_sizing",
+            "printed",
+            "cut",
+            "sewing",
+            "sewed",
+            "checked",
+            "ready_for_pickup",
+            "claimed",
+            "completed"
+        ],
+        "transaction_trigger_status": "waiting_for_dp",
+        "production_gate_status": "downpayment_complete"
+    },
+    "payroll": {
+        "daily_rate_divisor": 8,
+        "late_tiers": [
+            { "min": 0, "max": 0, "formula": "0" },
+            { "min": 1, "max": 19, "formula": "minutes * 5" },
+            { "min": 20, "max": 59, "formula": "100" },
+            {
+                "min": 60,
+                "max": null,
+                "formula": "100 + floor(minutes/60) * hourly_rate"
+            }
+        ],
+        "ot_block_30min_default": 50.0,
+        "ot_block_1hour_default": 70.0,
+        "lunch_max_minutes": 60,
+        "lunch_auto_deduct_window": { "start": "11:00", "end": "14:00" },
+        "payroll_period_days": [
+            "monday",
+            "tuesday",
+            "wednesday",
+            "thursday",
+            "friday",
+            "saturday"
+        ],
+        "paid_leaves_per_year": 5
+    },
+    "government_contributions": {
+        "philhealth_premium_percent": 5.0,
+        "philhealth_employee_split": 0.5,
+        "pagibig_monthly_employee_share": 100.0,
+        "monthly_salary_multiplier": 26
+    },
+    "notifications": {
+        "enabled": false,
+        "channels": ["log"],
+        "overdue_threshold_days": 7
+    },
+    "audit": {
+        "enabled": true,
+        "tracked_actions": [
+            "create",
+            "update",
+            "delete",
+            "void",
+            "rehire",
+            "approve",
+            "reject"
+        ]
+    }
+}
