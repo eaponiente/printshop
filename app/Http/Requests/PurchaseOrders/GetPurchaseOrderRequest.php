@@ -16,7 +16,7 @@ class GetPurchaseOrderRequest extends FormRequest
     {
         return [
             // add sort_field and sort_direction from purchase order
-            'sort_field' => ['nullable', 'string', Rule::in(['received_at', 'due_at'])],
+            'sort_field' => ['nullable', 'string', Rule::in(['received_at', 'due_at', 'assigned_user_id'])],
             'sort_direction' => ['nullable', 'string', Rule::in(['asc', 'desc'])],
             'date_field' => ['nullable', 'string', Rule::in(['due_at', 'received_at'])],
             'mode' => ['nullable', 'string', Rule::in(['weekly', 'monthly', 'yearly'])],

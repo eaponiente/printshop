@@ -11,6 +11,7 @@ use App\Http\Requests\PurchaseOrders\UpdatePurchaseOrderRequest;
 use App\Models\Branch;
 use App\Models\PurchaseOrder;
 use App\Models\Transaction;
+use App\Models\User;
 use App\Services\Sales\SalesService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\RedirectResponse;
@@ -19,6 +20,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -38,7 +40,7 @@ class PurchaseOrderController extends Controller
             ->withSum(['details as total_price' => function ($query) {
                 $query->select(DB::raw('sum(quantity * unit_price)'));
             }], 'id')
-            ->with(['details', 'branch', 'user', 'customer', 'transaction' => function ($query) {
+            ->with(['details', 'branch', 'user', 'assignedUser', 'customer', 'transaction' => function ($query) {
                 $query->withCount('payments');
             }])
             ->where(function ($query) use ($filters) {
@@ -117,6 +119,9 @@ class PurchaseOrderController extends Controller
             'purchase_orders' => $query->paginate(30)->withQueryString(),
             'branches' => Branch::accessibleBy(auth()->user())->get(['id', 'name']),
             'statuses' => PurchaseOrderStatus::map(),
+            'users' => User::whereIn('branch_id', Branch::accessibleBy(auth()->user())->pluck('id')->toArray())
+                ->whereIn('role', ['admin', 'staff'])
+                ->get(),
         ]);
     }
 
@@ -204,7 +209,7 @@ class PurchaseOrderController extends Controller
                         'invoice_number' => Transaction::generateNumber(),
                         'amount_total' => $validated['amount_total'],
                         'particular' => 'Purchase Order for '.$purchaseOrder->po_number,
-                        'staff_id' => auth()->id(),
+                        'staff_id' => $purchaseOrder->assigned_user_id,
                         'transaction_date' => now(),
                     ]));
 
@@ -237,6 +242,25 @@ class PurchaseOrderController extends Controller
             Log::error('Failed to update purchase order: '.$e->getMessage());
 
             return back()->withErrors(['message' => 'An error occurred while updating the purchase order.']);
+        }
+    }
+
+    public function updateStaff(Request $request, PurchaseOrder $purchaseOrder): RedirectResponse
+    {
+        $validated = $request->validate([
+            'assigned_user_id' => 'nullable|exists:users,id',
+        ]);
+
+        try {
+            $purchaseOrder->update($validated);
+
+            return back()->with('success', 'Staff updated successfully.');
+        } catch (\Exception $e) {
+            Log::error('Failed to update purchase order staff: '.$e->getMessage());
+
+            throw ValidationException::withMessages([
+                'message' => 'An error occurred while updating the purchase order staff.',
+            ]);
         }
     }
 }
