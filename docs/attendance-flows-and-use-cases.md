@@ -1,6 +1,6 @@
 # Attendance Module — Flows & Use Cases
 
-**Printing Shop Management System** · May 22, 2026 · v3.0
+**Printing Shop Management System** · May 27, 2026 · v6.0
 
 ---
 
@@ -16,10 +16,14 @@
 8. [Flow 6: Leave Request](#8-flow-6-leave-request)
 9. [Flow 7: Holiday Pay Resolution](#9-flow-7-holiday-pay-resolution)
 10. [Flow 8: Cash Advance Request & Deduction](#10-flow-8-cash-advance-request--deduction)
-11. [Payslip Design](#11-payslip-design)
-12. [Use Cases by Role](#12-use-cases-by-role)
-13. [System (Automated) Use Cases](#13-system-automated-use-cases)
-14. [Edge Cases](#14-edge-cases)
+11. [Flow 9: Payroll Reversals](#11-flow-9-payroll-reversals)
+12. [Employee Deactivation (Login Block)](#12-employee-deactivation-login-block)
+13. [Payslip Design](#13-payslip-design)
+14. [Use Cases by Role](#14-use-cases-by-role)
+15. [Role-Based Access Control (RBAC) — Payroll Domain](#15-role-based-access-control-rbac--payroll-domain)
+16. [Tradeoffs & Implementation Notes](#16-tradeoffs--implementation-notes)
+17. [System (Automated) Use Cases](#17-system-automated-use-cases)
+18. [Edge Cases](#18-edge-cases)
 
 ---
 
@@ -94,6 +98,16 @@ Employee (staff/admin/superadmin)
     - Upserts `attendance_sheet`
 8. Portal refreshes to show updated status
 
+### Employee Schedules
+
+Each employee has a configurable schedule defining:
+
+- **`start_time` / `end_time`** — work shift hours (e.g., 8:00 AM – 5:00 PM)
+- **`rest_days`** — days of the week the employee does not work (e.g., Saturday + Sunday = `[0, 6]`)
+- **`effective_from` / `effective_to`** — date range the schedule is active (nullable `effective_to` means ongoing)
+
+Schedules are managed by admins per branch (or superadmin for any branch). An employee can have multiple schedule records over time (e.g., schedule changes mid-week uses the one active on each date). The `employee_schedule` loaded by `processDailyAttendance()` is the one where `effective_from ≤ date ≤ effective_to`.
+
 ### Post-conditions
 
 - `time_log` row created (immutable)
@@ -144,59 +158,39 @@ else:
 # Fines (per-day, configurable)
 fine_deduction = daily_fines (e.g., ₱20 for no uniform)
 
-# OT pay — 2-block model with rounding:
-if ot_worked_minutes == 0:
-    ot_pay = 0
-else:
-    full_hours = floor(ot_worked_minutes / 60)
-    remainder  = ot_worked_minutes % 60
-    ot_pay = (full_hours × ot_amount_hour) + round_block(remainder)
+# OT pay — labor law multipliers (no admin config):
+hourly_rate = daily_rate / 8
+ot_base_rate = hourly_rate × multiplier  (multiplier varies by day type)
+ot_pay = ot_hours × ot_base_rate
 
-where round_block(minutes):
-    if minutes == 0:       return 0
-    elif minutes ≤ 30:     return ot_amount_30min
-    elif minutes < 60:     return ot_amount_hour       # round up to 1 hour
+where multiplier depends on day type (see table below)
 ```
 
-**Rounding rule:** Any remainder > 30 min rounds to full hour. Any remainder ≤ 30 min pays as a 30-min block.
+**OT is paid only for hours beyond 8, with no rounding or blocks.** The rate multiplier is determined by what type of day the OT falls on.
 
-### Overtime Rates — 2-Block Configuration
+### Overtime Rates — Labor Law (Fixed Multipliers)
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│  Overtime Rates Configuration (per shift type)                       │
-├──────────────────────────────────────────────────────────────────────┤
-│  Regular Day:      30-min block: [₱50.00]   1-hour block: [₱70.00]  │
-│  Rest Day:         30-min block: [₱65.00]   1-hour block: [₱90.00]  │
-│  Regular Holiday:  30-min block: [₱100.00]  1-hour block: [₱140.00] │
-│  Special Holiday:  30-min block: [₱65.00]   1-hour block: [₱90.00]  │
-│  Rest + Holiday:   30-min block: [₱100.00]  1-hour block: [₱140.00] │
-│                                                                      │
-│  Admin enters two ₱ amounts per shift type. No multipliers.          │
-│  Snapshot captured on OT request approval.                           │
-│                                            [Save Configuration]      │
-└──────────────────────────────────────────────────────────────────────┘
-```
+All rates derived from `hourly_rate = daily_rate / 8`. No admin-configurable amounts — these multipliers are set by Philippine labor law.
 
-| Config Key (per shift type) | Default | Description                  |
-| --------------------------- | ------- | ---------------------------- |
-| `ot_amount_30min`           | ₱50.00  | Pay for a 30-minute OT block |
-| `ot_amount_hour`            | ₱70.00  | Pay for a 1-hour OT block    |
+| Day Type                         | Regular Hours Rate | OT Rate (beyond 8h) | Notes                          |
+| -------------------------------- | ------------------ | ------------------- | ------------------------------ |
+| Ordinary working day             | 1.00x              | **1.25x**           | `hourly_rate × 1.25`           |
+| Rest day                         | 1.30x              | **1.69x**           | 1.30x on first 8h; 1.69x on OT |
+| Special non-working day (worked) | 1.30x              | **1.69x**           | Same as rest day               |
+| Rest day + Special holiday       | 1.50x              | **1.95x**           |                                |
+| Regular holiday (worked)         | 2.00x              | **2.60x**           |                                |
+| Rest day + Regular holiday       | 2.60x              | **3.38x**           |                                |
 
-**Examples (regular day, 30min=₱50, 1h=₱70):**
+**Examples (daily_rate = ₱510, hourly_rate = ₱63.75):**
 
-| OT Worked | Computation                            | Paid As | Pay  |
-| --------- | -------------------------------------- | ------- | ---- |
-| 30 min    | `1 × ₱50`                              | 30 min  | ₱50  |
-| 35 min    | `remainder=35, >30 → 1h`               | 1 hour  | ₱70  |
-| 40 min    | `remainder=40, >30 → 1h`               | 1 hour  | ₱70  |
-| 60 min    | `1 × ₱70`                              | 1 hour  | ₱70  |
-| 65 min    | `1 × ₱70 + remainder=5 → 30min block`  | 1h30min | ₱120 |
-| 80 min    | `1 × ₱70 + remainder=20 → 30min block` | 1h30min | ₱120 |
-| 90 min    | `1 × ₱70 + remainder=30 → 30min block` | 1h30min | ₱120 |
-| 95 min    | `1 × ₱70 + remainder=35 → 1h`          | 2 hours | ₱140 |
-| 120 min   | `2 × ₱70`                              | 2 hours | ₱140 |
-| 150 min   | `2 × ₱70 + remainder=30 → 30min block` | 2h30min | ₱190 |
+| Day Type        | OT Hours | Computation          | OT Pay  |
+| --------------- | -------- | -------------------- | ------- |
+| Ordinary day    | 2.0      | `2 × 63.75 × 1.25`   | ₱159.38 |
+| Ordinary day    | 1.5      | `1.5 × 63.75 × 1.25` | ₱119.53 |
+| Rest day        | 2.0      | `2 × 63.75 × 1.69`   | ₱215.48 |
+| Rest day        | 3.0      | `3 × 63.75 × 1.69`   | ₱323.21 |
+| Regular holiday | 1.0      | `1 × 63.75 × 2.60`   | ₱165.75 |
+| Regular holiday | 2.5      | `2.5 × 63.75 × 2.60` | ₱414.38 |
 
 ### Fines
 
@@ -348,7 +342,99 @@ pagibig_weekly = pagibig_monthly_employee_share / 4
 - **One active CA at a time:** Employee can only have one pending or unpaid CA. New requests blocked until existing CA is fully paid.
 - **Deducted from net pay:** Deduction happens after government contributions during payroll computation.
 - **No interest.** Unpaid balance carries over to the next payroll period until fully settled.
-- **Net pay formula:** `net_pay = gross_pay − govt_deductions − ca_deduction`
+
+### De Minimis Benefits (Non-Taxable Perks)
+
+De minimis benefits are **employer-provided**, **non-taxable** (per BIR RR 11-2018), and appear as additional earnings on the payslip. They are NOT deducted from employee pay.
+
+**Stored in the `benefits` table with `type = 'perk'`:**
+
+- `monthly_amount` — flat monthly employer contribution (e.g., rice subsidy ₱2,000/month)
+- `is_taxable = false` — excluded from taxable income
+- `payslip_label` — display name on payslip (e.g., "Rice Subsidy")
+- Assigned to employees via the `benefit_employee` pivot with an optional `custom_monthly_amount` override.
+
+**Weekly computation (per payroll period):**
+
+```
+weekly_amount = (custom_monthly_amount ?? benefit.monthly_amount) / 4
+deminimis_earnings = sum of all active de minimis benefits for the period
+```
+
+**Qualification rule:** Employee must be present at least 1 day in the payroll period to receive de minimis benefits.
+
+**Reference amounts (BIR limits, weekly ÷4):**
+
+| Benefit                             | Monthly Limit | Weekly (÷4) |
+| ----------------------------------- | ------------- | ----------- |
+| Rice subsidy                        | ₱2,000        | ₱500        |
+| Laundry allowance                   | ₱300          | ₱75         |
+| Medical cash allowance (dependents) | ₱250          | ₱62.50      |
+| Uniform / clothing allowance        | ₱500          | ₱125        |
+
+**Updated net pay formula:**
+
+```
+gross_pay        = sum(daily_wage) + sum(overtime_pay) + sum(holiday_pay)
+deminimis        = sum of de minimis benefits for period
+total_gross      = gross_pay + deminimis
+
+// Gov't deductions still computed on daily_rate × 26 — de minimis does NOT increase the base
+govt_deductions  = sss + philhealth + pagibig
+net_pay          = total_gross − govt_deductions − ca_deduction
+```
+
+**Rules:**
+
+- **Not subject to government deductions** — SSS/PhilHealth/Pag-IBIG contribution base remains `daily_rate × 26`.
+- **Employer shares** (e.g., SSS employer contribution) are tracked for reporting but NOT deducted from employee pay.
+- **No tax withholding** on amounts within BIR limits.
+- **Benefits are configurable per employee** — admin assigns active perks, effective dates, and optional custom amounts.
+
+### Retroactive Salary Adjustments
+
+When an employee's `daily_rate` changes with an `effective_date` in the past, attendance sheets that were computed with the old rate must be recalculated. This cascades through attendance sheets → payroll period items.
+
+**Recomputation cascade:**
+
+```
+Salary created/updated with effective_date < today
+│
+├── Find all attendance_sheets after effective_date
+│   ├── Sheet is unlocked (no approved payroll period)
+│   │   → recompute immediately
+│   └── Sheet is locked (in approved payroll period)
+│       → flag as "stale — rate changed retroactively"
+│
+├── For each affected payroll period in draft status
+│   └── Regenerate period items with updated daily_wage / OT pay / holiday pay
+│
+├── For each affected payroll period in approved status
+│   └── Mark period as "requires recalculation"
+│       (superadmin must void → recompute → re-approve)
+│
+└── Audit log: "retroactive_salary_adjustment"
+    with old_rate, new_rate, effective_date, affected_sheets_count
+```
+
+**Use cases:**
+
+| #   | Scenario                                              | Behavior                                                                                               |
+| --- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| RS1 | Raise effective 2 weeks ago, no payroll generated yet | Recompute unlocked sheets only. No periods affected.                                                   |
+| RS2 | Raise effective last month, payroll already approved  | Sheets locked → period flagged "stale." Superadmin voids → sheets recompute → regenerate → re-approve. |
+| RS3 | Raise affects OT pay from earlier date                | `hourly_rate = new_daily_rate / 8`. OT pay recalculated at new hourly × labor law multiplier.          |
+| RS4 | Raise affects holiday pay from earlier date           | Holiday pay = `new_daily_rate × percent`. Recalculated.                                                |
+| RS5 | Multiple salary changes within same period            | Only the rate active on each sheet's date is used (salary range query by `effective_date`).            |
+| RS6 | Lower salary (demotion, error correction)             | Same flow. Overpayment handled via payroll reversal.                                                   |
+
+**Edge cases:**
+
+| #     | Scenario                                    | Behavior                                                |
+| ----- | ------------------------------------------- | ------------------------------------------------------- |
+| E-RS1 | Retroactive effective_date before hire_date | Blocked: "Effective date cannot be before hire date"    |
+| E-RS2 | Overlapping salary ranges                   | Close prior salary's `end_date` before creating new one |
+| E-RS3 | 200+ attendance sheets need recomputation   | Process in chunks. If any fail → rollback entire chunk. |
 
 ---
 
@@ -468,8 +554,13 @@ Admin (branch) or Superadmin
             - **PhilHealth:** `(daily_rate × 26 × philhealth_premium_percentage / 100 × 0.50) / 4` — 50/50 split.
             - **Pag-IBIG:** `pagibig_monthly_employee_share / 4` — flat ₱100/month.
             - Per-benefit conditional — only deducted if employee has filled up the corresponding ID number. Same amount every week regardless of absences or OT.
+        - **De minimis benefits:**
+            - Loads active perks (`type = 'perk'`, `is_taxable = false`) assigned to the employee via `benefit_employee`.
+            - Computes each as `(custom_monthly_amount ?? benefit.monthly_amount) / 4`.
+            - Only awarded if employee was present at least 1 day in the period.
+            - `deminimis_earnings` = sum of all qualifying de minimis amounts.
         - **Cash advance deduction:** Deducted if employee has an active CA. Amount = min(remaining_balance, net_receivable). Balance carries over.
-        - Stores: `net_pay` = `gross_pay − govt_deductions − ca_deduction`
+        - Stores: `net_pay` = `(gross_pay + deminimis_earnings) − govt_deductions − ca_deduction`
 4. System shows **incomplete days alert** — list of employees with days flagged as absent due to missing OUT punch (IN only, no OUT). Admin can review and manually correct before proceeding.
 5. Admin reviews line items on the period detail page
 6. Admin clicks **Approve**
@@ -511,8 +602,8 @@ Approver: Admin or Superadmin
     - `overtime_request` created (`status=pending`)
 
 2. Admin/superadmin reviews and **approves**
-    - `ot_amount_30min` and `ot_amount_hour` snapshots captured at approval time (prevents rate changes from affecting historical OT)
     - `shift_type` + `approved_by` + `approved_at` recorded
+    - No rate snapshot needed — OT pay uses fixed labor law multipliers derived from the employee's `daily_rate`
 
 3. **Later: processDailyAttendance()** runs
     - Finds approved OT request for employee + date
@@ -520,37 +611,31 @@ Approver: Admin or Superadmin
     - **Lower-of-two rule**: `ot_worked_minutes = min(actual_extra, approved_request)`
     - Unapproved extra minutes are discarded
     - OT must also meet `ot_threshold_minutes` (e.g., 60 consecutive minutes)
-    - **Rounding rule:** After threshold met, pay computed as:
-        - Full hours × `ot_amount_hour`
-        - Remainder ≤ 30 min → + `ot_amount_30min`
-        - Remainder 31–59 min → + `ot_amount_hour` (rounds up to 1 hour)
+    - OT pay computed as: `ot_worked_hours × hourly_rate × multiplier` where multiplier is determined by the day type (see labor law table in Section 3)
 
-### OT Rate Selection (2-Block, Flat Amounts)
+### OT Multipliers (Labor Law — Fixed)
 
-```
-30-min block = ₱50 | 1-hour block = ₱70 (regular day defaults)
-```
+| Shift Type         | OT Rate Multiplier |
+| ------------------ | ------------------ |
+| regular_day        | 1.25x              |
+| rest_day           | 1.69x              |
+| regular_holiday    | 2.60x              |
+| special_holiday    | 1.69x              |
+| rest_day + holiday | 3.38x              |
 
-| Shift Type         | 30-min Block      | 1-hour Block      |
-| ------------------ | ----------------- | ----------------- |
-| regular_day        | ₱50.00            | ₱70.00            |
-| rest_day           | ₱65.00            | ₱90.00            |
-| regular_holiday    | ₱100.00           | ₱140.00           |
-| special_holiday    | ₱65.00            | ₱90.00            |
-| rest_day + holiday | higher of the two | higher of the two |
+**Examples (daily_rate = ₱510, hourly_rate = ₱63.75):**
 
-| OT Worked | Computation                  | Paid As | Pay  |
-| --------- | ---------------------------- | ------- | ---- |
-| 30 min    | 1 × ₱50                      | 30 min  | ₱50  |
-| 40 min    | 1 × ₱70                      | 1 hour  | ₱70  |
-| 80 min    | 1 × ₱70 + remaining 20 → ₱50 | 1h30min | ₱120 |
-| 95 min    | 1 × ₱70 + remaining 35 → ₱70 | 2 hours | ₱140 |
-| 150 min   | 2 × ₱70 + remaining 30 → ₱50 | 2h30min | ₱190 |
+| OT Worked | Day Type        | Computation          | Pay     |
+| --------- | --------------- | -------------------- | ------- |
+| 1.0h      | regular_day     | `1.0 × 63.75 × 1.25` | ₱79.69  |
+| 2.0h      | regular_day     | `2.0 × 63.75 × 1.25` | ₱159.38 |
+| 2.0h      | rest_day        | `2.0 × 63.75 × 1.69` | ₱215.48 |
+| 1.5h      | regular_day     | `1.5 × 63.75 × 1.25` | ₱119.53 |
+| 1.0h      | regular_holiday | `1.0 × 63.75 × 2.60` | ₱165.75 |
 
 ### Post-conditions
 
 - Approved OT request exists for cross-reference during attendance computation
-- OT rate frozen at approval time
 
 ---
 
@@ -663,7 +748,140 @@ Approver: Admin or Superadmin
 
 ---
 
-## 11. Payslip Design
+## 11. Flow 9: Payroll Reversals
+
+### Primary Actor
+
+Superadmin (void), Admin (correction-triggered recomputation)
+
+### Overview
+
+Payroll reversals cover scenarios where an approved payroll period must be partially or fully undone. The full period void is the primary mechanism — there is no standalone "partial item reversal." All item-level fixes require voiding the entire period, correcting the data, regenerating, and re-approving.
+
+### Reversal Scenarios
+
+| #   | Use Case                             | Trigger                                     | Flow                                                                                                                   |
+| --- | ------------------------------------ | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| PR1 | **Full period void**                 | Superadmin void                             | Void → sheets unlock → fix errors → regenerate → re-approve.                                                           |
+| PR2 | **Missed OT for single employee**    | Correction approved                         | New time_logs → sheet recomputed. If period not yet approved: regenerate. If approved: void → regenerate → re-approve. |
+| PR3 | **Bank deposit reversal**            | Bank transfer failed                        | Void period → deduct failed transfer amount from that employee's net_pay in regenerated item → manual reissue.         |
+| PR4 | **Deduction error reversal**         | SSS/PhilHealth/Pag-IBIG over-deducted       | Void period → fix deduction amount → regenerate → re-approve.                                                          |
+| PR5 | **De minimis recovery**              | Employee absent all week but received perk  | Void → remove deminimis_earnings for that employee → regenerate → re-approve.                                          |
+| PR6 | **CA deduction reversal**            | CA deducted twice by mistake                | Correct CA `remaining_balance` → void period → regenerate → re-approve.                                                |
+| PR7 | **Late deduction reversal**          | Correction approved (employee was not late) | Sheet recomputed → if period approved, void → regenerate.                                                              |
+| PR8 | **Employer contribution adjustment** | SSS employer share miscalculated            | Employer shares are tracked for reporting only. Adjust reporting data — no employee-side reversal needed.              |
+
+### Void Flow (Already Documented in Flow 4)
+
+1. Superadmin navigates to approved/paid period
+2. Clicks **Void Period**
+3. All constituent `attendance_sheets` unlocked (`locked_at` = null)
+4. Period `status` → `voided`
+5. Corrections can now be made → re-generate → re-approve
+
+### Constraints
+
+| Rule                  | Detail                                                                         |
+| --------------------- | ------------------------------------------------------------------------------ |
+| Void = unlock all     | Partial item reversal is NOT supported. Void unlocks ALL sheets in the period. |
+| Superadmin-only void  | Admin cannot void. Prevents unauthorized mass reversals.                       |
+| Audit logged          | Every void logs `status_old`, `status_new`, `voided_by`                        |
+| Historical integrity  | Void does NOT delete items. `status = voided` preserved for audit trail.       |
+| Post-void re-approval | Admin re-generates (sheets re-lock) → re-approves. Items are fresh snapshots.  |
+
+---
+
+## 12. Employee Deactivation (Login Block)
+
+### Primary Actor
+
+Admin (branch) or Superadmin
+
+### Overview
+
+When an employee is deactivated (status set to `inactive`, `resigned`, or `terminated`), any linked user account is blocked from logging in. The `users` table has an `employee_id` FK linking the user to their employee record.
+
+### Employee ↔ User Linkage
+
+```
+users.employee_id → employees.id  (nullable, one-to-one)
+```
+
+- An employee can exist without a user account (no login access)
+- A user account can be created and linked later
+- When employee status ≠ `active`, the linked user is blocked from login
+
+### Employee Statuses
+
+| Status       | Login? | Description                                                                    |
+| ------------ | ------ | ------------------------------------------------------------------------------ |
+| `active`     | Yes    | Employee can use self-service punch via linked user                            |
+| `inactive`   | No     | Temporarily deactivated (suspension, long leave). Can be reactivated directly. |
+| `resigned`   | No     | Voluntary departure. `end_date` populated. Requires rehire to reactivate.      |
+| `terminated` | No     | Involuntary separation. Requires rehire to reactivate.                         |
+
+### Deactivation Flow
+
+```
+Admin sets employee status to INACTIVE (or RESIGNED/TERMINATED)
+│
+├── Employee::updated event fires
+│   ├── Find linked User via employee_id FK
+│   ├── If User exists → blocked from login at auth gate
+│   └── Audit log: "employee_deactivated"
+│       with employee_id, status_old, status_new
+│
+├── Attendance records unchanged
+│   (sheets remain — employee just can't punch)
+│
+└── Payroll periods: employee still appears
+    (any earned wages for the period are still paid)
+```
+
+### Reactivation Flow
+
+| From         | Action                                                                 |
+| ------------ | ---------------------------------------------------------------------- |
+| `inactive`   | Admin sets status → `active`. Linked user login restored.              |
+| `resigned`   | Use rehire flow (new salary, position, daily_rate). Status → `active`. |
+| `terminated` | Same as resigned — use rehire flow.                                    |
+
+### Login Block Mechanism
+
+In the auth flow (Fortify), after credentials are validated, check:
+
+```
+if ($user->employee_id) {
+    $employee = Employee::find($user->employee_id);
+    if (!$employee || $employee->status !== EmployeeStatus::ACTIVE) {
+        throw AuthenticationException("Your account has been deactivated.");
+    }
+}
+```
+
+### Use Cases
+
+| #   | Scenario                              | Behavior                                                            |
+| --- | ------------------------------------- | ------------------------------------------------------------------- |
+| DE1 | Admin deactivates employee (INACTIVE) | Linked user blocked from login. Attendance records unchanged.       |
+| DE2 | Employee resigns (RESIGNED)           | Status set in edit form. Linked user blocked. `end_date` populated. |
+| DE3 | Employee terminated (TERMINATED)      | Same as resigned. Linked user blocked.                              |
+| DE4 | Employee rehired after resignation    | Rehire flow sets status → ACTIVE. User login restored.              |
+| DE5 | Employee has no linked user           | Status change works normally. No login to block.                    |
+| DE6 | Admin tries to deactivate own account | Blocked: "You cannot deactivate your own account."                  |
+
+### Constraints
+
+| Rule                      | Detail                                                                            |
+| ------------------------- | --------------------------------------------------------------------------------- |
+| Self-deactivation blocked | Admin cannot set their own employee record to non-active status                   |
+| INACTIVE is temporary     | Unlike resigned/terminated, INACTIVE expects eventual reactivation without rehire |
+| No attendance impact      | Sheets remain unchanged — deactivation only blocks future punches                 |
+| Payroll unaffected        | Employee still appears in payroll periods for any days worked within the period   |
+
+---
+
+## 13. Payslip Design
 
 ### Header Section
 
@@ -694,15 +912,17 @@ Approver: Admin or Superadmin
 │ Basic Pay         ₱2,868.75  │ Late (Tue, 15min × ₱5)  −₱75.00   │
 │ Overtime          —          │ Fine (No Uniform)      −₱20.00   │
 │ Holiday Pay       —          │ SSS (5%)              −₱165.75   │
-│                              │ PhilHealth (2.50%)     −₱82.88   │
+│ * Rice Subsidy    ₱500.00    │ PhilHealth (2.50%)     −₱82.88   │
 │                              │ Pag-IBIG               −₱25.00   │
 │                              │ Cash Advance           —          │
 ├──────────────────────────────┼──────────────────────────────────┤
-│  GROSS PAY       ₱2,868.75   │  TOTAL DEDUCTIONS    −₱368.63    │
+│  GROSS PAY       ₱3,368.75   │  TOTAL DEDUCTIONS    −₱368.63    │
 └──────────────────────────────┴──────────────────────────────────┘
 
+                   * Non-taxable de minimis benefits
+
                           ┌───────────────────────┐
-                          │  NET PAY  ₱2,500.12    │
+                          │  NET PAY  ₱3,000.12    │
                           └───────────────────────┘
 ```
 
@@ -818,23 +1038,24 @@ Approver: Admin or Superadmin
 
 ### Design Rules
 
-| Rule                | Detail                                                                                                                 |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| IDs in header       | SSS, PhilHealth, Pag-IBIG, TIN displayed. Missing IDs shown as `—`.                                                    |
-| No daily rows       | Replaced by compact Attendance Summary line (Present, Late, OT hours, Absent, Holiday).                                |
-| Two-column body     | Earnings on left (Basic Pay, Overtime, Holiday Pay). Deductions on right (Late, Fines, Gov't, Cash Advance).           |
-| Holiday pay         | Shown as separate line item under Earnings with percentage label (100%, 130%, 200%). 0% holidays not shown.            |
-| Deduction ordering  | Late + Fines first (behavioral), then statutory (SSS/PhilHealth/Pag-IBIG), then voluntary (Cash Advance).              |
-| Missing gov't IDs   | Deduction line shown as `—` and no amount deducted. Only benefits with filled IDs are deducted.                        |
-| Net pay ≥ 0         | Cash advance deduction capped so net pay never goes negative. Remaining balance carries over.                          |
-| Overtime visibility | 2-block rates shown (e.g., `30min=₱50, 1h=₱70`) and billed duration (e.g., `1h30min`).                                 |
-| Signature blocks    | Employee, preparer, and approver signature lines in footer.                                                            |
-| Contribution basis  | All government deductions computed on `daily_rate × 26` (regular monthly salary). NOT on variable attendance earnings. |
-| Delivery            | PDF download available from portal + view in-portal. Generated via Chrome headless on period approval.                 |
+| Rule                | Detail                                                                                                                         |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| IDs in header       | SSS, PhilHealth, Pag-IBIG, TIN displayed. Missing IDs shown as `—`.                                                            |
+| No daily rows       | Replaced by compact Attendance Summary line (Present, Late, OT hours, Absent, Holiday).                                        |
+| Two-column body     | Earnings on left (Basic Pay, Overtime, Holiday Pay, De Minimis perks). Deductions on right (Late, Fines, Gov't, Cash Advance). |
+| Holiday pay         | Shown as separate line item under Earnings with percentage label (100%, 130%, 200%). 0% holidays not shown.                    |
+| Deduction ordering  | Late + Fines first (behavioral), then statutory (SSS/PhilHealth/Pag-IBIG), then voluntary (Cash Advance).                      |
+| De minimis benefits | Shown under Earnings with `*` prefix and "Non-taxable" footnote. Label from `payslip_label`. Prorated weekly (÷4).             |
+| Missing gov't IDs   | Deduction line shown as `—` and no amount deducted. Only benefits with filled IDs are deducted.                                |
+| Net pay ≥ 0         | Cash advance deduction capped so net pay never goes negative. Remaining balance carries over.                                  |
+| Overtime visibility | OT hours + multiplier shown (e.g., `2.0h × 1.25x` = `₱159.38`). Rate determined by day type (see labor law table).             |
+| Signature blocks    | Employee, preparer, and approver signature lines in footer.                                                                    |
+| Contribution basis  | All government deductions computed on `daily_rate × 26` (regular monthly salary). NOT on variable attendance earnings.         |
+| Delivery            | PDF download available from portal + view in-portal. Generated via Chrome headless on period approval.                         |
 
 ---
 
-## 12. Use Cases by Role
+## 14. Use Cases by Role
 
 ### Branch Scoping Rule
 
@@ -876,22 +1097,22 @@ Approver: Admin or Superadmin
 
 ### 12.3 Superadmin Use Cases
 
-| #    | Use Case                               | Frequency  | Branch Scope  | Notes                                                                               |
-| ---- | -------------------------------------- | ---------- | ------------- | ----------------------------------------------------------------------------------- |
-| SA1  | All admin use cases (global scope)     | —          | All branches  | Across all branches                                                                 |
-| SA2  | Manage holidays                        | Annual     | All branches  | Add/edit regular + special holidays                                                 |
-| SA3  | Edit company configuration             | Rare       | Global config | Late deduction tiers, OT flat per-hour amounts, lunch deduction, fines, holiday pay |
-| SA4  | Approve admin-submitted corrections    | Occasional | All branches  | Superior-only rule: admin needs superadmin                                          |
-| SA5  | Approve admin-submitted OT/leave       | Occasional | All branches  | When admin submits for themselves                                                   |
-| SA6  | Void payroll period                    | Rare       | All branches  | Unlocks all sheets in period; enables corrections                                   |
-| SA7  | Approve admin cash advance requests    | Occasional | All branches  | When admin submits for themselves (superior-only)                                   |
-| SA8  | View global attendance across branches | As needed  | All branches  | Unfiltered branch scope                                                             |
-| SA9  | Manage government contributions        | Annual     | Global config | Edit SSS brackets, PhilHealth premium %, Pag-IBIG share.                            |
-| SA10 | Manage users (create/edit/deactivate)  | Rare       | All branches  | Add/remove admin and staff accounts, reset passwords. Branch assignment.            |
+| #    | Use Case                               | Frequency  | Branch Scope  | Notes                                                                    |
+| ---- | -------------------------------------- | ---------- | ------------- | ------------------------------------------------------------------------ |
+| SA1  | All admin use cases (global scope)     | —          | All branches  | Across all branches                                                      |
+| SA2  | Manage holidays                        | Annual     | All branches  | Add/edit regular + special holidays                                      |
+| SA3  | Edit company configuration             | Rare       | Global config | Late deduction tiers, lunch deduction, fines, holiday pay                |
+| SA4  | Approve admin-submitted corrections    | Occasional | All branches  | Superior-only rule: admin needs superadmin                               |
+| SA5  | Approve admin-submitted OT/leave       | Occasional | All branches  | When admin submits for themselves                                        |
+| SA6  | Void payroll period                    | Rare       | All branches  | Unlocks all sheets in period; enables corrections                        |
+| SA7  | Approve admin cash advance requests    | Occasional | All branches  | When admin submits for themselves (superior-only)                        |
+| SA8  | View global attendance across branches | As needed  | All branches  | Unfiltered branch scope                                                  |
+| SA9  | Manage government contributions        | Annual     | Global config | Edit SSS brackets, PhilHealth premium %, Pag-IBIG share.                 |
+| SA10 | Manage users (create/edit/deactivate)  | Rare       | All branches  | Add/remove admin and staff accounts, reset passwords. Branch assignment. |
 
 ---
 
-## 13. Role-Based Access Control (RBAC) — Payroll Domain
+## 15. Role-Based Access Control (RBAC) — Payroll Domain
 
 ### Policy Files
 
@@ -908,41 +1129,41 @@ All payroll/attendance RBAC is enforced through dedicated Policy classes registe
 | `CashAdvancePolicy`       | `CashAdvance`       | `payroll/Attendance/Policies/` | Staff: request self. Admin: approve branch. Superadmin: approve all.                     |
 | `PayrollPeriodPolicy`     | `PayrollPeriod`     | `payroll/Attendance/Policies/` | Admin: generate + approve + view branch. Superadmin: all + **void**.                     |
 | `HolidayPolicy`           | `Holiday`           | `payroll/Attendance/Policies/` | Superadmin only: create, update, delete. Admin/Staff: view only.                         |
-| `CompanyConfigPolicy`     | `CompanyConfig`     | `payroll/Attendance/Policies/` | Superadmin only: edit OT rates, SSS brackets, fines, PhilHealth, Pag-IBIG.               |
+| `CompanyConfigPolicy`     | `CompanyConfig`     | `payroll/Attendance/Policies/` | Superadmin only: edit SSS brackets, fines, PhilHealth, Pag-IBIG.                         |
 | `FinePolicy`              | `Fine`              | `payroll/Attendance/Policies/` | Admin: mark branch employee. Superadmin: mark any. Superadmin: manage fine types.        |
 | `AuditLogPolicy`          | `AuditLog`          | `payroll/Audit/Policies/`      | Branch-scoped viewing. No create/update/delete.                                          |
 
 ### RBAC Matrix (Complete)
 
-| Action                             | Staff     | Admin                 | Superadmin        |
-| ---------------------------------- | --------- | --------------------- | ----------------- |
-| Punch IN/OUT                       | Self only | Self only             | Self only         |
-| View own attendance                | ✓         | ✓                     | ✓                 |
-| View branch attendance             | —         | Branch only           | All branches      |
-| Create manual time_log             | —         | Branch employees only | All employees     |
-| Submit correction request          | Self only | Branch + self         | All               |
-| Approve correction request         | —         | Staff in branch       | All (incl. admin) |
-| Submit OT request                  | Self only | Self only             | Self only         |
-| Approve OT request                 | —         | Branch employees      | All               |
-| Submit leave request               | Self only | Self only             | Self only         |
-| Approve leave request              | —         | Branch employees      | All               |
-| Request cash advance               | Self only | Self only             | Self only         |
-| Approve cash advance               | —         | Branch employees      | All               |
-| Manage employee schedules          | —         | Branch employees      | All               |
-| Mark fine on employee              | —         | Branch employees      | All               |
-| Manage fine types/amounts          | —         | —                     | ✓                 |
-| Generate payroll period            | —         | Branch only           | All branches      |
-| Approve payroll period             | —         | Branch only           | All branches      |
-| Void payroll period                | —         | —                     | ✓                 |
-| View payslip                       | Own only  | Branch employees      | All               |
-| View employee profile              | Own only  | Branch employees      | All               |
-| Create employee (onboarding)       | —         | Branch only           | All branches      |
-| Update employee                    | —         | Branch only           | All branches      |
-| Deactivate employee                | —         | —                     | ✓                 |
-| Rehire employee                    | —         | Branch only           | All branches      |
-| Manage holidays                    | —         | —                     | ✓                 |
-| Edit company config (OT/SSS/PHIC/) | —         | —                     | ✓                 |
-| View audit logs                    | —         | Branch only           | All branches      |
+| Action                                | Staff     | Admin                 | Superadmin        |
+| ------------------------------------- | --------- | --------------------- | ----------------- |
+| Punch IN/OUT                          | Self only | Self only             | Self only         |
+| View own attendance                   | ✓         | ✓                     | ✓                 |
+| View branch attendance                | —         | Branch only           | All branches      |
+| Create manual time_log                | —         | Branch employees only | All employees     |
+| Submit correction request             | Self only | Branch + self         | All               |
+| Approve correction request            | —         | Staff in branch       | All (incl. admin) |
+| Submit OT request                     | Self only | Self only             | Self only         |
+| Approve OT request                    | —         | Branch employees      | All               |
+| Submit leave request                  | Self only | Self only             | Self only         |
+| Approve leave request                 | —         | Branch employees      | All               |
+| Request cash advance                  | Self only | Self only             | Self only         |
+| Approve cash advance                  | —         | Branch employees      | All               |
+| Manage employee schedules             | —         | Branch employees      | All               |
+| Mark fine on employee                 | —         | Branch employees      | All               |
+| Manage fine types/amounts             | —         | —                     | ✓                 |
+| Generate payroll period               | —         | Branch only           | All branches      |
+| Approve payroll period                | —         | Branch only           | All branches      |
+| Void payroll period                   | —         | —                     | ✓                 |
+| View payslip                          | Own only  | Branch employees      | All               |
+| View employee profile                 | Own only  | Branch employees      | All               |
+| Create employee (onboarding)          | —         | Branch only           | All branches      |
+| Update employee                       | —         | Branch only           | All branches      |
+| Deactivate employee                   | —         | —                     | ✓                 |
+| Rehire employee                       | —         | Branch only           | All branches      |
+| Manage holidays                       | —         | —                     | ✓                 |
+| Edit company config (fines/SSS/PHIC/) | —         | —                     | ✓                 |
+| View audit logs                       | —         | Branch only           | All branches      |
 
 ### Branch Isolation Guarantee
 
@@ -967,7 +1188,7 @@ Admin     → Superadmin (never self-approved)
 
 ---
 
-## 14. Tradeoffs & Implementation Notes
+## 16. Tradeoffs & Implementation Notes
 
 ### Changes When Adding RBAC
 
@@ -1008,20 +1229,19 @@ Policies are the only approach that covers both branch scoping and action-specif
 
 ---
 
-## 15. System (Automated) Use Cases
+## 17. System (Automated) Use Cases
 
 | #   | Use Case                                  | Trigger                  | Notes                                                                         |
 | --- | ----------------------------------------- | ------------------------ | ----------------------------------------------------------------------------- |
 | SY1 | Auto-detect duplicate punches             | Per punch                | 5-min window. Keeps earliest punch, marks later as `duplicate_of`.            |
 | SY2 | Auto-resolve shift type for OT requests   | Per OT request           | Checks if date is rest day / regular holiday / special holiday / regular day. |
-| SY3 | Auto-capture OT rate snapshot on approval | Per OT approval          | Freezes `ot_amount_30min` + `ot_amount_hour` from config onto the OT request. |
 | SY4 | Auto-reset leave balance on January 1     | Jan 1 at midnight        | Sets `leaves_used_this_year = 0` for all employees.                           |
 | SY5 | Auto-generate employee number on create   | Per employee creation    | Format: `EMP-YYYY-NNNN`. Increments sequence within year.                     |
 | SY6 | Auto-close previous salary on rate change | Per salary create/update | Sets `end_date` on the prior active salary record when a new rate is created. |
 
 ---
 
-## 16. Edge Cases
+## 18. Edge Cases
 
 ### Punch-Related
 
@@ -1038,25 +1258,24 @@ Policies are the only approach that covers both branch scoping and action-specif
 
 ### Computation-Related
 
-| #   | Scenario                           | Behavior                                                 |
-| --- | ---------------------------------- | -------------------------------------------------------- |
-| E9  | Late 10 min                        | Deduction = 10 × ₱5 = ₱50                                |
-| E10 | Late 19 min                        | Deduction = 19 × ₱5 = ₱95                                |
-| E11 | Late 20 min                        | Flat ₱100 deduction (cap at 20 min)                      |
-| E12 | Late 45 min                        | Flat ₱100 deduction                                      |
-| E13 | Late 60 min (1 hour)               | ₱100 + 1 × hourly_rate. Example: ₱100 + ₱63.75 = ₱163.75 |
-| E14 | Late 90 min (1.5 hours)            | ₱100 + floor(90/60) × hourly = ₱100 + ₱63.75 = ₱163.75   |
-| E15 | Late 150 min (2.5 hours)           | ₱100 + floor(150/60) × hourly = ₱100 + ₱127.50 = ₱227.50 |
-| E16 | Not late, left early (worked 5h)   | Proportional: hourly_rate × 5. No late penalty.          |
-| E17 | Not late, worked only 2h           | Proportional: hourly_rate × 2. No minimum threshold.     |
-| E18 | OT approved 3h, stayed 2h          | Lower-of-two: 120 minutes OT worked                      |
-| E19 | OT approved 1h, stayed 2.5h        | Lower-of-two: 60 minutes OT; 90 min discarded            |
-| E20 | OT approved but actual < threshold | 0 OT awarded (must meet minimum threshold)               |
-| E21 | OT 35 min (regular day)            | Remainder 35 > 30 → rounds to 1h. Pay = ₱70.             |
-| E22 | OT 65 min (regular day)            | 1h(₱70) + remainder 5 ≤ 30 → +₱50. Pay = ₱120.           |
-| E23 | OT 95 min (regular day)            | 1h(₱70) + remainder 35 > 30 → +₱70. Pay = ₱140.          |
-| E24 | OT 150 min (regular day)           | 2h(₱140) + remainder 30 ≤ 30 → +₱50. Pay = ₱190.         |
-| E21 | Schedule changed mid-week          | Uses schedule active on each date (effective_from/to)    |
+| #   | Scenario                           | Behavior                                                            |
+| --- | ---------------------------------- | ------------------------------------------------------------------- |
+| E9  | Late 10 min                        | Deduction = 10 × ₱5 = ₱50                                           |
+| E10 | Late 19 min                        | Deduction = 19 × ₱5 = ₱95                                           |
+| E11 | Late 20 min                        | Flat ₱100 deduction (cap at 20 min)                                 |
+| E12 | Late 45 min                        | Flat ₱100 deduction                                                 |
+| E13 | Late 60 min (1 hour)               | ₱100 + 1 × hourly_rate. Example: ₱100 + ₱63.75 = ₱163.75            |
+| E14 | Late 90 min (1.5 hours)            | ₱100 + floor(90/60) × hourly = ₱100 + ₱63.75 = ₱163.75              |
+| E15 | Late 150 min (2.5 hours)           | ₱100 + floor(150/60) × hourly = ₱100 + ₱127.50 = ₱227.50            |
+| E16 | Not late, left early (worked 5h)   | Proportional: hourly_rate × 5. No late penalty.                     |
+| E17 | Not late, worked only 2h           | Proportional: hourly_rate × 2. No minimum threshold.                |
+| E21 | OT approved 3h, stayed 2h          | Lower-of-two: 120 minutes OT worked. Pay = 2 × hourly × multiplier. |
+| E22 | OT approved 1h, stayed 2.5h        | Lower-of-two: 60 minutes OT; 90 min discarded.                      |
+| E23 | OT approved but actual < threshold | 0 OT awarded (must meet minimum threshold)                          |
+| E24 | Regular day OT, 2h                 | 2 × hourly_rate × 1.25. Example: 2 × ₱63.75 × 1.25 = ₱159.38.       |
+| E25 | Rest day OT, 1.5h                  | 1.5 × hourly_rate × 1.69. Example: 1.5 × ₱63.75 × 1.69 = ₱161.61.   |
+| E26 | Regular holiday OT, 1h             | 1 × hourly_rate × 2.60. Example: 1 × ₱63.75 × 2.60 = ₱165.75.       |
+| E27 | Schedule changed mid-week          | Uses schedule active on each date (effective_from/to)               |
 
 ### Holiday-Related
 
@@ -1096,6 +1315,17 @@ Policies are the only approach that covers both branch scoping and action-specif
 | E48 | PhilHealth percentage set to 0                            | No PhilHealth deduction for any employee. Effectively disabled.          |
 | E49 | Pag-IBIG share changed mid-month                          | New amount applies to next payroll period. No retroactive adjustment.    |
 | E50 | Employee daily rate changed (raise)                       | New monthly salary computed. Bracket auto-re-looked up next payroll run. |
+
+### De Minimis Benefits
+
+| #   | Scenario                                            | Behavior                                                                           |
+| --- | --------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| E51 | Employee assigned rice subsidy (₱2,000/month)       | ₱500/week added to earnings. Non-taxable — not subject to SSS/PhilHealth/Pag-IBIG. |
+| E52 | Employee absent entire week, has de minimis benefit | De minimis skipped for this period (must be present at least 1 day).               |
+| E53 | Employee has custom rice subsidy amount (₱1,500)    | Overrides default. Weekly: ₱1,500 / 4 = ₱375.                                      |
+| E54 | Employee has multiple de minimis benefits           | All active perks summed. Each shown as separate line on payslip.                   |
+| E55 | Benefit end_date passed                             | Not included — filtered by `end_date IS NULL OR end_date > period_end`.            |
+| E56 | De minimis exceeds BIR limit (e.g., rice > ₱2,000)  | Excess portion subject to normal tax (not handled by de minimis logic).            |
 
 ### Cash Advances
 

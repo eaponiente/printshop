@@ -1,5 +1,6 @@
 import { Head } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
+import dayjs from 'dayjs';
 import { DataTable } from '@/components/data-table';
 import PayrollLayout from '@/layouts/payroll/payroll-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -80,7 +81,22 @@ function formatValue(val: unknown): string {
         return 'No';
     }
 
-    return String(val);
+    const str = String(val);
+    const isoDatePattern = /^\d{4}-\d{2}-\d{2}/;
+
+    if (isoDatePattern.test(str)) {
+        const parsed = dayjs(str);
+
+        if (parsed.isValid()) {
+            if (str.includes('T') || str.includes(' ')) {
+                return parsed.format('YYYY-MM-DD hh:mm a');
+            }
+
+            return parsed.format('YYYY-MM-DD');
+        }
+    }
+
+    return str;
 }
 
 export default function AuditLogIndex({ logs }: AuditLogsList) {
@@ -92,7 +108,7 @@ export default function AuditLogIndex({ logs }: AuditLogsList) {
                 <span className="text-xs whitespace-nowrap text-muted-foreground">
                     {toManilaTime(
                         row.original.created_at,
-                        'MMM DD, YYYY hh:mm A',
+                        'YYYY-MM-DD hh:mm a',
                     )}
                 </span>
             ),

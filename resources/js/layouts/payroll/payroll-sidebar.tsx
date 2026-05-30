@@ -1,5 +1,21 @@
-import { Link } from '@inertiajs/react';
-import { LayoutGrid, ScrollText, UserRound } from 'lucide-react';
+import { Link, usePage } from '@inertiajs/react';
+import {
+    Banknote,
+    CalendarDays,
+    ClipboardList,
+    Clock,
+    FileEdit,
+    FileText,
+    HandCoins,
+    LayoutGrid,
+    Printer,
+    ScrollText,
+    Settings,
+    Shield,
+    Table,
+    Timer,
+    UserRound,
+} from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
@@ -8,6 +24,8 @@ import {
     Sidebar,
     SidebarContent,
     SidebarFooter,
+    SidebarGroup,
+    SidebarGroupLabel,
     SidebarHeader,
     SidebarMenu,
     SidebarMenuButton,
@@ -15,24 +33,91 @@ import {
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
 import type { NavItem } from '@/types';
-const footerNavItems: NavItem[] = [];
+
+const attendanceNav: NavItem[] = [
+    {
+        title: 'My Attendance',
+        href: '/payroll/attendance',
+        icon: Clock,
+    },
+    {
+        title: 'My Payslip',
+        href: '/payroll/my-payslip',
+        icon: FileText,
+    },
+];
+
+const managementNav: NavItem[] = [
+    {
+        title: 'Employees',
+        href: '/payroll/employees',
+        icon: UserRound,
+    },
+    {
+        title: 'Payroll Periods',
+        href: '/payroll/periods',
+        icon: Banknote,
+    },
+    {
+        title: 'Reports',
+        href: '/payroll/reports',
+        icon: Printer,
+    },
+];
+
+const superadminNav: NavItem[] = [
+    {
+        title: 'Holidays',
+        href: '/payroll/holidays',
+        icon: CalendarDays,
+    },
+    {
+        title: 'SSS Brackets',
+        href: '/payroll/sss-brackets',
+        icon: Shield,
+    },
+    {
+        title: 'Company Config',
+        href: '/payroll/company-config',
+        icon: Settings,
+    },
+    {
+        title: 'Audit Logs',
+        href: '/payroll/audit-logs',
+        icon: ScrollText,
+    },
+];
 
 export function PayrollSidebar() {
-    const mainNavItems: NavItem[] = [
+    const { auth, pending_requests } = usePage().props as any;
+    const isSuperAdmin = auth?.user?.role === 'superadmin';
+    const isAdmin = auth?.user?.role === 'admin';
+    const canManageAttendance = isSuperAdmin || isAdmin;
+
+    const requestsNav: NavItem[] = [
         {
-            title: 'Dashboard',
-            href: dashboard(),
-            icon: LayoutGrid,
+            title: 'Overtime Requests',
+            href: '/payroll/overtime-requests',
+            icon: Timer,
+            badge: pending_requests?.overtime,
         },
         {
-            title: 'Employees',
-            href: '/payroll/employees',
-            icon: UserRound,
+            title: 'Leave Requests',
+            href: '/payroll/leave-requests',
+            icon: ClipboardList,
+            badge: pending_requests?.leave,
         },
         {
-            title: 'Audit Logs',
-            href: '/payroll/audit-logs',
-            icon: ScrollText,
+            title: 'Corrections',
+            href: '/payroll/correction-requests',
+            icon: FileEdit,
+            badge: pending_requests?.correction,
+        },
+        {
+            title: 'Cash Advances',
+            href: '/payroll/cash-advances',
+            icon: HandCoins,
+            badge: pending_requests?.cash_advance,
         },
     ];
 
@@ -51,11 +136,44 @@ export function PayrollSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                <SidebarGroup>
+                    <SidebarGroupLabel>Attendance</SidebarGroupLabel>
+                    <NavMain items={attendanceNav} />
+                </SidebarGroup>
+
+                {canManageAttendance && (
+                    <>
+                        <SidebarGroup>
+                            <SidebarGroupLabel>Requests</SidebarGroupLabel>
+                            <NavMain items={requestsNav} />
+                        </SidebarGroup>
+
+                        <SidebarGroup>
+                            <SidebarGroupLabel>Management</SidebarGroupLabel>
+                            <NavMain
+                                items={[
+                                    {
+                                        title: 'Attendance Sheets',
+                                        href: '/payroll/attendance-sheets',
+                                        icon: Table,
+                                    },
+                                    ...managementNav,
+                                ]}
+                            />
+                        </SidebarGroup>
+                    </>
+                )}
+
+                {isSuperAdmin && (
+                    <SidebarGroup>
+                        <SidebarGroupLabel>Administration</SidebarGroupLabel>
+                        <NavMain items={superadminNav} />
+                    </SidebarGroup>
+                )}
             </SidebarContent>
 
             <SidebarFooter>
-                <NavFooter items={footerNavItems} className="mt-auto" />
+                <NavFooter items={[]} className="mt-auto" />
                 <NavUser />
             </SidebarFooter>
         </Sidebar>

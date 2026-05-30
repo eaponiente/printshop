@@ -34,7 +34,7 @@ class CorrectionRequestPolicy
         return $this->canAccessEmployee($user, $employeeBranchId);
     }
 
-    public function approve(User $user, int $requestorBranchId, int $requestorUserId): bool
+    public function approve(User $user, int $requestorBranchId, ?int $requestorUserId): bool
     {
         if ($user->isSuperAdmin()) {
             return true;
@@ -44,20 +44,29 @@ class CorrectionRequestPolicy
             return false;
         }
 
-        // Superior-only: cannot approve own request
         if ($user->id === $requestorUserId) {
             return false;
         }
 
-        // Admin can only approve staff (not other admins)
         if ($user->isAdmin()) {
-            return (int) $user->branch_id === $requestorBranchId;
+            if ((int) $user->branch_id !== $requestorBranchId) {
+                return false;
+            }
+
+            if ($requestorUserId) {
+                $requestor = User::find($requestorUserId);
+                if ($requestor && ! $requestor->isStaff()) {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         return false;
     }
 
-    public function deny(User $user, int $requestorBranchId, int $requestorUserId): bool
+    public function deny(User $user, int $requestorBranchId, ?int $requestorUserId): bool
     {
         return $this->approve($user, $requestorBranchId, $requestorUserId);
     }

@@ -6,9 +6,11 @@ import type { BreadcrumbItem } from '@/types';
 import type { Employee } from '@/types/employee';
 import { toManilaTime } from '@/utils/dateHelper';
 import { formatCurrency } from '@/utils/formatters';
+import { ScheduleManager } from './components/schedule-manager';
 
 interface ShowProps {
     employee: Employee;
+    daysOfWeek: Array<{ value: number; label: string }>;
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -21,6 +23,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 const statusBadge = (status: string) => {
     const map: Record<string, string> = {
         active: 'bg-green-100 text-green-700 border-green-200',
+        inactive: 'bg-gray-100 text-gray-700 border-gray-200',
         resigned: 'bg-yellow-100 text-yellow-700 border-yellow-200',
         terminated: 'bg-red-100 text-red-700 border-red-200',
     };
@@ -38,7 +41,7 @@ const positionBadge = (position: string) => {
     return labels[position] ?? position;
 };
 
-export default function EmployeeShow({ employee }: ShowProps) {
+export default function EmployeeShow({ employee, daysOfWeek }: ShowProps) {
     return (
         <PayrollLayout breadcrumbs={breadcrumbs}>
             <Head title={employee.full_name} />
@@ -117,7 +120,7 @@ export default function EmployeeShow({ employee }: ShowProps) {
                                 label="Position"
                                 value={
                                     <span
-                                        className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium ${positionBadge === 'regular' ? 'bg-blue-100 text-blue-700' : ''}`}
+                                        className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium`}
                                     >
                                         {positionBadge(employee.position)}
                                     </span>
@@ -212,6 +215,14 @@ export default function EmployeeShow({ employee }: ShowProps) {
                             </div>
                         </div>
                     )}
+
+                    <div className="rounded-md border border-sidebar-border bg-sidebar p-6 lg:col-span-2">
+                        <ScheduleManager
+                            employeeId={employee.id}
+                            schedules={(employee as any).schedules ?? []}
+                            daysOfWeek={daysOfWeek}
+                        />
+                    </div>
 
                     {employee.notes && (
                         <div className="rounded-md border border-sidebar-border bg-sidebar p-6 lg:col-span-2">

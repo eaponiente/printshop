@@ -30,7 +30,7 @@ class LeaveRequestPolicy
         return $this->canAccessEmployee($user, $employeeBranchId);
     }
 
-    public function approve(User $user, int $requestorBranchId, int $requestorUserId): bool
+    public function approve(User $user, int $requestorBranchId, ?int $requestorUserId): bool
     {
         if ($user->isSuperAdmin()) {
             return true;
@@ -40,16 +40,47 @@ class LeaveRequestPolicy
             return false;
         }
 
-        // Superior-only: cannot approve own request
         if ($user->id === $requestorUserId) {
             return false;
         }
 
-        return (int) $user->branch_id === $requestorBranchId;
+        if ($user->isAdmin()) {
+            if ((int) $user->branch_id !== $requestorBranchId) {
+                return false;
+            }
+
+            if ($requestorUserId) {
+                $requestor = User::find($requestorUserId);
+                if ($requestor && ! $requestor->isStaff()) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
-    public function deny(User $user, int $requestorBranchId, int $requestorUserId): bool
+    public function deny(User $user, int $requestorBranchId, ?int $requestorUserId): bool
     {
         return $this->approve($user, $requestorBranchId, $requestorUserId);
+    }
+
+    public function cancel(User $user, int $requestorBranchId, ?int $requestorUserId): bool
+    {
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        if ($user->isStaff()) {
+            return $user->id === $requestorUserId;
+        }
+
+        if ($user->isAdmin()) {
+            return (int) $user->branch_id === $requestorBranchId;
+        }
+
+        return false;
     }
 }

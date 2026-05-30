@@ -3,12 +3,14 @@
 namespace App\Models\Payroll;
 
 use App\Models\Branch;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Payroll\Employee\Enums\EmployeePosition;
 use Payroll\Employee\Enums\EmployeeStatus;
@@ -61,6 +63,21 @@ class Employee extends Model
         return $this->belongsToMany(Project::class, 'employee_project')
             ->withPivot(['assigned_at', 'ended_at'])
             ->withTimestamps();
+    }
+
+    public function user(): HasOne
+    {
+        return $this->hasOne(User::class);
+    }
+
+    public function schedules(): HasMany
+    {
+        return $this->hasMany(EmployeeSchedule::class)->orderBy('effective_from', 'desc');
+    }
+
+    public function activeSchedule(): ?EmployeeSchedule
+    {
+        return EmployeeSchedule::activeForDate($this->id, now()->toDateString());
     }
 
     protected function fullName(): Attribute

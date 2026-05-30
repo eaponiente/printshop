@@ -37,14 +37,30 @@ class UserController extends Controller
     public function store(StoreUserRequest $request): RedirectResponse
     {
         try {
-            User::create([
-                'first_name' => $request->first_name,
-                'last_name' => $request->last_name,
-                'username' => $request->username,
-                'role' => $request->role,
-                'password' => bcrypt($request->password),
-                'branch_id' => $request->branch_id,
-            ]);
+            DB::transaction(function () use ($request) {
+                $user = User::create([
+                    'first_name' => $request->first_name,
+                    'last_name' => $request->last_name,
+                    'username' => $request->username,
+                    'role' => $request->role,
+                    'password' => bcrypt($request->password),
+                    'branch_id' => $request->branch_id,
+                ]);
+
+                $emp = Employee::create([
+                    'first_name' => $user->first_name,
+                    'last_name' => $user->last_name,
+                    'branch_id' => $user->branch_id,
+                    'hire_date' => now()->toDateString(),
+                    'position' => 'regular',
+                    'status' => 'active',
+                    'current_daily_rate' => 500,
+                ]);
+
+                Salary::createForEmployee($emp, 500, now()->toDateString(), 'Initial salary');
+
+                $user->update(['employee_id' => $emp->id]);
+            });
 
             return redirect()->back()->with('success', 'User created successfully.');
         } catch (\Exception $e) {

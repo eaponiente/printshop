@@ -30,7 +30,7 @@ class OvertimeRequestPolicy
         return $this->canAccessEmployee($user, $employeeBranchId);
     }
 
-    public function approve(User $user, int $requestorBranchId, int $requestorUserId): bool
+    public function approve(User $user, int $requestorBranchId, ?int $requestorUserId): bool
     {
         if ($user->isSuperAdmin()) {
             return true;
@@ -40,15 +40,29 @@ class OvertimeRequestPolicy
             return false;
         }
 
-        // Superior-only: cannot approve own request
         if ($user->id === $requestorUserId) {
             return false;
         }
 
-        return (int) $user->branch_id === $requestorBranchId;
+        if ($user->isAdmin()) {
+            if ((int) $user->branch_id !== $requestorBranchId) {
+                return false;
+            }
+
+            if ($requestorUserId) {
+                $requestor = User::find($requestorUserId);
+                if ($requestor && ! $requestor->isStaff()) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
-    public function deny(User $user, int $requestorBranchId, int $requestorUserId): bool
+    public function deny(User $user, int $requestorBranchId, ?int $requestorUserId): bool
     {
         return $this->approve($user, $requestorBranchId, $requestorUserId);
     }

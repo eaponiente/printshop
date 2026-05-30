@@ -16,7 +16,7 @@ export type Employee = {
     hire_date: string;
     end_date: string | null;
     position: 'regular' | 'contractual' | 'project_based';
-    status: 'active' | 'resigned' | 'terminated';
+    status: 'active' | 'inactive' | 'resigned' | 'terminated';
     current_daily_rate: number;
     sss_number: string | null;
     philhealth_number: string | null;

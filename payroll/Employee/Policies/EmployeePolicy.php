@@ -80,6 +80,19 @@ class EmployeePolicy
         return $user->isSuperAdmin();
     }
 
+    public function deactivate(User $user, Employee $employee): bool
+    {
+        if ($user->id === $employee->user?->id) {
+            return false;
+        }
+
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        return $user->isAdmin() && $this->canAccessBranch($user, $employee);
+    }
+
     public function rehire(User $user, Employee $employee): bool
     {
         if ($user->isSuperAdmin()) {
@@ -87,5 +100,14 @@ class EmployeePolicy
         }
 
         return $user->isAdmin() && $this->canAccessBranch($user, $employee);
+    }
+
+    public function editOwn(User $user, Employee $employee): bool
+    {
+        if ($employee->status->value !== 'active') {
+            return false;
+        }
+
+        return $user->employee_id === $employee->id;
     }
 }

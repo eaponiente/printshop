@@ -21,6 +21,14 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Create', href: '/payroll/employees/create' },
 ];
 
+function SectionHeader({ title }: { title: string }) {
+    return (
+        <h3 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+            {title}
+        </h3>
+    );
+}
+
 export default function EmployeeCreate({
     statuses,
     positions,
@@ -50,11 +58,10 @@ export default function EmployeeCreate({
     const submit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         post('/payroll/employees', {
-            onSuccess: () => {
+            onSuccess: () =>
                 toast.success('Employee created successfully.', {
                     position: 'top-center',
-                });
-            },
+                }),
         });
     };
 
@@ -71,177 +78,211 @@ export default function EmployeeCreate({
 
                 <form
                     onSubmit={submit}
-                    className="space-y-6 rounded-md border border-sidebar-border bg-sidebar p-6"
+                    className="space-y-8 rounded-md border border-sidebar-border bg-sidebar p-6"
                 >
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    {/* --- Personal Information --- */}
+                    <section className="space-y-4">
+                        <SectionHeader title="Personal Information" />
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="first_name">First Name *</Label>
+                                <Input
+                                    id="first_name"
+                                    value={data.first_name}
+                                    onChange={(e) =>
+                                        setData('first_name', e.target.value)
+                                    }
+                                />
+                                <InputError message={errors.first_name} />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="last_name">Last Name *</Label>
+                                <Input
+                                    id="last_name"
+                                    value={data.last_name}
+                                    onChange={(e) =>
+                                        setData('last_name', e.target.value)
+                                    }
+                                />
+                                <InputError message={errors.last_name} />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="middle_name">Middle Name</Label>
+                                <Input
+                                    id="middle_name"
+                                    value={data.middle_name}
+                                    onChange={(e) =>
+                                        setData('middle_name', e.target.value)
+                                    }
+                                />
+                                <InputError message={errors.middle_name} />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="email">Email</Label>
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    value={data.email}
+                                    onChange={(e) =>
+                                        setData('email', e.target.value)
+                                    }
+                                />
+                                <InputError message={errors.email} />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="phone">Phone</Label>
+                                <Input
+                                    id="phone"
+                                    value={data.phone}
+                                    onChange={(e) =>
+                                        setData('phone', e.target.value)
+                                    }
+                                />
+                                <InputError message={errors.phone} />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="birth_date">Birth Date</Label>
+                                <Input
+                                    id="birth_date"
+                                    type="date"
+                                    value={data.birth_date}
+                                    onChange={(e) =>
+                                        setData('birth_date', e.target.value)
+                                    }
+                                />
+                                <InputError message={errors.birth_date} />
+                            </div>
+                        </div>
                         <div className="space-y-1.5">
-                            <Label htmlFor="first_name">First Name *</Label>
-                            <Input
-                                id="first_name"
-                                value={data.first_name}
+                            <Label htmlFor="address">Address</Label>
+                            <Textarea
+                                id="address"
+                                value={data.address}
                                 onChange={(e) =>
-                                    setData('first_name', e.target.value)
+                                    setData('address', e.target.value)
                                 }
+                                rows={2}
                             />
-                            <InputError message={errors.first_name} />
+                            <InputError message={errors.address} />
                         </div>
-                        <div className="space-y-1.5">
-                            <Label htmlFor="last_name">Last Name *</Label>
-                            <Input
-                                id="last_name"
-                                value={data.last_name}
-                                onChange={(e) =>
-                                    setData('last_name', e.target.value)
-                                }
-                            />
-                            <InputError message={errors.last_name} />
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label htmlFor="middle_name">Middle Name</Label>
-                            <Input
-                                id="middle_name"
-                                value={data.middle_name}
-                                onChange={(e) =>
-                                    setData('middle_name', e.target.value)
-                                }
-                            />
-                            <InputError message={errors.middle_name} />
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label htmlFor="email">Email</Label>
-                            <Input
-                                id="email"
-                                type="email"
-                                value={data.email}
-                                onChange={(e) =>
-                                    setData('email', e.target.value)
-                                }
-                            />
-                            <InputError message={errors.email} />
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label htmlFor="phone">Phone</Label>
-                            <Input
-                                id="phone"
-                                value={data.phone}
-                                onChange={(e) =>
-                                    setData('phone', e.target.value)
-                                }
-                            />
-                            <InputError message={errors.phone} />
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label htmlFor="birth_date">Birth Date</Label>
-                            <Input
-                                id="birth_date"
-                                type="date"
-                                value={data.birth_date}
-                                onChange={(e) =>
-                                    setData('birth_date', e.target.value)
-                                }
-                            />
-                            <InputError message={errors.birth_date} />
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label htmlFor="hire_date">Hire Date *</Label>
-                            <Input
-                                id="hire_date"
-                                type="date"
-                                value={data.hire_date}
-                                onChange={(e) =>
-                                    setData('hire_date', e.target.value)
-                                }
-                            />
-                            <InputError message={errors.hire_date} />
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label htmlFor="branch_id">Branch *</Label>
-                            <NativeSelect
-                                id="branch_id"
-                                value={data.branch_id}
-                                onChange={(e) =>
-                                    setData('branch_id', e.target.value)
-                                }
-                            >
-                                <NativeSelectOption value="">
-                                    Select branch
-                                </NativeSelectOption>
-                                {branches.map((b) => (
-                                    <NativeSelectOption
-                                        key={b.id}
-                                        value={String(b.id)}
-                                    >
-                                        {b.name}
-                                    </NativeSelectOption>
-                                ))}
-                            </NativeSelect>
-                            <InputError message={errors.branch_id} />
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label htmlFor="position">Position *</Label>
-                            <NativeSelect
-                                id="position"
-                                value={data.position}
-                                onChange={(e) =>
-                                    setData('position', e.target.value)
-                                }
-                            >
-                                {positions.map((p) => (
-                                    <NativeSelectOption
-                                        key={p.key}
-                                        value={p.key}
-                                    >
-                                        {p.value}
-                                    </NativeSelectOption>
-                                ))}
-                            </NativeSelect>
-                            <InputError message={errors.position} />
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label htmlFor="status">Status *</Label>
-                            <NativeSelect
-                                id="status"
-                                value={data.status}
-                                onChange={(e) =>
-                                    setData('status', e.target.value)
-                                }
-                            >
-                                {statuses.map((s) => (
-                                    <NativeSelectOption
-                                        key={s.key}
-                                        value={s.key}
-                                    >
-                                        {s.value}
-                                    </NativeSelectOption>
-                                ))}
-                            </NativeSelect>
-                            <InputError message={errors.status} />
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label htmlFor="daily_rate">
-                                Daily Rate (PHP) *
-                            </Label>
-                            <Input
-                                id="daily_rate"
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={data.daily_rate}
-                                onChange={(e) =>
-                                    setData(
-                                        'daily_rate',
-                                        parseFloat(e.target.value) || 0,
-                                    )
-                                }
-                            />
-                            <InputError message={errors.daily_rate} />
-                        </div>
-                    </div>
+                    </section>
 
-                    <div className="border-t pt-4">
-                        <h3 className="mb-3 text-sm font-semibold">
-                            Government IDs
-                        </h3>
+                    {/* --- Employment Details --- */}
+                    <section className="space-y-4 border-t pt-6">
+                        <SectionHeader title="Employment Details" />
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="hire_date">Hire Date *</Label>
+                                <Input
+                                    id="hire_date"
+                                    type="date"
+                                    value={data.hire_date}
+                                    onChange={(e) =>
+                                        setData('hire_date', e.target.value)
+                                    }
+                                />
+                                <InputError message={errors.hire_date} />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="end_date">End Date</Label>
+                                <Input
+                                    id="end_date"
+                                    type="date"
+                                    value={data.end_date}
+                                    onChange={(e) =>
+                                        setData('end_date', e.target.value)
+                                    }
+                                />
+                                <InputError message={errors.end_date} />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="branch_id">Branch *</Label>
+                                <NativeSelect
+                                    id="branch_id"
+                                    value={data.branch_id}
+                                    onChange={(e) =>
+                                        setData('branch_id', e.target.value)
+                                    }
+                                >
+                                    <NativeSelectOption value="">
+                                        Select branch
+                                    </NativeSelectOption>
+                                    {branches.map((b) => (
+                                        <NativeSelectOption
+                                            key={b.id}
+                                            value={String(b.id)}
+                                        >
+                                            {b.name}
+                                        </NativeSelectOption>
+                                    ))}
+                                </NativeSelect>
+                                <InputError message={errors.branch_id} />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="position">Position *</Label>
+                                <NativeSelect
+                                    id="position"
+                                    value={data.position}
+                                    onChange={(e) =>
+                                        setData('position', e.target.value)
+                                    }
+                                >
+                                    {positions.map((p) => (
+                                        <NativeSelectOption
+                                            key={p.key}
+                                            value={p.key}
+                                        >
+                                            {p.value}
+                                        </NativeSelectOption>
+                                    ))}
+                                </NativeSelect>
+                                <InputError message={errors.position} />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="status">Status *</Label>
+                                <NativeSelect
+                                    id="status"
+                                    value={data.status}
+                                    onChange={(e) =>
+                                        setData('status', e.target.value)
+                                    }
+                                >
+                                    {statuses.map((s) => (
+                                        <NativeSelectOption
+                                            key={s.key}
+                                            value={s.key}
+                                        >
+                                            {s.value}
+                                        </NativeSelectOption>
+                                    ))}
+                                </NativeSelect>
+                                <InputError message={errors.status} />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="daily_rate">
+                                    Daily Rate (PHP) *
+                                </Label>
+                                <Input
+                                    id="daily_rate"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={data.daily_rate}
+                                    onChange={(e) =>
+                                        setData(
+                                            'daily_rate',
+                                            parseFloat(e.target.value) || 0,
+                                        )
+                                    }
+                                />
+                                <InputError message={errors.daily_rate} />
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* --- Government IDs --- */}
+                    <section className="space-y-4 border-t pt-6">
+                        <SectionHeader title="Government IDs" />
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                             <div className="space-y-1.5">
                                 <Label htmlFor="sss_number">SSS Number</Label>
@@ -300,21 +341,11 @@ export default function EmployeeCreate({
                                 <InputError message={errors.tin_number} />
                             </div>
                         </div>
-                    </div>
+                    </section>
 
-                    <div className="space-y-1.5">
-                        <Label htmlFor="address">Address</Label>
-                        <Textarea
-                            id="address"
-                            value={data.address}
-                            onChange={(e) => setData('address', e.target.value)}
-                            rows={2}
-                        />
-                        <InputError message={errors.address} />
-                    </div>
-
-                    <div className="space-y-1.5">
-                        <Label htmlFor="notes">Notes</Label>
+                    {/* --- Notes --- */}
+                    <section className="space-y-4 border-t pt-6">
+                        <SectionHeader title="Notes" />
                         <Textarea
                             id="notes"
                             value={data.notes}
@@ -322,7 +353,7 @@ export default function EmployeeCreate({
                             rows={3}
                         />
                         <InputError message={errors.notes} />
-                    </div>
+                    </section>
 
                     <Button type="submit" disabled={processing}>
                         {processing && <Spinner className="mr-2" />}
