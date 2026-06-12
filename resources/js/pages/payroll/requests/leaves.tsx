@@ -1,12 +1,21 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
-import { Check, X } from 'lucide-react';
+import { Check, Plus, X } from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/data-table';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
 import PayrollLayout from '@/layouts/payroll/payroll-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { PaginatedResponse } from '@/types/pagination';
+import LeaveRequestForm from './components/LeaveRequestForm';
 
 type Props = { requests: PaginatedResponse<any> };
 
@@ -23,6 +32,11 @@ const statusBadge = (s: string) =>
     })[s] ?? 'bg-gray-100';
 
 export default function LeaveRequests({ requests }: Props) {
+    const { auth } = usePage().props as any;
+    const canApprove =
+        auth?.user?.role === 'admin' || auth?.user?.role === 'superadmin';
+    const [dialogOpen, setDialogOpen] = useState(false);
+
     const columns: ColumnDef<any>[] = [
         {
             accessorKey: 'employee',
@@ -77,56 +91,78 @@ export default function LeaveRequests({ requests }: Props) {
                 </span>
             ),
         },
-        {
-            header: 'Actions',
-            cell: ({ row }: CellContext<any, any>) =>
-                row.original.status === 'pending' ? (
-                    <div className="flex gap-1">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                                router.post(
-                                    `/payroll/leave-requests/${row.original.id}/approve`,
-                                    {},
-                                    {
-                                        onSuccess: () =>
-                                            toast.success('Approved'),
-                                    },
-                                )
-                            }
-                        >
-                            <Check className="h-4 w-4 text-green-600" />
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                                router.post(
-                                    `/payroll/leave-requests/${row.original.id}/deny`,
-                                    {},
-                                    {
-                                        onSuccess: () =>
-                                            toast.success('Denied'),
-                                    },
-                                )
-                            }
-                        >
-                            <X className="h-4 w-4 text-red-500" />
-                        </Button>
-                    </div>
-                ) : (
-                    <span className="text-xs text-muted-foreground">—</span>
-                ),
-        },
+        ...(canApprove
+            ? [
+                  {
+                      header: 'Actions',
+                      cell: ({ row }: CellContext<any, any>) =>
+                          row.original.status === 'pending' ? (
+                              <div className="flex gap-1">
+                                  <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() =>
+                                          router.post(
+                                              `/payroll/leave-requests/${row.original.id}/approve`,
+                                              {},
+                                              {
+                                                  onSuccess: () =>
+                                                      toast.success('Approved'),
+                                              },
+                                          )
+                                      }
+                                  >
+                                      <Check className="h-4 w-4 text-green-600" />
+                                  </Button>
+                                  <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() =>
+                                          router.post(
+                                              `/payroll/leave-requests/${row.original.id}/deny`,
+                                              {},
+                                              {
+                                                  onSuccess: () =>
+                                                      toast.success('Denied'),
+                                              },
+                                          )
+                                      }
+                                  >
+                                      <X className="h-4 w-4 text-red-500" />
+                                  </Button>
+                              </div>
+                          ) : (
+                              <span className="text-xs text-muted-foreground">
+                                  —
+                              </span>
+                          ),
+                  } as ColumnDef<any>,
+              ]
+            : []),
     ];
 
     return (
         <PayrollLayout breadcrumbs={breadcrumbs}>
             <Head title="Leave Requests" />
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
-                <div>
+                <div className="flex items-center justify-between">
                     <h1 className="text-xl font-semibold">Leave Requests</h1>
+                    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button size="sm">
+                                <Plus className="mr-1 h-4 w-4" />
+                                New Request
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Request Leave</DialogTitle>
+                            </DialogHeader>
+                            <LeaveRequestForm
+                                onClose={() => setDialogOpen(false)}
+                            />
+                        </DialogContent>
+                    </Dialog>
                 </div>
                 <div className="rounded-md border border-sidebar-border bg-sidebar">
                     <DataTable columns={columns} pagination={requests} />

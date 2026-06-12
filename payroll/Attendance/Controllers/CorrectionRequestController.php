@@ -4,10 +4,12 @@ namespace Payroll\Attendance\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Payroll\CorrectionRequest;
+use App\Models\Payroll\CorrectionRequestItem;
 use App\Models\Payroll\Employee;
 use App\Models\Payroll\TimeLog;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Payroll\Attendance\Enums\PunchSource;
@@ -20,7 +22,7 @@ class CorrectionRequestController extends Controller
 
     public function index()
     {
-        $query = CorrectionRequest::with(['employee:id,first_name,last_name,branch_id', 'employee.branch:id,name']);
+        $query = CorrectionRequest::with(['employee:id,first_name,last_name,branch_id', 'employee.branch:id,name', 'items']);
         $user = auth()->user();
 
         if ($user->isStaff() && $user->employee_id) {
@@ -48,29 +50,46 @@ class CorrectionRequestController extends Controller
         $validated = $request->validate([
             'date' => ['required', 'date'],
             'correction_type' => ['required', 'string', 'in:missed_punch_in,missed_punch_out,time_adjustment,absent_to_present'],
-            'requested_time' => ['required_if:correction_type,missed_punch_in,missed_punch_out', 'date_format:H:i'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.punch_type' => ['required', 'string', 'in:in,out'],
+            'items.*.requested_time' => ['required', 'date_format:H:i'],
             'reason' => ['required', 'string', 'max:500'],
         ]);
 
-        if (! empty($validated['requested_time'])) {
-            $validated['requested_time'] = $validated['date'].' '.$validated['requested_time'].':00';
+        $punchTypes = array_column($validated['items'], 'punch_type');
+        $inCount = count(array_keys($punchTypes, 'in'));
+        $outCount = count(array_keys($punchTypes, 'out'));
+
+        if ($inCount > 1 || $outCount > 1) {
+            return back()->withErrors(['error' => 'You can only have one IN and one OUT per correction request.']);
         }
 
         $existing = CorrectionRequest::where('employee_id', $employee->id)
             ->where('date', $validated['date'])
-            ->where('correction_type', $validated['correction_type'])
-            ->where('status', 'pending')
+            ->whereIn('status', ['pending', 'approved'])
             ->exists();
 
         if ($existing) {
-            return back()->withErrors(['error' => 'A pending request already exists for this date and type.']);
+            return back()->withErrors(['error' => 'A correction request already exists for this date.']);
         }
 
-        CorrectionRequest::create([
-            'employee_id' => $employee->id,
-            ...$validated,
-            'status' => 'pending',
-        ]);
+        DB::transaction(function () use ($employee, $validated) {
+            $correction = CorrectionRequest::create([
+                'employee_id' => $employee->id,
+                'date' => $validated['date'],
+                'correction_type' => $validated['correction_type'],
+                'reason' => $validated['reason'],
+                'status' => 'pending',
+            ]);
+
+            foreach ($validated['items'] as $item) {
+                CorrectionRequestItem::create([
+                    'correction_request_id' => $correction->id,
+                    'punch_type' => $item['punch_type'],
+                    'requested_time' => $validated['date'].' '.$item['requested_time'].':00',
+                ]);
+            }
+        });
 
         return back()->with('success', 'Correction request submitted.');
     }
@@ -79,48 +98,33 @@ class CorrectionRequestController extends Controller
     {
         Gate::authorize('correction-requests.approve', [$correction->employee->branch_id, $correction->employee->user?->id]);
 
-        if ($correction->correction_type === 'missed_punch_in') {
-            $log = TimeLog::create([
-                'employee_id' => $correction->employee_id,
-                'type' => PunchType::IN,
-                'source' => PunchSource::CORRECTION,
-                'timestamp' => $correction->requested_time ?? $correction->date.' 08:00:00',
-            ]);
-        } elseif ($correction->correction_type === 'missed_punch_out') {
-            $log = TimeLog::create([
-                'employee_id' => $correction->employee_id,
-                'type' => PunchType::OUT,
-                'source' => PunchSource::CORRECTION,
-                'timestamp' => $correction->requested_time ?? $correction->date.' 17:00:00',
-            ]);
-        } elseif (in_array($correction->correction_type, ['time_adjustment', 'absent_to_present'])) {
-            $log1 = TimeLog::create([
-                'employee_id' => $correction->employee_id,
-                'type' => PunchType::IN,
-                'source' => PunchSource::CORRECTION,
-                'timestamp' => $correction->requested_time ?? $correction->date.' 08:00:00',
-            ]);
-            TimeLog::create([
-                'employee_id' => $correction->employee_id,
-                'type' => PunchType::OUT,
-                'source' => PunchSource::CORRECTION,
-                'timestamp' => $correction->requested_time
-                    ? date('Y-m-d H:i:s', strtotime($correction->requested_time) + 9 * 3600)
-                    : $correction->date.' 17:00:00',
-            ]);
-            $log = $log1;
-        }
+        $firstLogId = null;
 
-        if (isset($log)) {
-            app(AttendanceService::class)
-                ->processDailyAttendance($correction->employee, $correction->date->toDateString());
-        }
+        DB::transaction(function () use ($correction, &$firstLogId) {
+            foreach ($correction->items as $item) {
+                $log = TimeLog::create([
+                    'employee_id' => $correction->employee_id,
+                    'type' => PunchType::from($item->punch_type),
+                    'source' => PunchSource::CORRECTION,
+                    'timestamp' => $item->requested_time,
+                ]);
+
+                if ($firstLogId === null) {
+                    $firstLogId = $log->id;
+                }
+            }
+
+            app(AttendanceService::class)->processDailyAttendance(
+                $correction->employee,
+                $correction->date->toDateString(),
+            );
+        });
 
         $correction->update([
             'status' => 'approved',
             'reviewed_by' => auth()->id(),
             'reviewed_at' => now(),
-            'resolved_time_log_id' => $log->id ?? null,
+            'resolved_time_log_id' => $firstLogId,
         ]);
 
         return back()->with('success', 'Correction approved.');

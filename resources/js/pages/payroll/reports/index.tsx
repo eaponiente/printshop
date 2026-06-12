@@ -1,5 +1,5 @@
 import { Head } from '@inertiajs/react';
-import { Printer } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import { useState } from 'react';
 import { route } from 'ziggy-js';
 import { Button } from '@/components/ui/button';
@@ -128,8 +128,8 @@ export default function ReportsIndex({ branches, periods }: Props) {
                     disabled={!canPrint}
                     onClick={handlePrint}
                 >
-                    <Printer className="mr-2 h-4 w-4" />
-                    Print All Payslips
+                    <Eye className="mr-2 h-4 w-4" />
+                    View Payslips
                 </Button>
             </div>
         </PayrollLayout>

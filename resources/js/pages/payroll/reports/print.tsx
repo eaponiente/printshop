@@ -1,5 +1,6 @@
 import { Head } from '@inertiajs/react';
-import { useEffect } from 'react';
+import { Printer } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/utils/formatters';
 
 type EmployeeInfo = {
@@ -55,41 +56,72 @@ type Props = {
 const monthlySalary = (rate: number) => rate * 26;
 
 export default function ReportsPrint({ period, items }: Props) {
-    useEffect(() => {
-        window.print();
-    }, []);
-
     return (
         <>
-            <Head title="Print Payslips" />
+            <Head title="View Payslips" />
 
             <style>{`
                 @media print {
-                    @page { margin: 10mm; size: A4; }
-                    .payslip-card { page-break-after: always; }
-                    .payslip-card:last-child { page-break-after: auto; }
-                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    @page { margin: 6mm; size: A4; }
+                    .payslip-card {
+                        break-inside: avoid;
+                        page-break-inside: avoid;
+                    }
+                    .payslip-grid {
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 4mm;
+                    }
+                    .payslip-card .print-hide { display: none !important; }
+                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 7px; }
+                    .no-print { display: none !important; }
                 }
                 @media screen {
-                    body { background: #f5f5f5; padding: 20px; }
-                    .payslip-card { margin-bottom: 24px; }
+                    body { background: #f5f5f5; padding: 0; }
+                    .payslip-grid {
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 12px;
+                    }
                 }
             `}</style>
 
-            <div className="mx-auto max-w-2xl">
+            <div className="no-print sticky top-0 z-10 flex items-center justify-between border-b bg-white px-4 py-3 shadow-sm">
+                <div>
+                    <h1 className="text-sm font-semibold">
+                        View Payslips — {period.branch}
+                    </h1>
+                    <p className="text-xs text-muted-foreground">
+                        {period.period_start} to {period.period_end} · Status:{' '}
+                        {period.status}
+                    </p>
+                </div>
+                <Button size="sm" onClick={() => window.print()}>
+                    <Printer className="mr-2 h-4 w-4" />
+                    Print
+                </Button>
+            </div>
+
+            <div className="mx-auto max-w-5xl px-4 py-4">
                 {items.length === 0 && (
-                    <div className="rounded-md border bg-white p-8 text-center text-muted-foreground">
-                        <p className="text-lg font-medium">No payslips found</p>
-                        <p className="mt-1 text-sm">
+                    <div className="rounded-md border bg-white p-6 text-center text-muted-foreground">
+                        <p className="text-sm font-medium">No payslips found</p>
+                        <p className="mt-1 text-xs">
                             No payroll period items exist for this branch and
                             period.
                         </p>
                     </div>
                 )}
 
-                {items.map((item) => (
-                    <PayslipCard key={item.id} period={period} item={item} />
-                ))}
+                <div className="payslip-grid">
+                    {items.map((item) => (
+                        <PayslipCard
+                            key={item.id}
+                            period={period}
+                            item={item}
+                        />
+                    ))}
+                </div>
             </div>
         </>
     );
@@ -127,225 +159,156 @@ function PayslipCard({
     });
 
     return (
-        <div className="payslip-card rounded-md border bg-white text-sm shadow">
+        <div className="payslip-card rounded border bg-white text-[8px] shadow-sm">
             {/* Header */}
-            <div className="p-5">
-                <div className="text-center font-bold">
+            <div className="p-1.5">
+                <div className="text-center text-[9px] font-bold">
                     PRINTING SHOP MANAGEMENT
+                    <span className="font-normal text-muted-foreground">
+                        {' '}
+                        — {period.branch}
+                    </span>
                 </div>
-                <div className="text-center text-xs text-muted-foreground">
-                    Branch: {period.branch}
-                </div>
-                <div className="mt-1 text-center text-sm font-semibold">
-                    PAYSLIP — Weekly · {period.period_start} to{' '}
-                    {period.period_end}
+                <div className="text-center text-[7px] font-semibold">
+                    PAYSLIP · {period.period_start} to {period.period_end}
                 </div>
 
-                <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                    <div>
-                        <span className="text-muted-foreground">
-                            Employee:{' '}
-                        </span>
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0 text-[7px]">
+                    <span>
+                        <span className="text-muted-foreground">Emp: </span>
                         <span className="font-medium">
                             {emp.first_name} {emp.last_name}
                         </span>
-                    </div>
-                    <div>
-                        <span className="text-muted-foreground">
-                            Position:{' '}
-                        </span>
-                        <span className="font-medium capitalize">
-                            {emp.position}
-                        </span>
-                    </div>
-                    <div>
-                        <span className="text-muted-foreground">Emp #: </span>
+                    </span>
+                    <span>
+                        <span className="text-muted-foreground">#: </span>
                         <span className="font-medium">
                             {emp.employee_number}
                         </span>
-                    </div>
-                    <div>
-                        <span className="text-muted-foreground">
-                            Daily Rate:{' '}
-                        </span>
+                    </span>
+                    <span>
+                        <span className="text-muted-foreground">Rate: </span>
                         <span className="font-medium">
                             {formatCurrency(item.daily_rate)}
                         </span>
-                    </div>
-                    <div>
-                        <span className="text-muted-foreground">SSS: </span>
+                    </span>
+                    <span>
+                        <span className="text-muted-foreground">Monthly: </span>
                         <span className="font-medium">
-                            {emp.sss_number || '—'}
+                            {formatCurrency(monthly)}
+                            {item.sss_bracket ? ` (B${item.sss_bracket})` : ''}
                         </span>
-                    </div>
-                    <div>
-                        <span className="text-muted-foreground">
-                            PhilHealth:{' '}
-                        </span>
-                        <span className="font-medium">
-                            {emp.philhealth_number || '—'}
-                        </span>
-                    </div>
-                    <div>
-                        <span className="text-muted-foreground">
-                            Pag-IBIG:{' '}
-                        </span>
-                        <span className="font-medium">
-                            {emp.pagibig_number || '—'}
-                        </span>
-                    </div>
-                    <div>
-                        <span className="text-muted-foreground">TIN: </span>
-                        <span className="font-medium">
-                            {emp.tin_number || '—'}
-                        </span>
-                    </div>
-                    <div className="col-span-2">
-                        <span className="text-muted-foreground">
-                            Monthly Salary:{' '}
-                        </span>
-                        <span className="font-medium">
-                            {formatCurrency(monthly)} (daily × 26)
-                            {item.sss_bracket
-                                ? ` · SSS Bracket #${item.sss_bracket}`
-                                : ''}
-                        </span>
-                    </div>
+                    </span>
                 </div>
 
-                <div className="mt-2 border-t pt-2 text-xs">
-                    <span className="text-muted-foreground">Attendance: </span>
-                    <span className="font-medium">
-                        Present {item.total_regular_days}d
-                    </span>
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0 text-[7px]">
+                    <span>P:{item.total_regular_days}</span>
+                    {item.absent_days > 0 && <span>A:{item.absent_days}</span>}
                     {item.total_late_minutes > 0 && (
-                        <span className="font-medium">
-                            {' '}
-                            · Late {item.total_late_minutes}min
-                        </span>
+                        <span>L:{item.total_late_minutes}m</span>
+                    )}
+                    {item.total_undertime_minutes > 0 && (
+                        <span>UT:{item.total_undertime_minutes}m</span>
                     )}
                     {item.total_overtime_minutes > 0 && (
-                        <span className="font-medium">
-                            {' '}
-                            · OT {(item.total_overtime_minutes / 60).toFixed(1)}
-                            h
-                        </span>
-                    )}
-                    {item.absent_days > 0 && (
-                        <span className="font-medium">
-                            {' '}
-                            · Absent {item.absent_days}d
+                        <span>
+                            OT:{(item.total_overtime_minutes / 60).toFixed(1)}h
                         </span>
                     )}
                     {item.holiday_pay_days > 0 && (
-                        <span className="font-medium">
-                            {' '}
-                            · Holiday {item.holiday_pay_days}d
-                        </span>
+                        <span>HD:{item.holiday_pay_days}</span>
                     )}
                 </div>
             </div>
 
             {/* Two-Column Body */}
-            <div className="grid grid-cols-2 gap-0 border-t">
+            <div className="grid grid-cols-2 border-t">
                 {/* Earnings */}
-                <div className="border-r p-4">
-                    <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
+                <div className="border-r p-1.5">
+                    <h3 className="mb-0.5 text-[7px] font-semibold text-muted-foreground uppercase">
                         Earnings
                     </h3>
-                    <div className="space-y-1.5 text-xs">
-                        <PayslipRow label="Basic Pay" value={item.gross_pay} />
+                    <div className="space-y-0 text-[7px]">
+                        <PayslipRow label="Basic" value={item.gross_pay} />
                         {item.total_overtime_minutes > 0 && (
-                            <PayslipRow
-                                label={`Overtime (${(item.total_overtime_minutes / 60).toFixed(1)}h)`}
-                                value={item.overtime_pay}
-                            />
+                            <PayslipRow label="OT" value={item.overtime_pay} />
                         )}
                         {item.holiday_pay > 0 && (
                             <PayslipRow
-                                label={`Holiday Pay (${item.holiday_pay_days}d)`}
+                                label="Holiday"
                                 value={item.holiday_pay}
                             />
                         )}
                         {item.deminimis_earnings > 0 && (
-                            <>
-                                <div className="text-[10px] text-muted-foreground">
-                                    * De Minimis:
-                                </div>
-                                <PayslipRow
-                                    label="  Perks"
-                                    value={item.deminimis_earnings}
-                                />
-                            </>
-                        )}
-                        <div className="border-t pt-1.5 font-semibold">
                             <PayslipRow
-                                label="GROSS PAY"
-                                value={grossPay}
-                                bold
+                                label="Perks"
+                                value={item.deminimis_earnings}
                             />
+                        )}
+                        <div className="mt-0.5 border-t pt-0.5 font-semibold">
+                            <PayslipRow label="GROSS" value={grossPay} bold />
                         </div>
                     </div>
                 </div>
 
                 {/* Deductions */}
-                <div className="p-4">
-                    <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
+                <div className="p-1.5">
+                    <h3 className="mb-0.5 text-[7px] font-semibold text-muted-foreground uppercase">
                         Deductions
                     </h3>
-                    <div className="space-y-1.5 text-xs">
+                    <div className="space-y-0 text-[7px]">
                         {item.late_deduction > 0 && (
                             <PayslipRow
-                                label={`Late (${item.total_late_minutes}min)`}
+                                label="Late"
                                 value={-item.late_deduction}
                                 red
                             />
                         )}
                         {item.undertime_deduction > 0 && (
                             <PayslipRow
-                                label={`Undertime (${item.total_undertime_minutes}min)`}
+                                label="UT"
                                 value={-item.undertime_deduction}
                                 red
                             />
                         )}
                         {item.fine_deduction > 0 && (
                             <PayslipRow
-                                label="Fines"
+                                label="Fine"
                                 value={-item.fine_deduction}
                                 red
                             />
                         )}
                         {item.sss_deduction > 0 && (
                             <PayslipRow
-                                label="SSS (5%)"
+                                label="SSS"
                                 value={-item.sss_deduction}
                                 red
                             />
                         )}
                         {item.philhealth_deduction > 0 && (
                             <PayslipRow
-                                label="PhilHealth (2.50%)"
+                                label="PHIC"
                                 value={-item.philhealth_deduction}
                                 red
                             />
                         )}
                         {item.pagibig_deduction > 0 && (
                             <PayslipRow
-                                label="Pag-IBIG"
+                                label="PAG"
                                 value={-item.pagibig_deduction}
                                 red
                             />
                         )}
                         {item.ca_deduction > 0 && (
                             <PayslipRow
-                                label="Cash Advance"
+                                label="CA"
                                 value={-item.ca_deduction}
                                 red
                             />
                         )}
-                        <div className="border-t pt-1.5 font-semibold">
+                        <div className="mt-0.5 border-t pt-0.5 font-semibold">
                             <PayslipRow
-                                label="TOTAL DEDUCTIONS"
+                                label="TOTAL"
                                 value={-totalDeductions}
                                 bold
                                 red
@@ -356,31 +319,33 @@ function PayslipCard({
             </div>
 
             {/* Net Pay */}
-            <div className="border-t bg-green-50 p-4 text-center">
-                <div className="text-[10px] text-green-700">NET PAY</div>
-                <div className="text-xl font-bold text-green-800">
+            <div className="border-t bg-green-50 p-1 text-center">
+                <span className="text-[7px] font-medium text-green-700">
+                    NET PAY{' '}
+                </span>
+                <span className="text-xs font-bold text-green-800">
                     {formatCurrency(item.net_pay)}
-                </div>
+                </span>
             </div>
 
-            {/* Footer */}
-            <div className="border-t p-4 text-[10px] text-muted-foreground">
-                <div className="grid grid-cols-3 gap-3">
-                    <div className="space-y-0.5">
-                        <div className="border-b pb-0.5">Employee:</div>
-                        <div className="pt-4">Signature & Date</div>
+            {/* Footer — hidden when printing */}
+            <div className="print-hide border-t p-1.5 text-[7px] text-muted-foreground">
+                <div className="grid grid-cols-3 gap-1.5">
+                    <div>
+                        <div className="border-b">Employee</div>
+                        <div className="pt-1.5">Signature</div>
                     </div>
-                    <div className="space-y-0.5">
-                        <div className="border-b pb-0.5">Prepared by:</div>
-                        <div className="pt-4">Signature & Date</div>
+                    <div>
+                        <div className="border-b">Prepared by</div>
+                        <div className="pt-1.5">Signature</div>
                     </div>
-                    <div className="space-y-0.5">
-                        <div className="border-b pb-0.5">Approved by:</div>
-                        <div className="pt-4">Signature & Date</div>
+                    <div>
+                        <div className="border-b">Approved by</div>
+                        <div className="pt-1.5">Signature</div>
                     </div>
                 </div>
-                <div className="mt-3 text-center">
-                    Generated: {now} · Status: {period.status}
+                <div className="mt-1 text-center">
+                    {now} · {period.status}
                 </div>
             </div>
         </div>

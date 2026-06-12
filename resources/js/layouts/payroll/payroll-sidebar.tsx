@@ -1,6 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import {
     Banknote,
+    BriefcaseBusiness,
     CalendarDays,
     ClipboardList,
     Clock,
@@ -52,6 +53,11 @@ const managementNav: NavItem[] = [
         title: 'Employees',
         href: '/payroll/employees',
         icon: UserRound,
+    },
+    {
+        title: 'Contractors',
+        href: '/payroll/contractors',
+        icon: BriefcaseBusiness,
     },
     {
         title: 'Payroll Periods',
@@ -136,32 +142,32 @@ export function PayrollSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
+                {!isSuperAdmin && (
+                    <SidebarGroup>
+                        <SidebarGroupLabel>Attendance</SidebarGroupLabel>
+                        <NavMain items={attendanceNav} />
+                    </SidebarGroup>
+                )}
+
                 <SidebarGroup>
-                    <SidebarGroupLabel>Attendance</SidebarGroupLabel>
-                    <NavMain items={attendanceNav} />
+                    <SidebarGroupLabel>Requests</SidebarGroupLabel>
+                    <NavMain items={requestsNav} />
                 </SidebarGroup>
 
                 {canManageAttendance && (
-                    <>
-                        <SidebarGroup>
-                            <SidebarGroupLabel>Requests</SidebarGroupLabel>
-                            <NavMain items={requestsNav} />
-                        </SidebarGroup>
-
-                        <SidebarGroup>
-                            <SidebarGroupLabel>Management</SidebarGroupLabel>
-                            <NavMain
-                                items={[
-                                    {
-                                        title: 'Attendance Sheets',
-                                        href: '/payroll/attendance-sheets',
-                                        icon: Table,
-                                    },
-                                    ...managementNav,
-                                ]}
-                            />
-                        </SidebarGroup>
-                    </>
+                    <SidebarGroup>
+                        <SidebarGroupLabel>Management</SidebarGroupLabel>
+                        <NavMain
+                            items={[
+                                {
+                                    title: 'Attendance Sheets',
+                                    href: '/payroll/attendance-sheets',
+                                    icon: Table,
+                                },
+                                ...managementNav,
+                            ]}
+                        />
+                    </SidebarGroup>
                 )}
 
                 {isSuperAdmin && (

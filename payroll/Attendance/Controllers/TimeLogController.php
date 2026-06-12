@@ -4,11 +4,7 @@ namespace Payroll\Attendance\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Payroll\AttendanceSheet;
-use App\Models\Payroll\CashAdvance;
-use App\Models\Payroll\CorrectionRequest;
 use App\Models\Payroll\Employee;
-use App\Models\Payroll\LeaveRequest;
-use App\Models\Payroll\OvertimeRequest;
 use App\Models\Payroll\TimeLog;
 use Carbon\Carbon;
 use DB;
@@ -66,30 +62,6 @@ class TimeLogController extends Controller
                     ->limit(50)
                     ->get()
                 : collect()),
-            'recentOvertime' => Inertia::lazy(fn () => $employee
-                ? OvertimeRequest::where('employee_id', $employee->id)
-                    ->latest()
-                    ->limit(10)
-                    ->get(['id', 'date', 'hours_needed', 'shift_type', 'reason', 'status', 'created_at'])
-                : collect()),
-            'recentLeaves' => Inertia::lazy(fn () => $employee
-                ? LeaveRequest::where('employee_id', $employee->id)
-                    ->latest()
-                    ->limit(10)
-                    ->get(['id', 'date', 'leave_type', 'duration', 'is_paid', 'reason', 'status', 'created_at'])
-                : collect()),
-            'recentCorrections' => Inertia::lazy(fn () => $employee
-                ? CorrectionRequest::where('employee_id', $employee->id)
-                    ->latest()
-                    ->limit(10)
-                    ->get(['id', 'date', 'correction_type', 'reason', 'status', 'created_at'])
-                : collect()),
-            'recentCashAdvances' => Inertia::lazy(fn () => $employee
-                ? CashAdvance::where('employee_id', $employee->id)
-                    ->latest()
-                    ->limit(10)
-                    ->get(['id', 'amount', 'remaining_balance', 'reason', 'status', 'created_at'])
-                : collect()),
         ]);
     }
 
@@ -104,11 +76,13 @@ class TimeLogController extends Controller
         $type = PunchType::from($request->input('type'));
         Gate::authorize('time-logs.punch', [$employee->branch_id]);
 
-        $manualTimestamp = $request->input('manual_timestamp');
+        $latitude = $request->input('latitude');
+        $longitude = $request->input('longitude');
+        $accuracyMeters = $request->input('accuracy_meters');
 
         try {
-            $log = DB::transaction(function () use ($service, $employee, $type, $manualTimestamp) {
-                return $service->punch($employee, $type, auth()->user(), $manualTimestamp);
+            $log = DB::transaction(function () use ($service, $employee, $type, $latitude, $longitude, $accuracyMeters) {
+                return $service->punch($employee, $type, auth()->user(), $latitude, $longitude, $accuracyMeters);
             });
 
             if ($log->duplicate_of) {

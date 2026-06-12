@@ -40,15 +40,20 @@ class PayrollPeriodPolicy
 
     public function approve(User $user, int $branchId): bool
     {
-        if ($user->isStaff()) {
-            return false;
-        }
-
-        return $this->canAccessBranch($user, $branchId);
+        return $user->isSuperAdmin();
     }
 
     public function void(User $user): bool
     {
         return $user->isSuperAdmin();
+    }
+
+    public function delete(User $user, int $branchId): bool
+    {
+        if ($user->isStaff()) {
+            return false;
+        }
+
+        return $this->canAccessBranch($user, $branchId);
     }
 }

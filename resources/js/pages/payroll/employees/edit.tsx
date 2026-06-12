@@ -280,8 +280,7 @@ export default function EmployeeEdit({
                                 </Label>
                                 <Input
                                     id="daily_rate"
-                                    type="number"
-                                    step="0.01"
+                                    type="text"
                                     min="0"
                                     value={data.daily_rate}
                                     onChange={(e) =>

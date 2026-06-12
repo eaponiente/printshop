@@ -1,4 +1,4 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { ArrowLeft, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import PayrollLayout from '@/layouts/payroll/payroll-layout';
@@ -68,8 +68,15 @@ const sssLabel = (item: Props['item']) => {
 };
 
 export default function Payslip({ period, item }: Props) {
+    const { auth } = usePage().props as any;
+    const isStaff = auth?.user?.role === 'staff';
     const emp = item.employee;
     const monthly = monthlySalary(item.daily_rate);
+
+    const regularPay =
+        (Number(item.gross_pay) || 0) -
+        (Number(item.holiday_pay) || 0) -
+        (Number(item.overtime_pay) || 0);
 
     const totalDeductions =
         (Number(item.late_deduction) || 0) +
@@ -88,9 +95,16 @@ export default function Payslip({ period, item }: Props) {
                     variant="ghost"
                     size="sm"
                     className="w-fit"
-                    onClick={() => router.get(`/payroll/periods/${period.id}`)}
+                    onClick={() =>
+                        router.get(
+                            isStaff
+                                ? '/payroll/my-payslip'
+                                : `/payroll/periods/${period.id}`,
+                        )
+                    }
                 >
-                    <ArrowLeft className="mr-1 h-4 w-4" /> Back to Period
+                    <ArrowLeft className="mr-1 h-4 w-4" />{' '}
+                    {isStaff ? 'Back to My Payslips' : 'Back to Period'}
                 </Button>
 
                 {/* Header */}
@@ -223,7 +237,12 @@ export default function Payslip({ period, item }: Props) {
                             Earnings
                         </h3>
                         <div className="space-y-2 text-sm">
-                            <Row label="Basic Pay" value={item.gross_pay} />
+                            {item.total_regular_days > 0 && (
+                                <Row
+                                    label={`Basic Pay (${item.total_regular_days}d)`}
+                                    value={regularPay}
+                                />
+                            )}
                             {item.total_overtime_minutes > 0 && (
                                 <Row
                                     label={`Overtime (${(item.total_overtime_minutes / 60).toFixed(1)}h)`}
@@ -234,6 +253,14 @@ export default function Payslip({ period, item }: Props) {
                                 <Row
                                     label={`Holiday Pay (${item.holiday_pay_days}d)`}
                                     value={item.holiday_pay}
+                                />
+                            )}
+                            {item.leave_paid_days > 0 && (
+                                <Row
+                                    label={`Leave (${item.leave_paid_days}d)`}
+                                    value={
+                                        item.daily_rate * item.leave_paid_days
+                                    }
                                 />
                             )}
                             {item.deminimis_earnings > 0 && (
@@ -252,8 +279,6 @@ export default function Payslip({ period, item }: Props) {
                                     label="GROSS PAY"
                                     value={
                                         (Number(item.gross_pay) || 0) +
-                                        (Number(item.overtime_pay) || 0) +
-                                        (Number(item.holiday_pay) || 0) +
                                         (Number(item.deminimis_earnings) || 0)
                                     }
                                     bold

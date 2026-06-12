@@ -12,10 +12,16 @@ use Payroll\Attendance\Enums\PunchType;
 
 class TimeLogService
 {
-    public function punch(Employee $employee, PunchType $type, User $punchedBy, ?string $manualTimestamp = null): TimeLog
-    {
-        return DB::transaction(function () use ($employee, $type, $manualTimestamp) {
-            $now = $manualTimestamp ? Carbon::parse($manualTimestamp) : now();
+    public function punch(
+        Employee $employee,
+        PunchType $type,
+        User $punchedBy,
+        ?float $latitude = null,
+        ?float $longitude = null,
+        ?int $accuracyMeters = null,
+    ): TimeLog {
+        return DB::transaction(function () use ($employee, $type, $latitude, $longitude, $accuracyMeters) {
+            $now = now();
 
             $recentDuplicate = TimeLog::where('employee_id', $employee->id)
                 ->where('type', $type->value)
@@ -25,6 +31,8 @@ class TimeLogService
                 ->orderBy('timestamp', 'asc')
                 ->first();
 
+            $geoData = $this->buildGeoData($employee, $type, $latitude, $longitude, $accuracyMeters);
+
             if ($recentDuplicate) {
                 $log = TimeLog::create([
                     'employee_id' => $employee->id,
@@ -32,6 +40,7 @@ class TimeLogService
                     'source' => PunchSource::SELF_SERVICE,
                     'timestamp' => $now,
                     'duplicate_of' => $recentDuplicate->id,
+                    ...$geoData,
                 ]);
 
                 return $log;
@@ -42,6 +51,7 @@ class TimeLogService
                 'type' => $type,
                 'source' => PunchSource::SELF_SERVICE,
                 'timestamp' => $now,
+                ...$geoData,
             ]);
 
             app(AttendanceService::class)->processDailyAttendance($employee, $now->toDateString());
@@ -100,5 +110,81 @@ class TimeLogService
                 'timestamp' => $lastLog->timestamp->toDateTimeString(),
             ] : null,
         ];
+    }
+
+    /**
+     * Build geolocation data for a punch. Only stores geo for IN and OUT punches.
+     * Computes haversine distance from branch and stores result as note.
+     */
+    private function buildGeoData(
+        Employee $employee,
+        PunchType $type,
+        ?float $latitude,
+        ?float $longitude,
+        ?int $accuracyMeters,
+    ): array {
+        $base = [
+            'latitude' => null,
+            'longitude' => null,
+            'accuracy_meters' => null,
+            'note' => null,
+        ];
+
+        if (! in_array($type->value, ['in', 'out'], true)) {
+            return $base;
+        }
+
+        if ($latitude === null || $longitude === null) {
+            $base['note'] = '📍 Location not provided';
+
+            return $base;
+        }
+
+        $base['latitude'] = $latitude;
+        $base['longitude'] = $longitude;
+        $base['accuracy_meters'] = $accuracyMeters;
+
+        $branch = $employee->branch;
+
+        if (! $branch || $branch->latitude === null || $branch->longitude === null) {
+            $base['note'] = '📍 Location recorded. Branch coordinates not set.';
+
+            return $base;
+        }
+
+        $distance = $this->haversineDistance(
+            $latitude,
+            $longitude,
+            (float) $branch->latitude,
+            (float) $branch->longitude,
+        );
+
+        $radius = $branch->geofence_radius ?? 100;
+
+        if ($distance <= $radius) {
+            $base['note'] = "📍 {$distance}m from {$branch->name} office ✅";
+        } else {
+            $base['note'] = "📍 {$distance}m from {$branch->name} office ⚠️";
+        }
+
+        return $base;
+    }
+
+    /**
+     * Haversine formula — distance between two lat/lng points in meters.
+     */
+    private function haversineDistance(float $lat1, float $lng1, float $lat2, float $lng2): int
+    {
+        $earthRadius = 6371000; // meters
+
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLng = deg2rad($lng2 - $lng1);
+
+        $a = sin($dLat / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
+
+        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+
+        return (int) round($earthRadius * $c);
     }
 }

@@ -46,9 +46,24 @@ type Props = {
         amount: number;
         note: string | null;
     }[];
+    timeLogs: {
+        id: number;
+        type: string;
+        timestamp: string;
+        latitude: number | null;
+        longitude: number | null;
+        accuracy_meters: number | null;
+        note: string | null;
+    }[];
 };
 
-export default function SheetDetail({ employee, date, sheet, fines }: Props) {
+export default function SheetDetail({
+    employee,
+    date,
+    sheet,
+    fines,
+    timeLogs,
+}: Props) {
     const hourLabel = (h: number) => (h === 8 ? 'Full Day' : `${h}h`);
     const dailyRate = Number(sheet?.daily_rate) || 0;
     const hourlyRate = dailyRate / 8;
@@ -103,6 +118,68 @@ export default function SheetDetail({ employee, date, sheet, fines }: Props) {
                                 </>
                             )}
                         </div>
+
+                        {/* Punches */}
+                        {timeLogs.length > 0 && (
+                            <div className="rounded-md border border-sidebar-border bg-sidebar p-4 text-sm">
+                                <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
+                                    Punches
+                                </h3>
+                                {timeLogs.map((log) => (
+                                    <div
+                                        key={log.id}
+                                        className="flex justify-between py-0.5"
+                                    >
+                                        <span className="text-muted-foreground capitalize">
+                                            {typeLabel(log.type)}
+                                        </span>
+                                        <span className="font-mono text-xs">
+                                            {new Date(
+                                                log.timestamp,
+                                            ).toLocaleTimeString('en-PH', {
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                                second: '2-digit',
+                                            })}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Punch Locations */}
+                        {timeLogs.filter(
+                            (l) => ['in', 'out'].includes(l.type) && l.note,
+                        ).length > 0 && (
+                            <div className="rounded-md border border-sidebar-border bg-sidebar p-4 text-sm">
+                                <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
+                                    Punch Locations
+                                </h3>
+                                {timeLogs
+                                    .filter(
+                                        (l) =>
+                                            ['in', 'out'].includes(l.type) &&
+                                            l.note,
+                                    )
+                                    .map((log) => (
+                                        <div
+                                            key={log.id}
+                                            className="flex justify-between py-0.5"
+                                        >
+                                            <span className="text-muted-foreground capitalize">
+                                                {log.type === 'in'
+                                                    ? 'Punch In'
+                                                    : 'Punch Out'}
+                                            </span>
+                                            <span
+                                                className={`text-xs ${log.note?.includes('✅') ? 'text-green-600' : log.note?.includes('⚠️') ? 'text-amber-600' : 'text-muted-foreground'}`}
+                                            >
+                                                {log.note}
+                                            </span>
+                                        </div>
+                                    ))}
+                            </div>
+                        )}
 
                         {/* Deductions */}
                         {(sheet.late_deduction > 0 ||
@@ -247,4 +324,15 @@ function statusClass(sheet: NonNullable<Props['sheet']>) {
     if (sheet.is_rest_day) return 'font-medium text-blue-500';
     if (sheet.is_present) return 'font-medium text-green-600';
     return 'font-medium text-red-500';
+}
+
+function typeLabel(type: string) {
+    const map: Record<string, string> = {
+        in: 'Punch In',
+        lunch_out: 'Lunch Out',
+        lunch_in: 'Lunch In',
+        out: 'Punch Out',
+    };
+
+    return map[type] ?? type;
 }

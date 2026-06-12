@@ -106,7 +106,7 @@ it('creates salary record on employee creation', function () {
             'last_name' => 'Salary',
             'hire_date' => '2025-01-15',
             'branch_id' => $this->branchA->id,
-            'position' => EmployeePosition::CONTRACTUAL->value,
+            'position' => EmployeePosition::PROBATION->value,
             'status' => EmployeeStatus::ACTIVE->value,
             'daily_rate' => 750,
         ]);
@@ -260,7 +260,7 @@ it('admin can update employee in same branch', function () {
             'birth_date' => '1992-02-02',
             'hire_date' => '2021-01-01',
             'branch_id' => $this->branchA->id,
-            'position' => EmployeePosition::CONTRACTUAL->value,
+            'position' => EmployeePosition::PROBATION->value,
             'status' => EmployeeStatus::ACTIVE->value,
             'daily_rate' => 500,
             'sss_number' => '99-9999999-9',
@@ -281,7 +281,7 @@ it('admin can update employee in same branch', function () {
     expect($employee->address)->toBe('New Address');
     expect($employee->birth_date->toDateString())->toBe('1992-02-02');
     expect($employee->hire_date->toDateString())->toBe('2021-01-01');
-    expect($employee->position->value)->toBe('contractual');
+    expect($employee->position->value)->toBe('probation');
     expect($employee->sss_number)->toBe('99-9999999-9');
     expect($employee->philhealth_number)->toBe('99-999999999-9');
     expect($employee->pagibig_number)->toBe('9999-9999-9999');
@@ -316,24 +316,142 @@ it('admin cannot update employee in other branch', function () {
         ->assertForbidden();
 });
 
-it('only superadmin can delete employee', function () {
+it('allows admin to deactivate employee in same branch', function () {
+    $employee = Employee::create([
+        'first_name' => 'Deactivatable',
+        'last_name' => 'Employee',
+        'hire_date' => now()->toDateString(),
+        'branch_id' => $this->branchA->id,
+        'status' => EmployeeStatus::ACTIVE->value,
+        'current_daily_rate' => 500,
+    ]);
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.employees.deactivate', $employee))
+        ->assertRedirect();
+
+    $employee->refresh();
+    expect($employee->status->value)->toBe('inactive');
+});
+
+it('allows superadmin to deactivate any employee', function () {
+    $employee = Employee::create([
+        'first_name' => 'Deactivatable',
+        'last_name' => 'Employee',
+        'hire_date' => now()->toDateString(),
+        'branch_id' => $this->branchB->id,
+        'status' => EmployeeStatus::ACTIVE->value,
+        'current_daily_rate' => 500,
+    ]);
+
+    // Create a related record so it gets deactivated rather than deleted
+    $employee->schedules()->create([
+        'start_time' => '08:00',
+        'end_time' => '17:30',
+        'unpaid_tail_minutes' => 30,
+        'rest_days' => [0],
+        'effective_from' => now()->toDateString(),
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($this->superadmin)
+        ->post(route('payroll.employees.deactivate', $employee))
+        ->assertRedirect();
+
+    $employee->refresh();
+    expect($employee->status->value)->toBe('inactive');
+});
+
+it('prevents deactivation when already inactive', function () {
+    $employee = Employee::create([
+        'first_name' => 'Already',
+        'last_name' => 'Inactive',
+        'hire_date' => now()->toDateString(),
+        'branch_id' => $this->branchA->id,
+        'status' => EmployeeStatus::INACTIVE->value,
+        'current_daily_rate' => 500,
+    ]);
+
+    // Button should not be shown for inactive employees, but if request is made
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.employees.deactivate', $employee))
+        ->assertRedirect();
+
+    $employee->refresh();
+    expect($employee->status->value)->toBe('inactive');
+});
+
+it('denies deactivation of employee in other branch', function () {
+    $employee = Employee::create([
+        'first_name' => 'Other',
+        'last_name' => 'Branch',
+        'hire_date' => now()->toDateString(),
+        'branch_id' => $this->branchB->id,
+        'status' => EmployeeStatus::ACTIVE->value,
+        'current_daily_rate' => 500,
+    ]);
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.employees.deactivate', $employee))
+        ->assertForbidden();
+});
+
+it('denies staff to deactivate', function () {
+    $employee = Employee::create([
+        'first_name' => 'Other',
+        'last_name' => 'Employee',
+        'hire_date' => now()->toDateString(),
+        'branch_id' => $this->branchA->id,
+        'status' => EmployeeStatus::ACTIVE->value,
+        'current_daily_rate' => 500,
+    ]);
+
+    $this->actingAs($this->staffA)
+        ->post(route('payroll.employees.deactivate', $employee))
+        ->assertForbidden();
+});
+
+it('superadmin can delete employee with no related records', function () {
     $employee = Employee::create([
         'first_name' => 'Deletable',
         'last_name' => 'Employee',
         'hire_date' => now()->toDateString(),
         'branch_id' => $this->branchA->id,
+        'status' => EmployeeStatus::ACTIVE->value,
         'current_daily_rate' => 500,
     ]);
 
-    $this->actingAs($this->adminA)
-        ->delete(route('payroll.employees.destroy', $employee))
-        ->assertForbidden();
-
     $this->actingAs($this->superadmin)
-        ->delete(route('payroll.employees.destroy', $employee))
+        ->post(route('payroll.employees.deactivate', $employee))
         ->assertRedirect();
 
     expect(Employee::withTrashed()->find($employee->id)->deleted_at)->not->toBeNull();
+});
+
+it('deactivated employee cannot log in', function () {
+    $employee = Employee::create([
+        'first_name' => 'Deactivated',
+        'last_name' => 'User',
+        'hire_date' => now()->toDateString(),
+        'branch_id' => $this->branchA->id,
+        'status' => EmployeeStatus::ACTIVE->value,
+        'current_daily_rate' => 500,
+    ]);
+
+    $user = User::factory()->create([
+        'branch_id' => $this->branchA->id,
+        'employee_id' => $employee->id,
+    ]);
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.employees.deactivate', $employee))
+        ->assertRedirect();
+
+    $employee->refresh();
+    expect($employee->status->value)->toBe('inactive');
+
+    $user->refresh();
+    expect($user->canLogin())->toBeFalse();
 });
 
 it('stores government IDs', function () {
@@ -422,7 +540,7 @@ it('can rehire a resigned employee with new salary and position', function () {
         ->post(route('payroll.employees.rehire', $employee), [
             'daily_rate' => 700,
             'rehire_date' => '2025-03-01',
-            'position' => EmployeePosition::CONTRACTUAL->value,
+            'position' => EmployeePosition::PROBATION->value,
             'notes' => 'Returning employee, new contract',
         ])
         ->assertRedirect(route('payroll.employees.index'));
@@ -430,7 +548,7 @@ it('can rehire a resigned employee with new salary and position', function () {
     $employee->refresh();
     expect($employee->status->value)->toBe('active');
     expect($employee->end_date)->toBeNull();
-    expect($employee->position->value)->toBe('contractual');
+    expect($employee->position->value)->toBe('probation');
     expect((float) $employee->current_daily_rate)->toBe(700.0);
 
     $currentSalary = $employee->salaries()->whereNull('end_date')->first();
@@ -511,7 +629,7 @@ it('filters employees by position', function () {
         'last_name' => 'Two',
         'hire_date' => now()->toDateString(),
         'branch_id' => $this->branchA->id,
-        'position' => EmployeePosition::CONTRACTUAL->value,
+        'position' => EmployeePosition::PROBATION->value,
         'current_daily_rate' => 500,
     ]);
 
@@ -604,7 +722,7 @@ it('filters employees by multiple conditions', function () {
         'last_name' => 'Two',
         'hire_date' => now()->toDateString(),
         'branch_id' => $this->branchA->id,
-        'position' => EmployeePosition::CONTRACTUAL->value,
+        'position' => EmployeePosition::PROBATION->value,
         'status' => EmployeeStatus::ACTIVE->value,
         'current_daily_rate' => 500,
     ]);
@@ -672,4 +790,242 @@ it('ignores invalid filter columns', function () {
 
     $data = $response->inertiaProps('employees')['data'];
     expect(count($data))->toBe(1);
+});
+
+it('includes active schedule in index response', function () {
+    $employee = Employee::create([
+        'first_name' => 'Schedule',
+        'last_name' => 'Test',
+        'hire_date' => now()->toDateString(),
+        'branch_id' => $this->branchA->id,
+        'current_daily_rate' => 500,
+    ]);
+
+    $employee->schedules()->create([
+        'start_time' => '08:00',
+        'end_time' => '17:30',
+        'unpaid_tail_minutes' => 30,
+        'rest_days' => [0],
+        'effective_from' => now()->subDays(5)->toDateString(),
+        'is_active' => true,
+    ]);
+
+    $response = $this->actingAs($this->adminA)
+        ->get(route('payroll.employees.index'));
+
+    $data = $response->inertiaProps('employees')['data'];
+    $found = collect($data)->firstWhere('id', $employee->id);
+
+    expect($found)->not->toBeNull();
+    expect($found['active_schedule'])->not->toBeNull();
+    expect($found['active_schedule']['start_time'])->toBe('08:00');
+    expect($found['active_schedule']['end_time'])->toBe('17:30');
+});
+
+it('shows null active schedule when no schedule exists', function () {
+    $employee = Employee::create([
+        'first_name' => 'No',
+        'last_name' => 'Schedule',
+        'hire_date' => now()->toDateString(),
+        'branch_id' => $this->branchA->id,
+        'current_daily_rate' => 500,
+    ]);
+
+    $response = $this->actingAs($this->adminA)
+        ->get(route('payroll.employees.index'));
+
+    $data = $response->inertiaProps('employees')['data'];
+    $found = collect($data)->firstWhere('id', $employee->id);
+
+    expect($found)->not->toBeNull();
+    expect($found['active_schedule'])->toBeNull();
+});
+
+it('links a user to an employee', function () {
+    $employee = Employee::create([
+        'first_name' => 'Link',
+        'last_name' => 'Me',
+        'hire_date' => now()->toDateString(),
+        'branch_id' => $this->branchA->id,
+        'current_daily_rate' => 500,
+    ]);
+
+    $user = User::factory()->create([
+        'branch_id' => $this->branchA->id,
+    ]);
+
+    $this->actingAs($this->superadmin)
+        ->post(route('payroll.employees.link-user', $employee), [
+            'user_id' => $user->id,
+        ])
+        ->assertRedirect();
+
+    $user->refresh();
+    expect($user->employee_id)->toBe($employee->id);
+});
+
+it('prevents linking user from different branch', function () {
+    $employee = Employee::create([
+        'first_name' => 'Link',
+        'last_name' => 'Me',
+        'hire_date' => now()->toDateString(),
+        'branch_id' => $this->branchA->id,
+        'current_daily_rate' => 500,
+    ]);
+
+    $user = User::factory()->create([
+        'branch_id' => $this->branchB->id,
+    ]);
+
+    $this->actingAs($this->superadmin)
+        ->post(route('payroll.employees.link-user', $employee), [
+            'user_id' => $user->id,
+        ])
+        ->assertSessionHasErrors();
+});
+
+it('prevents linking when employee already has a user', function () {
+    $employee = Employee::create([
+        'first_name' => 'Link',
+        'last_name' => 'Me',
+        'hire_date' => now()->toDateString(),
+        'branch_id' => $this->branchA->id,
+        'current_daily_rate' => 500,
+    ]);
+
+    User::factory()->create([
+        'branch_id' => $this->branchA->id,
+        'employee_id' => $employee->id,
+    ]);
+
+    $otherUser = User::factory()->create([
+        'branch_id' => $this->branchA->id,
+    ]);
+
+    $this->actingAs($this->superadmin)
+        ->post(route('payroll.employees.link-user', $employee), [
+            'user_id' => $otherUser->id,
+        ])
+        ->assertSessionHasErrors();
+});
+
+it('unlinks a user from an employee', function () {
+    $employee = Employee::create([
+        'first_name' => 'Unlink',
+        'last_name' => 'Me',
+        'hire_date' => now()->toDateString(),
+        'branch_id' => $this->branchA->id,
+        'current_daily_rate' => 500,
+    ]);
+
+    User::factory()->create([
+        'branch_id' => $this->branchA->id,
+        'employee_id' => $employee->id,
+    ]);
+
+    $this->actingAs($this->superadmin)
+        ->post(route('payroll.employees.unlink-user', $employee))
+        ->assertRedirect();
+
+    $employee->refresh();
+    expect(User::where('employee_id', $employee->id)->exists())->toBeFalse();
+});
+
+it('syncs a single user to employee with default schedule', function () {
+    $user = User::factory()->create([
+        'branch_id' => $this->branchA->id,
+        'role' => 'staff',
+    ]);
+
+    $this->actingAs($this->superadmin)
+        ->post(route('payroll.employees.sync-user', $user))
+        ->assertRedirect();
+
+    $user->refresh();
+    expect($user->employee_id)->not->toBeNull();
+
+    $employee = Employee::find($user->employee_id);
+    expect($employee)->not->toBeNull();
+    expect($employee->first_name)->toBe($user->first_name);
+    expect($employee->branch_id)->toBe($this->branchA->id);
+
+    $schedule = $employee->schedules()->first();
+    expect($schedule)->not->toBeNull();
+    expect($schedule->start_time->format('H:i'))->toBe('08:00');
+    expect($schedule->end_time->format('H:i'))->toBe('17:30');
+    expect($schedule->unpaid_tail_minutes)->toBe(30);
+    expect($schedule->rest_days)->toBe([0]);
+});
+
+it('prevents syncing user already linked to employee', function () {
+    $employee = Employee::create([
+        'first_name' => 'Already',
+        'last_name' => 'Linked',
+        'hire_date' => now()->toDateString(),
+        'branch_id' => $this->branchA->id,
+        'current_daily_rate' => 500,
+    ]);
+
+    $user = User::factory()->create([
+        'branch_id' => $this->branchA->id,
+        'role' => 'staff',
+        'employee_id' => $employee->id,
+    ]);
+
+    $this->actingAs($this->superadmin)
+        ->post(route('payroll.employees.sync-user', $user))
+        ->assertSessionHasErrors();
+});
+
+it('syncs all unlinked users as superadmin', function () {
+    $user1 = User::factory()->create([
+        'branch_id' => $this->branchA->id,
+        'role' => 'staff',
+    ]);
+
+    $user2 = User::factory()->create([
+        'branch_id' => $this->branchB->id,
+        'role' => 'admin',
+    ]);
+
+    $this->actingAs($this->superadmin)
+        ->post(route('payroll.employees.sync-all'))
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    $user1->refresh();
+    $user2->refresh();
+
+    expect($user1->employee_id)->not->toBeNull();
+    expect($user2->employee_id)->not->toBeNull();
+
+    $emp1 = Employee::find($user1->employee_id);
+    expect($emp1->schedules()->count())->toBe(1);
+
+    $emp2 = Employee::find($user2->employee_id);
+    expect($emp2->schedules()->count())->toBe(1);
+});
+
+it('denies sync-all to non-superadmin', function () {
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.employees.sync-all'))
+        ->assertForbidden();
+});
+
+it('returns success when sync-all has nothing to sync', function () {
+    foreach ([$this->adminA, $this->adminB, $this->staffA] as $user) {
+        Employee::create([
+            'first_name' => $user->first_name,
+            'last_name' => $user->last_name,
+            'hire_date' => now()->toDateString(),
+            'branch_id' => $user->branch_id,
+            'current_daily_rate' => 0,
+        ]);
+        $user->update(['employee_id' => Employee::where('first_name', $user->first_name)->latest()->first()->id]);
+    }
+
+    $this->actingAs($this->superadmin)
+        ->post(route('payroll.employees.sync-all'))
+        ->assertRedirect()
+        ->assertSessionHas('success', 'All users are already linked to employees.');
 });

@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\Payroll\AttendanceSheet;
 use App\Models\Payroll\Employee;
 use App\Models\Payroll\Fine;
+use App\Models\Payroll\TimeLog;
 use Carbon\Carbon;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
@@ -86,11 +87,18 @@ class AttendanceSheetController extends Controller
             ->orderBy('created_at')
             ->get();
 
+        $timeLogs = TimeLog::where('employee_id', $employee->id)
+            ->whereBetween('timestamp', [$date.' 00:00:00', $date.' 23:59:59'])
+            ->whereNull('duplicate_of')
+            ->orderBy('timestamp')
+            ->get();
+
         return Inertia::render('payroll/attendance/sheet-detail', [
             'employee' => $employee->load('branch'),
             'date' => $date,
             'sheet' => $sheet,
             'fines' => $fines,
+            'timeLogs' => $timeLogs,
         ]);
     }
 }

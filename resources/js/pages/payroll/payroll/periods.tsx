@@ -1,6 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
-import { Eye, Plus } from 'lucide-react';
+import { Eye, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/data-table';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,17 @@ import {
     NativeSelect,
     NativeSelectOption,
 } from '@/components/ui/native-select';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import PayrollLayout from '@/layouts/payroll/payroll-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { PaginatedResponse } from '@/types/pagination';
@@ -100,15 +111,76 @@ export default function PayrollPeriodsIndex({
         {
             header: 'Actions',
             cell: ({ row }: CellContext<Period, any>) => (
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                        router.get(`/payroll/periods/${row.original.id}`)
-                    }
-                >
-                    <Eye className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-1">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                            router.get(`/payroll/periods/${row.original.id}`)
+                        }
+                        title="View"
+                    >
+                        <Eye className="h-4 w-4" />
+                    </Button>
+                    {canGenerate && row.original.status === 'draft' && (
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Delete"
+                                >
+                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                        Delete draft period?
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This will delete the draft payroll
+                                        period and unlock all attendance sheets.
+                                        This cannot be undone.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>
+                                        Cancel
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                        onClick={() =>
+                                            router.delete(
+                                                `/payroll/periods/${row.original.id}`,
+                                                {
+                                                    onSuccess: () =>
+                                                        toast.success(
+                                                            'Period deleted.',
+                                                            {
+                                                                position:
+                                                                    'top-center',
+                                                            },
+                                                        ),
+                                                    onError: (err: any) =>
+                                                        toast.error(
+                                                            err.message ??
+                                                                'Deletion failed.',
+                                                            {
+                                                                position:
+                                                                    'top-center',
+                                                            },
+                                                        ),
+                                                },
+                                            )
+                                        }
+                                    >
+                                        Delete
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    )}
+                </div>
             ),
         },
     ];

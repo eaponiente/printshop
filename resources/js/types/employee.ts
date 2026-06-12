@@ -1,6 +1,18 @@
 import type { Branch } from '@/types/branches';
 import type { PaginatedResponse } from '@/types/pagination';
 
+export type EmployeeSchedule = {
+    id: number;
+    employee_id: number;
+    start_time: string;
+    end_time: string;
+    unpaid_tail_minutes: number;
+    rest_days: number[];
+    effective_from: string;
+    effective_to: string | null;
+    is_active: boolean;
+};
+
 export type Employee = {
     id: number;
     employee_number: string;
@@ -15,7 +27,7 @@ export type Employee = {
     birth_date: string | null;
     hire_date: string;
     end_date: string | null;
-    position: 'regular' | 'contractual' | 'project_based';
+    position: 'regular' | 'probation';
     status: 'active' | 'inactive' | 'resigned' | 'terminated';
     current_daily_rate: number;
     sss_number: string | null;
@@ -28,6 +40,7 @@ export type Employee = {
     deleted_at: string | null;
     branch: Branch;
     salaries?: Salary[];
+    active_schedule?: EmployeeSchedule | null;
     [key: string]: unknown;
 };
 
@@ -49,4 +62,5 @@ export type EmployeesList = {
     branches: Branch[];
     filterColumns: Array<{ key: string; value: string }>;
     filters: Array<{ column: string; value: string }>;
+    isSuperAdmin: boolean;
 };

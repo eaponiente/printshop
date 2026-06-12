@@ -14,6 +14,9 @@ class Branch extends Model
 
     protected $fillable = [
         'name',
+        'latitude',
+        'longitude',
+        'geofence_radius',
     ];
 
     public function users()

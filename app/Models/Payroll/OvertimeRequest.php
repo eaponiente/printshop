@@ -3,6 +3,7 @@
 namespace App\Models\Payroll;
 
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -14,7 +15,8 @@ class OvertimeRequest extends Model
     {
         return [
             'date' => 'date:Y-m-d',
-            'hours_needed' => 'integer',
+            'start_time' => 'datetime',
+            'end_time' => 'datetime',
             'approved_at' => 'datetime',
         ];
     }
@@ -27,5 +29,14 @@ class OvertimeRequest extends Model
     public function approvedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function getApprovedMinutes(): int
+    {
+        if (! $this->start_time || ! $this->end_time) {
+            return 0;
+        }
+
+        return max(0, Carbon::parse($this->start_time)->diffInMinutes(Carbon::parse($this->end_time)));
     }
 }

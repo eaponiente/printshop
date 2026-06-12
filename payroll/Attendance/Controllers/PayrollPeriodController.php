@@ -13,9 +13,11 @@ use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Payroll\Attendance\Enums\PayrollPeriodStatus;
 use Payroll\Attendance\Services\PayrollPeriodService;
+use Payroll\Audit\Traits\Auditable;
 
 class PayrollPeriodController extends Controller
 {
+    use Auditable;
     use AuthorizesRequests;
 
     public function index(Request $request)
@@ -83,6 +85,7 @@ class PayrollPeriodController extends Controller
         return Inertia::render('payroll/payroll/period-show', [
             'period' => $period,
             'isSuperAdmin' => auth()->user()->isSuperAdmin(),
+            'canDelete' => ! auth()->user()->isStaff(),
         ]);
     }
 
@@ -102,6 +105,19 @@ class PayrollPeriodController extends Controller
         $service->void($period);
 
         return back()->with('success', 'Payroll period voided. Sheets unlocked for corrections.');
+    }
+
+    public function destroy(PayrollPeriod $period, PayrollPeriodService $service)
+    {
+        Gate::authorize('payroll-periods.delete', [(int) $period->branch_id]);
+
+        $before = $period->getAttributes();
+        $service->delete($period);
+
+        $this->audit('deleted', $period, $before, []);
+
+        return redirect()->route('payroll.periods.index')
+            ->with('success', 'Draft payroll period deleted successfully.');
     }
 
     public function payslip(PayrollPeriod $period, PayrollPeriodItem $item)

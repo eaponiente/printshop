@@ -21,6 +21,9 @@ class TimeLog extends Model
             'type' => PunchType::class,
             'source' => PunchSource::class,
             'timestamp' => 'datetime',
+            'latitude' => 'decimal:8',
+            'longitude' => 'decimal:8',
+            'accuracy_meters' => 'integer',
         ];
     }
 

@@ -6,9 +6,11 @@ use App\Models\Branch;
 use App\Models\Payroll\AttendanceSheet;
 use App\Models\Payroll\CashAdvance;
 use App\Models\Payroll\Employee;
+use App\Models\Payroll\Holiday;
 use App\Models\Payroll\PayrollPeriod;
 use App\Models\Payroll\PayrollPeriodItem;
 use App\Models\Payroll\SssContributionBracket;
+use Carbon\Carbon;
 use DB;
 use Payroll\Attendance\Enums\PayrollPeriodStatus;
 
@@ -16,9 +18,28 @@ class PayrollPeriodService
 {
     private ?array $sssBracketsCache = null;
 
+    public function __construct(private AttendanceService $attendanceService) {}
+
     public function generate(Branch $branch, string $periodStart, string $periodEnd): PayrollPeriod
     {
         return DB::transaction(function () use ($branch, $periodStart, $periodEnd) {
+            $employees = Employee::where('branch_id', $branch->id)
+                ->where('status', 'active')
+                ->whereDoesntHave('user', fn ($q) => $q->where('role', 'superadmin'))
+                ->get();
+
+            // Ensure holiday sheets exist and are computed before locking
+            $start = Carbon::parse($periodStart);
+            $end = Carbon::parse($periodEnd);
+            for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
+                $dateStr = $date->toDateString();
+                if (Holiday::forDate($dateStr)) {
+                    foreach ($employees as $employee) {
+                        $this->attendanceService->processDailyAttendance($employee, $dateStr);
+                    }
+                }
+            }
+
             AttendanceSheet::whereIn('employee_id', function ($query) use ($branch) {
                 $query->select('id')->from('employees')->where('branch_id', $branch->id);
             })
@@ -32,10 +53,6 @@ class PayrollPeriodService
                 'period_end' => $periodEnd,
                 'status' => PayrollPeriodStatus::DRAFT,
             ]);
-
-            $employees = Employee::where('branch_id', $branch->id)
-                ->where('status', 'active')
-                ->get();
 
             foreach ($employees as $employee) {
                 $this->generateItemForEmployee($period, $employee, $periodStart, $periodEnd);
@@ -126,6 +143,10 @@ class PayrollPeriodService
     public function void(PayrollPeriod $period): void
     {
         DB::transaction(function () use ($period) {
+            if ($period->status === PayrollPeriodStatus::DRAFT) {
+                throw new \RuntimeException('Draft periods cannot be voided.');
+            }
+
             if ($period->status === PayrollPeriodStatus::VOIDED) {
                 throw new \RuntimeException('Period is already voided.');
             }
@@ -140,6 +161,26 @@ class PayrollPeriodService
             $period->update([
                 'status' => PayrollPeriodStatus::VOIDED,
             ]);
+        });
+    }
+
+    public function delete(PayrollPeriod $period): void
+    {
+        if ($period->status !== PayrollPeriodStatus::DRAFT) {
+            throw new \RuntimeException('Only draft periods can be deleted.');
+        }
+
+        DB::transaction(function () use ($period) {
+            AttendanceSheet::whereIn('employee_id', function ($query) use ($period) {
+                $query->select('id')->from('employees')->where('branch_id', $period->branch_id);
+            })
+                ->whereBetween('date', [$period->period_start->toDateString(), $period->period_end->toDateString()])
+                ->whereNotNull('locked_at')
+                ->update(['locked_at' => null]);
+
+            $period->items()->delete();
+
+            $period->delete();
         });
     }
 

@@ -1,41 +1,18 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import {
     CalendarDays,
-    CircleDollarSign,
     Clock,
     Coffee,
-    FileEdit,
-    FileText,
     LogIn,
     LogOut,
-    Timer,
     User,
     UtensilsCrossed,
-    X,
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import PayrollLayout from '@/layouts/payroll/payroll-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -81,24 +58,13 @@ type Props = {
         effective_from: string;
         effective_to: string | null;
     } | null;
-    recentOvertime: any[];
-    recentLeaves: any[];
-    recentCorrections: any[];
-    recentCashAdvances: any[];
     weekSheets: any[];
     recentTimeLogs: any[];
     weekStart: string;
     weekEnd: string;
 };
 
-type Tab =
-    | 'punch'
-    | 'history'
-    | 'overtime'
-    | 'leave'
-    | 'correction'
-    | 'cash-advance'
-    | 'profile';
+type Tab = 'punch' | 'history' | 'profile';
 
 const statusBadge = (s: string) => {
     const map: Record<string, string> = {
@@ -114,10 +80,6 @@ const statusBadge = (s: string) => {
 
 const TAB_PROPS: Partial<Record<Tab, string[]>> = {
     history: ['weekSheets', 'recentTimeLogs', 'tab'],
-    overtime: ['recentOvertime', 'tab'],
-    leave: ['recentLeaves', 'tab'],
-    correction: ['recentCorrections', 'tab'],
-    'cash-advance': ['recentCashAdvances', 'tab'],
 };
 
 export default function MyAttendance(props: Props) {
@@ -174,10 +136,6 @@ export default function MyAttendance(props: Props) {
                         [
                             ['punch', 'Punch', Clock],
                             ['history', 'History', CalendarDays],
-                            ['overtime', 'Overtime', Timer],
-                            ['leave', 'Leave', FileText],
-                            ['correction', 'Correction', FileEdit],
-                            ['cash-advance', 'Cash Advance', CircleDollarSign],
                             ['profile', 'Profile', User],
                         ] as [Tab, string, any][]
                     ).map(([key, label, Icon]) => (
@@ -205,24 +163,6 @@ export default function MyAttendance(props: Props) {
                         weekEnd={props.weekEnd}
                     />
                 )}
-                {tab === 'overtime' && (
-                    <RequestTab type="overtime" recent={props.recentOvertime} />
-                )}
-                {tab === 'leave' && (
-                    <RequestTab type="leave" recent={props.recentLeaves} />
-                )}
-                {tab === 'correction' && (
-                    <RequestTab
-                        type="correction"
-                        recent={props.recentCorrections}
-                    />
-                )}
-                {tab === 'cash-advance' && (
-                    <RequestTab
-                        type="cash-advance"
-                        recent={props.recentCashAdvances}
-                    />
-                )}
                 {tab === 'profile' && props.employee && (
                     <ProfileTab
                         employee={props.employee}
@@ -235,44 +175,49 @@ export default function MyAttendance(props: Props) {
 }
 
 function PunchTab({ punchState }: { punchState: any }) {
-    const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
-    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
-    const [manualDate, setManualDate] = useState(todayStr);
-    const [manualTime, setManualTime] = useState(timeStr);
-
     const punch = (type: string) => {
-        router.post('/payroll/attendance/punch', {
+        const label = typeLabel(type);
+        const payload: Record<string, string | number | null> = {
             type,
-            manual_timestamp: `${manualDate} ${manualTime}:00`,
-        });
+        };
+
+        const sendPunch = () => {
+            router.post('/payroll/attendance/punch', payload, {
+                onSuccess: () => toast.success(`${label} recorded.`),
+                onError: (err: any) =>
+                    toast.error(err.message ?? 'Failed to record punch.'),
+            });
+        };
+
+        // Only capture geolocation for IN and OUT punches
+        if (type === 'in' || type === 'out') {
+            if (!navigator.geolocation) {
+                sendPunch();
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    payload.latitude = position.coords.latitude;
+                    payload.longitude = position.coords.longitude;
+                    payload.accuracy_meters = Math.round(
+                        position.coords.accuracy,
+                    );
+                    sendPunch();
+                },
+                () => {
+                    // Permission denied or error — still allow the punch
+                    sendPunch();
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+            );
+        } else {
+            sendPunch();
+        }
     };
 
     return (
-        <div className="space-y-4">
-            <div className="space-y-2 rounded-md border bg-sidebar p-3">
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase">
-                    Manual Timestamp Override
-                </h3>
-                <div className="flex gap-2">
-                    <div className="flex-1">
-                        <Input
-                            type="date"
-                            value={manualDate}
-                            onChange={(e) => setManualDate(e.target.value)}
-                        />
-                    </div>
-                    <div className="flex-1">
-                        <Input
-                            type="time"
-                            value={manualTime}
-                            onChange={(e) => setManualTime(e.target.value)}
-                        />
-                    </div>
-                </div>
-            </div>
-
+        <div className="mx-auto max-w-sm space-y-4">
             {punchState?.last_punch && (
                 <div className="rounded-md border bg-sidebar p-3 text-sm">
                     Last punch:{' '}
@@ -297,54 +242,46 @@ function PunchTab({ punchState }: { punchState: any }) {
                 </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-3">
-                    <h3 className="text-center text-xs font-semibold text-muted-foreground uppercase">
-                        Work Day
-                    </h3>
-                    <Button
-                        size="lg"
-                        variant="outline"
-                        onClick={() => punch('in')}
-                        className="h-20 w-full flex-col gap-1"
-                    >
-                        <LogIn className="h-5 w-5" />
-                        Punch In
-                    </Button>
-                    <Button
-                        size="lg"
-                        variant="outline"
-                        onClick={() => punch('out')}
-                        className="h-20 w-full flex-col gap-1"
-                    >
-                        <LogOut className="h-5 w-5" />
-                        Punch Out
-                    </Button>
-                </div>
+            <div className="space-y-2">
+                <Button
+                    size="lg"
+                    variant="outline"
+                    onClick={() => punch('in')}
+                    className="h-16 w-full flex-row gap-3"
+                >
+                    <LogIn className="h-5 w-5" />
+                    <span>Punch In</span>
+                </Button>
 
-                <div className="space-y-3">
-                    <h3 className="text-center text-xs font-semibold text-muted-foreground uppercase">
-                        Lunch Break
-                    </h3>
-                    <Button
-                        size="lg"
-                        variant="outline"
-                        onClick={() => punch('lunch_out')}
-                        className="h-20 w-full flex-col gap-1"
-                    >
-                        <Coffee className="h-5 w-5" />
-                        Lunch Out
-                    </Button>
-                    <Button
-                        size="lg"
-                        variant="outline"
-                        onClick={() => punch('lunch_in')}
-                        className="h-20 w-full flex-col gap-1"
-                    >
-                        <UtensilsCrossed className="h-5 w-5" />
-                        Lunch In
-                    </Button>
-                </div>
+                <Button
+                    size="lg"
+                    variant="outline"
+                    onClick={() => punch('lunch_out')}
+                    className="h-16 w-full flex-row gap-3"
+                >
+                    <Coffee className="h-5 w-5" />
+                    <span>Lunch Out</span>
+                </Button>
+
+                <Button
+                    size="lg"
+                    variant="outline"
+                    onClick={() => punch('lunch_in')}
+                    className="h-16 w-full flex-row gap-3"
+                >
+                    <UtensilsCrossed className="h-5 w-5" />
+                    <span>Lunch In</span>
+                </Button>
+
+                <Button
+                    size="lg"
+                    variant="outline"
+                    onClick={() => punch('out')}
+                    className="h-16 w-full flex-row gap-3"
+                >
+                    <LogOut className="h-5 w-5" />
+                    <span>Punch Out</span>
+                </Button>
             </div>
 
             {punchState?.logs?.length > 0 && (
@@ -379,370 +316,6 @@ function PunchTab({ punchState }: { punchState: any }) {
         </div>
     );
 }
-
-function RequestTab({ type, recent }: { type: string; recent: any[] }) {
-    const config = REQUEST_CONFIGS[type];
-    const [correctionType, setCorrectionType] = useState(
-        type === 'correction' ? 'missed_punch_in' : '',
-    );
-
-    const isMissedPunch =
-        correctionType === 'missed_punch_in' ||
-        correctionType === 'missed_punch_out';
-
-    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        const fd = new FormData(e.currentTarget);
-        router.post(config.route, fd, {
-            onSuccess: () => {
-                toast.success('Submitted.');
-                (e.target as HTMLFormElement).reset();
-                if (type === 'correction') setCorrectionType('missed_punch_in');
-            },
-            onError: () => toast.error('Failed.'),
-        });
-    };
-
-    return (
-        <div className="space-y-6">
-            <form
-                onSubmit={handleSubmit}
-                className="space-y-3 rounded-md border bg-sidebar p-4"
-            >
-                <h3 className="text-sm font-semibold">{config.title}</h3>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {config.fields.map((field) => {
-                        if (
-                            field.name === 'requested_time' &&
-                            type !== 'correction'
-                        ) {
-                            return null;
-                        }
-
-                        return (
-                            <div
-                                key={field.name}
-                                className={
-                                    field.fullWidth
-                                        ? 'space-y-1 sm:col-span-2'
-                                        : 'space-y-1'
-                                }
-                            >
-                                <Label htmlFor={field.name}>
-                                    {field.label}
-                                    {field.name === 'requested_time' &&
-                                    isMissedPunch
-                                        ? ' *'
-                                        : field.required
-                                          ? ' *'
-                                          : ''}
-                                </Label>
-                                {field.type === 'select' ? (
-                                    <Select
-                                        name={field.name}
-                                        defaultValue={field.default}
-                                        onValueChange={(v) => {
-                                            if (
-                                                field.name === 'correction_type'
-                                            ) {
-                                                setCorrectionType(v);
-                                            }
-                                        }}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {field.options?.map((o) => (
-                                                <SelectItem
-                                                    key={o.value}
-                                                    value={o.value}
-                                                >
-                                                    {o.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                ) : field.type === 'textarea' ? (
-                                    <Textarea
-                                        id={field.name}
-                                        name={field.name}
-                                        required={field.required}
-                                        rows={2}
-                                    />
-                                ) : (
-                                    <Input
-                                        id={field.name}
-                                        name={field.name}
-                                        type={field.type}
-                                        required={
-                                            field.name === 'requested_time'
-                                                ? isMissedPunch
-                                                : field.required
-                                        }
-                                        step={field.step}
-                                        min={field.min}
-                                    />
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-                <Button type="submit" size="sm">
-                    Submit
-                </Button>
-            </form>
-
-            {recent?.length > 0 && (
-                <div className="space-y-2">
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase">
-                        Recent Requests
-                    </h3>
-                    <div className="space-y-1">
-                        {recent.map((r: any) => (
-                            <div
-                                key={r.id}
-                                className="flex items-center justify-between rounded border bg-sidebar px-3 py-2 text-sm"
-                            >
-                                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
-                                    <span className="font-mono text-xs">
-                                        {r.date}
-                                    </span>
-                                    {config.renderInfo(r)}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    {type === 'leave' &&
-                                        r.status === 'pending' && (
-                                            <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-6 px-1.5 text-xs text-red-600 hover:text-red-700"
-                                                    >
-                                                        <X className="mr-0.5 h-3 w-3" />
-                                                        Cancel
-                                                    </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>
-                                                            Cancel leave
-                                                            request?
-                                                        </AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                            This will cancel
-                                                            your pending leave
-                                                            for {r.date}. This
-                                                            action cannot be
-                                                            undone.
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel>
-                                                            Keep
-                                                        </AlertDialogCancel>
-                                                        <AlertDialogAction
-                                                            onClick={() =>
-                                                                router.post(
-                                                                    `/payroll/leave-requests/${r.id}/cancel`,
-                                                                    {},
-                                                                    {
-                                                                        onSuccess:
-                                                                            () =>
-                                                                                toast.success(
-                                                                                    'Leave request cancelled.',
-                                                                                ),
-                                                                        onError:
-                                                                            (
-                                                                                err: any,
-                                                                            ) =>
-                                                                                toast.error(
-                                                                                    err.message ??
-                                                                                        'Failed to cancel.',
-                                                                                ),
-                                                                    },
-                                                                )
-                                                            }
-                                                        >
-                                                            Cancel Leave
-                                                        </AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
-                                        )}
-                                    <span
-                                        className={`rounded-full border px-2 py-0.5 text-xs font-medium capitalize ${statusBadge(r.status)}`}
-                                    >
-                                        {r.status}
-                                    </span>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
-
-const REQUEST_CONFIGS: Record<
-    string,
-    {
-        title: string;
-        route: string;
-        fields: Array<{
-            name: string;
-            label: string;
-            type: string;
-            required?: boolean;
-            fullWidth?: boolean;
-            step?: string;
-            min?: string;
-            default?: string;
-            options?: Array<{ value: string; label: string }>;
-        }>;
-        renderInfo: (r: any) => React.ReactNode;
-    }
-> = {
-    overtime: {
-        title: 'Request Overtime',
-        route: '/payroll/overtime-requests',
-        fields: [
-            { name: 'date', label: 'Date', type: 'date', required: true },
-            {
-                name: 'hours_needed',
-                label: 'Hours Needed',
-                type: 'number',
-                required: true,
-                min: '1',
-            },
-            {
-                name: 'reason',
-                label: 'Reason',
-                type: 'textarea',
-                required: true,
-                fullWidth: true,
-            },
-        ],
-        renderInfo: (r) => (
-            <span className="text-muted-foreground">
-                {r.hours_needed}h — {r.reason}
-            </span>
-        ),
-    },
-    leave: {
-        title: 'Request Leave',
-        route: '/payroll/leave-requests',
-        fields: [
-            { name: 'date', label: 'Date', type: 'date', required: true },
-            {
-                name: 'leave_type',
-                label: 'Type',
-                type: 'select',
-                required: true,
-                default: 'vacation',
-                options: [
-                    { value: 'vacation', label: 'Vacation' },
-                    { value: 'sick', label: 'Sick' },
-                    { value: 'emergency', label: 'Emergency' },
-                    { value: 'maternity', label: 'Maternity' },
-                    { value: 'paternity', label: 'Paternity' },
-                    { value: 'bereavement', label: 'Bereavement' },
-                    { value: 'unpaid', label: 'Unpaid' },
-                ],
-            },
-            {
-                name: 'duration',
-                label: 'Duration',
-                type: 'select',
-                required: true,
-                default: 'full_day',
-                options: [
-                    { value: 'full_day', label: 'Full Day' },
-                    { value: 'half_day_morning', label: 'Half Day (AM)' },
-                    { value: 'half_day_afternoon', label: 'Half Day (PM)' },
-                ],
-            },
-            {
-                name: 'reason',
-                label: 'Reason',
-                type: 'textarea',
-                required: true,
-                fullWidth: true,
-            },
-        ],
-        renderInfo: (r) => (
-            <span className="text-muted-foreground">
-                {r.leave_type} — {r.duration?.replace(/_/g, ' ')}
-            </span>
-        ),
-    },
-    correction: {
-        title: 'Request Correction',
-        route: '/payroll/correction-requests',
-        fields: [
-            { name: 'date', label: 'Date', type: 'date', required: true },
-            {
-                name: 'correction_type',
-                label: 'Type',
-                type: 'select',
-                required: true,
-                default: 'missed_punch_in',
-                options: [
-                    { value: 'missed_punch_in', label: 'Missed Punch In' },
-                    { value: 'missed_punch_out', label: 'Missed Punch Out' },
-                    { value: 'time_adjustment', label: 'Time Adjustment' },
-                    { value: 'absent_to_present', label: 'Absent to Present' },
-                ],
-            },
-            {
-                name: 'requested_time',
-                label: 'Actual Time',
-                type: 'time',
-                required: false,
-            },
-            {
-                name: 'reason',
-                label: 'Reason',
-                type: 'textarea',
-                required: true,
-                fullWidth: true,
-            },
-        ],
-        renderInfo: (r) => (
-            <span className="text-muted-foreground">
-                {r.correction_type?.replace(/_/g, ' ')} — {r.reason}
-            </span>
-        ),
-    },
-    'cash-advance': {
-        title: 'Request Cash Advance',
-        route: '/payroll/cash-advances',
-        fields: [
-            {
-                name: 'amount',
-                label: 'Amount (PHP)',
-                type: 'number',
-                required: true,
-                step: '0.01',
-                min: '1',
-            },
-            {
-                name: 'reason',
-                label: 'Reason',
-                type: 'textarea',
-                required: true,
-                fullWidth: true,
-            },
-        ],
-        renderInfo: (r) => (
-            <span className="text-muted-foreground">
-                {formatCurrency(r.amount)} — {r.reason}
-            </span>
-        ),
-    },
-};
 
 function HistoryTab({
     weekSheets,

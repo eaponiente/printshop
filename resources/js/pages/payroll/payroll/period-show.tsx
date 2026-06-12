@@ -1,8 +1,19 @@
 import { Head, router } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
-import { ArrowLeft, CheckCircle, Eye, Undo2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Eye, Trash2, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/data-table';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import PayrollLayout from '@/layouts/payroll/payroll-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -52,9 +63,14 @@ type Props = {
         items: PeriodItem[];
     };
     isSuperAdmin: boolean;
+    canDelete: boolean;
 };
 
-export default function PayrollPeriodShow({ period, isSuperAdmin }: Props) {
+export default function PayrollPeriodShow({
+    period,
+    isSuperAdmin,
+    canDelete,
+}: Props) {
     const columns: ColumnDef<PeriodItem>[] = [
         {
             accessorKey: 'employee',
@@ -145,7 +161,7 @@ export default function PayrollPeriodShow({ period, isSuperAdmin }: Props) {
                         </h1>
                     </div>
                     <div className="flex items-center gap-2">
-                        {period.status === 'draft' && (
+                        {isSuperAdmin && period.status === 'draft' && (
                             <Button
                                 variant="default"
                                 size="sm"
@@ -164,6 +180,61 @@ export default function PayrollPeriodShow({ period, isSuperAdmin }: Props) {
                             >
                                 <CheckCircle className="mr-1 h-4 w-4" /> Approve
                             </Button>
+                        )}
+                        {canDelete && period.status === 'draft' && (
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="destructive" size="sm">
+                                        <Trash2 className="mr-1 h-4 w-4" />{' '}
+                                        Delete
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>
+                                            Delete draft period?
+                                        </AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This will delete the draft payroll
+                                            period and unlock all attendance
+                                            sheets. This cannot be undone.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>
+                                            Cancel
+                                        </AlertDialogCancel>
+                                        <AlertDialogAction
+                                            onClick={() =>
+                                                router.delete(
+                                                    `/payroll/periods/${period.id}`,
+                                                    {
+                                                        onSuccess: () =>
+                                                            toast.success(
+                                                                'Period deleted.',
+                                                                {
+                                                                    position:
+                                                                        'top-center',
+                                                                },
+                                                            ),
+                                                        onError: (err: any) =>
+                                                            toast.error(
+                                                                err.message ??
+                                                                    'Deletion failed.',
+                                                                {
+                                                                    position:
+                                                                        'top-center',
+                                                                },
+                                                            ),
+                                                    },
+                                                )
+                                            }
+                                        >
+                                            Delete
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
                         )}
                         {isSuperAdmin &&
                             (period.status === 'approved' ||

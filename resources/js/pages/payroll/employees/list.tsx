@@ -1,12 +1,12 @@
 import { Head, router } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
 import {
+    Ban,
     Eye,
     Link,
     Pencil,
     Plus,
     RefreshCw,
-    Trash2,
     Unlink,
     UserPlus,
 } from 'lucide-react';
@@ -38,9 +38,14 @@ import {
     NativeSelect,
     NativeSelectOption,
 } from '@/components/ui/native-select';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import PayrollLayout from '@/layouts/payroll/payroll-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { EmployeesList } from '@/types/employee';
+import type { EmployeeSchedule, EmployeesList } from '@/types/employee';
 import { formatCurrency } from '@/utils/formatters';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -63,11 +68,42 @@ const statusBadge = (status: string) => {
 const positionBadge = (position: string) => {
     const map: Record<string, string> = {
         regular: 'bg-blue-100 text-blue-700 border-blue-200',
-        contractual: 'bg-purple-100 text-purple-700 border-purple-200',
-        project_based: 'bg-amber-100 text-amber-700 border-amber-200',
+        probation: 'bg-purple-100 text-purple-700 border-purple-200',
     };
 
     return map[position] ?? 'bg-gray-100 text-gray-700 border-gray-200';
+};
+
+const dayLabels: Record<number, string> = {
+    0: 'Sunday',
+    1: 'Monday',
+    2: 'Tuesday',
+    3: 'Wednesday',
+    4: 'Thursday',
+    5: 'Friday',
+    6: 'Saturday',
+};
+
+const formatScheduleTooltip = (
+    schedule: EmployeeSchedule | null | undefined,
+) => {
+    if (!schedule) {
+        return 'No active schedule';
+    }
+
+    const restLabels =
+        (schedule.rest_days ?? [])
+            .map((d: number) => dayLabels[d] ?? String(d))
+            .join(', ') || 'None';
+
+    const effective = schedule.effective_to
+        ? `${schedule.effective_from} → ${schedule.effective_to}`
+        : `Since ${schedule.effective_from}`;
+
+    return `Schedule: ${schedule.start_time} – ${schedule.end_time}
+Unpaid tail: ${schedule.unpaid_tail_minutes} min
+Rest days: ${restLabels}
+${effective}`;
 };
 
 export default function EmployeeIndex({
@@ -77,6 +113,7 @@ export default function EmployeeIndex({
     statuses,
     positions,
     unlinkedUsers = [],
+    isSuperAdmin,
 }: EmployeesList & {
     unlinkedUsers?: Array<{
         id: number;
@@ -93,8 +130,8 @@ export default function EmployeeIndex({
         e.preventDefault();
 
         if (!selectedEmp) {
-return;
-}
+            return;
+        }
 
         const fd = new FormData(e.currentTarget);
         router.post(`/payroll/employees/${selectedEmp.id}/link-user`, fd, {
@@ -110,9 +147,16 @@ return;
             accessorKey: 'employee_number',
             header: 'Emp #',
             cell: ({ row }: CellContext<any, any>) => (
-                <span className="font-mono text-xs font-medium">
-                    {row.original.employee_number}
-                </span>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <span className="cursor-help font-mono text-xs font-medium">
+                            {row.original.employee_number}
+                        </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs text-xs whitespace-pre-line">
+                        {formatScheduleTooltip(row.original.active_schedule)}
+                    </TooltipContent>
+                </Tooltip>
             ),
         },
         {
@@ -123,16 +167,22 @@ return;
             ),
         },
         {
+            accessorKey: 'username',
+            header: 'Username',
+            cell: ({ row }: CellContext<any, any>) => (
+                <span className="font-medium">
+                    {row.original.user.username}
+                </span>
+            ),
+        },
+        {
             accessorKey: 'position',
             header: 'Position',
             cell: ({ row }: CellContext<any, any>) => (
                 <span
-                    className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium ${positionBadge(row.original.position)}`}
+                    className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium capitalize ${positionBadge(row.original.position)}`}
                 >
-                    {row.original.position === 'project_based'
-                        ? 'Project-Based'
-                        : row.original.position.charAt(0).toUpperCase() +
-                          row.original.position.slice(1)}
+                    {row.original.position}
                 </span>
             ),
         },
@@ -156,7 +206,7 @@ return;
                 return user ? (
                     <div className="flex items-center gap-1">
                         <span className="text-xs font-medium">
-                            {user.first_name} {user.last_name}
+                            {user.username}
                         </span>
                         <Button
                             variant="ghost"
@@ -237,55 +287,65 @@ return;
                     >
                         <Pencil className="h-4 w-4" />
                     </Button>
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="sm" title="Delete">
-                                <Trash2 className="h-4 w-4 text-red-500" />
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                    Delete {row.original.full_name}?
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    This action cannot be undone. The employee
-                                    record will be permanently deleted.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                    onClick={() =>
-                                        router.delete(
-                                            `/payroll/employees/${row.original.id}`,
-                                            {
-                                                onSuccess: () =>
-                                                    toast.success(
-                                                        'Employee deleted.',
-                                                        {
-                                                            position:
-                                                                'top-center',
-                                                        },
-                                                    ),
-                                                onError: (err: any) =>
-                                                    toast.error(
-                                                        err.message ??
-                                                            'Deletion failed.',
-                                                        {
-                                                            position:
-                                                                'top-center',
-                                                        },
-                                                    ),
-                                            },
-                                        )
-                                    }
+                    {row.original.status === 'active' && (
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Deactivate"
                                 >
-                                    Delete
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                                    <Ban className="h-4 w-4 text-red-500" />
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                        Deactivate {row.original.full_name}?
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This employee will be deactivated and
+                                        will no longer be able to access the
+                                        system. Their data will be preserved.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>
+                                        Cancel
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                        onClick={() =>
+                                            router.post(
+                                                `/payroll/employees/${row.original.id}/deactivate`,
+                                                {},
+                                                {
+                                                    onSuccess: () =>
+                                                        toast.success(
+                                                            'Employee deactivated.',
+                                                            {
+                                                                position:
+                                                                    'top-center',
+                                                            },
+                                                        ),
+                                                    onError: (err: any) =>
+                                                        toast.error(
+                                                            err.message ??
+                                                                'Deactivation failed.',
+                                                            {
+                                                                position:
+                                                                    'top-center',
+                                                            },
+                                                        ),
+                                                },
+                                            )
+                                        }
+                                    >
+                                        Deactivate
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    )}
                 </div>
             ),
         },
@@ -304,12 +364,42 @@ return;
                             Manage your payroll employees.
                         </p>
                     </div>
-                    <Button
-                        onClick={() => router.get('/payroll/employees/create')}
-                    >
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Employee
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        {isSuperAdmin && (
+                            <Button
+                                variant="outline"
+                                onClick={() =>
+                                    router.post(
+                                        '/payroll/employees/sync-all',
+                                        {},
+                                        {
+                                            onSuccess: (page: any) =>
+                                                toast.success(
+                                                    page.props.flash?.message ??
+                                                        'Employees synced.',
+                                                ),
+                                            onError: (err: any) =>
+                                                toast.error(
+                                                    err.message ??
+                                                        'Sync failed.',
+                                                ),
+                                        },
+                                    )
+                                }
+                            >
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                                Sync Employees
+                            </Button>
+                        )}
+                        <Button
+                            onClick={() =>
+                                router.get('/payroll/employees/create')
+                            }
+                        >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add Employee
+                        </Button>
+                    </div>
                 </div>
 
                 <EmployeeFilter

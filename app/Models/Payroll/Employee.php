@@ -75,6 +75,46 @@ class Employee extends Model
         return $this->hasMany(EmployeeSchedule::class)->orderBy('effective_from', 'desc');
     }
 
+    public function timeLogs(): HasMany
+    {
+        return $this->hasMany(TimeLog::class);
+    }
+
+    public function attendanceSheets(): HasMany
+    {
+        return $this->hasMany(AttendanceSheet::class);
+    }
+
+    public function payrollPeriodItems(): HasMany
+    {
+        return $this->hasMany(PayrollPeriodItem::class);
+    }
+
+    public function leaveRequests(): HasMany
+    {
+        return $this->hasMany(LeaveRequest::class);
+    }
+
+    public function overtimeRequests(): HasMany
+    {
+        return $this->hasMany(OvertimeRequest::class);
+    }
+
+    public function correctionRequests(): HasMany
+    {
+        return $this->hasMany(CorrectionRequest::class);
+    }
+
+    public function cashAdvances(): HasMany
+    {
+        return $this->hasMany(CashAdvance::class);
+    }
+
+    public function fines(): HasMany
+    {
+        return $this->hasMany(Fine::class);
+    }
+
     public function activeSchedule(): ?EmployeeSchedule
     {
         return EmployeeSchedule::activeForDate($this->id, now()->toDateString());

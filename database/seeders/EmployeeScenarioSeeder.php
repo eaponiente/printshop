@@ -183,7 +183,8 @@ class EmployeeScenarioSeeder extends Seeder
         OvertimeRequest::firstOrCreate(
             ['employee_id' => $emp->id, 'date' => '2026-05-28'],
             [
-                'hours_needed' => 2,
+                'start_time' => '2026-05-28 17:00:00',
+                'end_time' => '2026-05-28 19:00:00',
                 'shift_type' => 'regular_day',
                 'reason' => 'Production deadline',
                 'status' => 'approved',

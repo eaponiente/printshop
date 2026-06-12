@@ -62,6 +62,63 @@ export default function BranchDialog({
                                     />
                                     <InputError message={errors.name} />
                                 </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid gap-1.5">
+                                        <Label htmlFor="latitude">
+                                            Latitude
+                                        </Label>
+                                        <Input
+                                            id="latitude"
+                                            type="number"
+                                            step="any"
+                                            defaultValue={
+                                                branch?.latitude ?? ''
+                                            }
+                                            name="latitude"
+                                            tabIndex={2}
+                                            placeholder="e.g. 7.1907"
+                                        />
+                                        <InputError message={errors.latitude} />
+                                    </div>
+                                    <div className="grid gap-1.5">
+                                        <Label htmlFor="longitude">
+                                            Longitude
+                                        </Label>
+                                        <Input
+                                            id="longitude"
+                                            type="number"
+                                            step="any"
+                                            defaultValue={
+                                                branch?.longitude ?? ''
+                                            }
+                                            name="longitude"
+                                            tabIndex={3}
+                                            placeholder="e.g. 125.4553"
+                                        />
+                                        <InputError
+                                            message={errors.longitude}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid gap-1.5">
+                                    <Label htmlFor="geofence_radius">
+                                        Maximum Clock-in Distance (meters)
+                                    </Label>
+                                    <Input
+                                        id="geofence_radius"
+                                        type="number"
+                                        defaultValue={
+                                            branch?.geofence_radius ?? 100
+                                        }
+                                        name="geofence_radius"
+                                        tabIndex={4}
+                                    />
+                                    <InputError
+                                        message={errors.geofence_radius}
+                                    />
+                                </div>
                             </div>
 
                             <Button

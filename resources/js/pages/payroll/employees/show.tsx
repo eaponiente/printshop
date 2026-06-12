@@ -34,8 +34,7 @@ const statusBadge = (status: string) => {
 const positionBadge = (position: string) => {
     const labels: Record<string, string> = {
         regular: 'Regular',
-        contractual: 'Contractual',
-        project_based: 'Project-Based',
+        probation: 'Probation',
     };
 
     return labels[position] ?? position;

@@ -46,7 +46,8 @@ class OvertimeRequestController extends Controller
 
         $validated = $request->validate([
             'date' => ['required', 'date'],
-            'hours_needed' => ['required', 'integer', 'min:1'],
+            'start_time' => ['required', 'date_format:H:i'],
+            'end_time' => ['required', 'date_format:H:i', 'after:start_time'],
             'reason' => ['required', 'string', 'max:500'],
         ]);
 
@@ -55,7 +56,8 @@ class OvertimeRequestController extends Controller
         OvertimeRequest::create([
             'employee_id' => $employee->id,
             'date' => $validated['date'],
-            'hours_needed' => $validated['hours_needed'],
+            'start_time' => $validated['date'].' '.$validated['start_time'].':00',
+            'end_time' => $validated['date'].' '.$validated['end_time'].':00',
             'shift_type' => $shiftType,
             'reason' => $validated['reason'],
             'status' => 'pending',

@@ -5,12 +5,16 @@ use App\Models\Payroll\AttendanceSheet;
 use App\Models\Payroll\CashAdvance;
 use App\Models\Payroll\Employee;
 use App\Models\Payroll\EmployeeSchedule;
+use App\Models\Payroll\Holiday;
+use App\Models\Payroll\LeaveRequest;
 use App\Models\Payroll\PayrollPeriod;
 use App\Models\Payroll\PayrollPeriodItem;
 use App\Models\Payroll\Salary;
 use App\Models\Payroll\SssContributionBracket;
 use App\Models\User;
+use Payroll\Attendance\Enums\HolidayType;
 use Payroll\Attendance\Enums\PayrollPeriodStatus;
+use Payroll\Attendance\Services\AttendanceService;
 use Payroll\Attendance\Services\PayrollPeriodService;
 
 beforeEach(function () {
@@ -210,6 +214,23 @@ it('excludes inactive employees', function () {
     expect($items->first()->employee->first_name)->toBe('Active');
 });
 
+it('excludes superadmin employees', function () {
+    createEmployeeWithAttendance($this->branchA, 'AdminEmp');
+    $superadminEmp = createEmployeeWithAttendance($this->branchA, 'SuperAdminEmp');
+
+    $this->superadmin->update(['employee_id' => $superadminEmp->id]);
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.generate'), [
+            'period_start' => '2026-05-25',
+            'period_end' => '2026-05-30',
+        ]);
+
+    $items = PayrollPeriodItem::with('employee')->get();
+    expect($items->count())->toBe(1);
+    expect($items->first()->employee->first_name)->toBe('AdminEmp');
+});
+
 // ──────────── Batch 2: Validation ────────────
 
 it('validates period_end must be after period_start', function () {
@@ -330,6 +351,150 @@ it('deducts cash advance up to net receivable', function () {
 
 // ──────────── Batch 4: Edge cases ────────────
 
+it('computes holiday pay for regular holiday when employee was present day before', function () {
+    $emp = createEmployeeWithAttendance($this->branchA, 'Emp', 510, [], 4);
+
+    Holiday::create([
+        'name' => 'Test Holiday',
+        'date' => '2026-05-29',
+        'type' => HolidayType::REGULAR,
+    ]);
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.generate'), [
+            'period_start' => '2026-05-25',
+            'period_end' => '2026-05-30',
+        ]);
+
+    $sheet = AttendanceSheet::where('employee_id', $emp->id)
+        ->where('date', '2026-05-29')
+        ->first();
+
+    expect($sheet)->not->toBeNull();
+    expect($sheet->holiday_pay_percent)->toBe(100);
+    expect((float) $sheet->holiday_pay)->toBe(510.0);
+
+    $item = PayrollPeriodItem::where('employee_id', $emp->id)->first();
+    expect($item->holiday_pay_days)->toBe(1);
+    expect((float) $item->holiday_pay)->toBe(510.0);
+});
+
+it('computes holiday pay as 0 when employee was absent day before', function () {
+    $emp = createEmployeeWithAttendance($this->branchA, 'Emp', 510, [], 3);
+
+    Holiday::create([
+        'name' => 'Test Holiday',
+        'date' => '2026-05-29',
+        'type' => HolidayType::REGULAR,
+    ]);
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.generate'), [
+            'period_start' => '2026-05-25',
+            'period_end' => '2026-05-30',
+        ]);
+
+    $sheet = AttendanceSheet::where('employee_id', $emp->id)
+        ->where('date', '2026-05-29')
+        ->first();
+
+    expect($sheet)->not->toBeNull();
+    expect($sheet->holiday_pay_percent)->toBe(0);
+    expect((float) $sheet->holiday_pay)->toBe(0.0);
+
+    $item = PayrollPeriodItem::where('employee_id', $emp->id)->first();
+    expect($item->holiday_pay_days)->toBe(0);
+    expect((float) $item->holiday_pay)->toBe(0.0);
+});
+
+// ──────────── Batch 5: Leave ────────────
+
+it('processes full-day paid leave', function () {
+    $emp = createEmployeeWithAttendance($this->branchA, 'LeavePaid', 510, [], 4);
+
+    LeaveRequest::create([
+        'employee_id' => $emp->id,
+        'date' => '2026-05-29',
+        'leave_type' => 'vacation',
+        'duration' => 'full',
+        'is_paid' => true,
+        'reason' => 'Vacation',
+        'status' => 'approved',
+    ]);
+
+    app(AttendanceService::class)->processDailyAttendance($emp, '2026-05-29');
+
+    $sheet = AttendanceSheet::where('employee_id', $emp->id)
+        ->where('date', '2026-05-29')
+        ->first();
+
+    expect($sheet)->not->toBeNull();
+    expect($sheet->is_present)->toBeTrue();
+    expect($sheet->absence_type)->toBe('approved_leave');
+    expect($sheet->leave_type)->toBe('vacation');
+    expect($sheet->leave_duration)->toBe('full');
+    expect($sheet->leave_is_paid)->toBeTrue();
+    expect((float) $sheet->leave_hours_credited)->toBe(8.0);
+    expect((float) $sheet->daily_wage)->toBe(510.0);
+    expect($sheet->late_minutes)->toBe(0);
+    expect($sheet->overtime_minutes)->toBe(0);
+    expect((float) $sheet->holiday_pay)->toBe(0.0);
+});
+
+it('processes full-day unpaid leave', function () {
+    $emp = createEmployeeWithAttendance($this->branchA, 'LeaveUnpaid', 510, [], 4);
+
+    LeaveRequest::create([
+        'employee_id' => $emp->id,
+        'date' => '2026-05-29',
+        'leave_type' => 'unpaid',
+        'duration' => 'full',
+        'is_paid' => false,
+        'reason' => 'Personal',
+        'status' => 'approved',
+    ]);
+
+    app(AttendanceService::class)->processDailyAttendance($emp, '2026-05-29');
+
+    $sheet = AttendanceSheet::where('employee_id', $emp->id)
+        ->where('date', '2026-05-29')
+        ->first();
+
+    expect($sheet)->not->toBeNull();
+    expect($sheet->is_present)->toBeTrue();
+    expect($sheet->absence_type)->toBe('approved_leave');
+    expect($sheet->leave_is_paid)->toBeFalse();
+    expect($sheet->leave_duration)->toBe('full');
+    expect((float) $sheet->daily_wage)->toBe(0.0);
+});
+
+it('includes leave_paid_days in payroll period item', function () {
+    $emp = createEmployeeWithAttendance($this->branchA, 'LeavePayslip', 510, [], 4);
+
+    LeaveRequest::create([
+        'employee_id' => $emp->id,
+        'date' => '2026-05-29',
+        'leave_type' => 'vacation',
+        'duration' => 'full',
+        'is_paid' => true,
+        'reason' => 'Vacation',
+        'status' => 'approved',
+    ]);
+
+    // Process leave manually before payroll generation
+    app(AttendanceService::class)->processDailyAttendance($emp, '2026-05-29');
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.generate'), [
+            'period_start' => '2026-05-25',
+            'period_end' => '2026-05-30',
+        ]);
+
+    $item = PayrollPeriodItem::where('employee_id', $emp->id)->first();
+    expect($item->leave_paid_days)->toBe(1);
+    expect((float) $item->gross_pay)->toBe(2550.0); // 4 work + 1 paid leave = 5 days
+});
+
 it('handles branch with no employees', function () {
     $response = $this->actingAs($this->adminA)
         ->post(route('payroll.periods.generate'), [
@@ -387,7 +552,7 @@ it('net_pay never goes below zero', function () {
     expect((float) $item->net_pay)->toBeGreaterThanOrEqual(0);
 });
 
-it('approves a draft period', function () {
+it('allows superadmin to approve a draft period', function () {
     createEmployeeWithAttendance($this->branchA, 'Emp');
 
     $this->actingAs($this->adminA)
@@ -399,14 +564,33 @@ it('approves a draft period', function () {
     $period = PayrollPeriod::first();
     expect($period->status)->toBe(PayrollPeriodStatus::DRAFT);
 
-    $this->actingAs($this->adminA)
+    $this->actingAs($this->superadmin)
         ->post(route('payroll.periods.approve', $period))
         ->assertRedirect();
 
     $period->refresh();
     expect($period->status)->toBe(PayrollPeriodStatus::APPROVED);
-    expect($period->approved_by)->toBe($this->adminA->id);
+    expect($period->approved_by)->toBe($this->superadmin->id);
     expect($period->approved_at)->not->toBeNull();
+});
+
+it('blocks admin from approving a period', function () {
+    createEmployeeWithAttendance($this->branchA, 'Emp');
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.generate'), [
+            'period_start' => '2026-05-25',
+            'period_end' => '2026-05-30',
+        ]);
+
+    $period = PayrollPeriod::first();
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.approve', $period))
+        ->assertForbidden();
+
+    $period->refresh();
+    expect($period->status)->toBe(PayrollPeriodStatus::DRAFT);
 });
 
 it('only superadmin can void a period', function () {
@@ -419,7 +603,7 @@ it('only superadmin can void a period', function () {
         ]);
 
     $period = PayrollPeriod::first();
-    $this->actingAs($this->adminA)
+    $this->actingAs($this->superadmin)
         ->post(route('payroll.periods.approve', $period));
 
     // Admin cannot void
@@ -440,6 +624,23 @@ it('only superadmin can void a period', function () {
     expect($sheets->count())->toBe(0);
 });
 
+it('prevents voiding a draft period', function () {
+    createEmployeeWithAttendance($this->branchA, 'Emp');
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.generate'), [
+            'period_start' => '2026-05-25',
+            'period_end' => '2026-05-30',
+        ]);
+
+    $period = PayrollPeriod::first();
+    expect($period->status)->toBe(PayrollPeriodStatus::DRAFT);
+
+    $this->expectException(RuntimeException::class);
+    $this->expectExceptionMessage('Draft periods cannot be voided.');
+    app(PayrollPeriodService::class)->void($period);
+});
+
 it('prevents approving an already approved period', function () {
     createEmployeeWithAttendance($this->branchA, 'Emp');
 
@@ -450,7 +651,7 @@ it('prevents approving an already approved period', function () {
         ]);
 
     $period = PayrollPeriod::first();
-    $this->actingAs($this->adminA)
+    $this->actingAs($this->superadmin)
         ->post(route('payroll.periods.approve', $period))
         ->assertRedirect();
 
@@ -461,4 +662,131 @@ it('prevents approving an already approved period', function () {
     $this->expectException(RuntimeException::class);
     $this->expectExceptionMessage('Only draft periods can be approved.');
     app(PayrollPeriodService::class)->approve($period, $this->adminA->id);
+});
+
+// ──────────── Batch 5: Deletion ────────────
+
+it('allows admin to delete draft period in their branch', function () {
+    createEmployeeWithAttendance($this->branchA, 'Emp');
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.generate'), [
+            'period_start' => '2026-05-25',
+            'period_end' => '2026-05-30',
+        ]);
+
+    $period = PayrollPeriod::first();
+    expect($period->status)->toBe(PayrollPeriodStatus::DRAFT);
+
+    $this->actingAs($this->adminA)
+        ->delete(route('payroll.periods.destroy', $period))
+        ->assertRedirect(route('payroll.periods.index'));
+
+    expect(PayrollPeriod::count())->toBe(0);
+    expect(PayrollPeriodItem::count())->toBe(0);
+});
+
+it('allows superadmin to delete any draft period', function () {
+    createEmployeeWithAttendance($this->branchB, 'Emp');
+
+    $this->actingAs($this->superadmin)
+        ->post(route('payroll.periods.generate'), [
+            'period_start' => '2026-05-25',
+            'period_end' => '2026-05-30',
+            'branch_id' => $this->branchB->id,
+        ]);
+
+    $period = PayrollPeriod::first();
+
+    $this->actingAs($this->superadmin)
+        ->delete(route('payroll.periods.destroy', $period))
+        ->assertRedirect(route('payroll.periods.index'));
+
+    expect(PayrollPeriod::count())->toBe(0);
+});
+
+it('prevents deletion of approved periods', function () {
+    createEmployeeWithAttendance($this->branchA, 'Emp');
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.generate'), [
+            'period_start' => '2026-05-25',
+            'period_end' => '2026-05-30',
+        ]);
+
+    $period = PayrollPeriod::first();
+    $this->actingAs($this->superadmin)
+        ->post(route('payroll.periods.approve', $period));
+
+    $period->refresh();
+    expect($period->status)->toBe(PayrollPeriodStatus::APPROVED);
+
+    $this->expectException(RuntimeException::class);
+    $this->expectExceptionMessage('Only draft periods can be deleted.');
+    app(PayrollPeriodService::class)->delete($period);
+});
+
+it('denies staff from deleting', function () {
+    createEmployeeWithAttendance($this->branchA, 'Emp');
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.generate'), [
+            'period_start' => '2026-05-25',
+            'period_end' => '2026-05-30',
+        ]);
+
+    $period = PayrollPeriod::first();
+
+    $this->actingAs($this->staffA)
+        ->delete(route('payroll.periods.destroy', $period))
+        ->assertForbidden();
+
+    expect(PayrollPeriod::count())->toBe(1);
+});
+
+it('admin cannot delete draft period in other branch', function () {
+    createEmployeeWithAttendance($this->branchB, 'Emp');
+
+    $this->actingAs($this->superadmin)
+        ->post(route('payroll.periods.generate'), [
+            'period_start' => '2026-05-25',
+            'period_end' => '2026-05-30',
+            'branch_id' => $this->branchB->id,
+        ]);
+
+    $period = PayrollPeriod::first();
+
+    $this->actingAs($this->adminA)
+        ->delete(route('payroll.periods.destroy', $period))
+        ->assertForbidden();
+
+    expect(PayrollPeriod::count())->toBe(1);
+});
+
+it('unlocks attendance sheets on draft deletion', function () {
+    createEmployeeWithAttendance($this->branchA, 'Emp');
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.generate'), [
+            'period_start' => '2026-05-25',
+            'period_end' => '2026-05-30',
+        ]);
+
+    // Verify sheets are locked after generation
+    $lockedCount = AttendanceSheet::whereBetween('date', ['2026-05-25', '2026-05-30'])
+        ->whereNotNull('locked_at')
+        ->count();
+    expect($lockedCount)->toBeGreaterThan(0);
+
+    $period = PayrollPeriod::first();
+
+    $this->actingAs($this->adminA)
+        ->delete(route('payroll.periods.destroy', $period))
+        ->assertRedirect(route('payroll.periods.index'));
+
+    // Verify sheets are unlocked after deletion
+    $unlockedCount = AttendanceSheet::whereBetween('date', ['2026-05-25', '2026-05-30'])
+        ->whereNull('locked_at')
+        ->count();
+    expect($unlockedCount)->toBeGreaterThan(0);
 });

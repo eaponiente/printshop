@@ -36,6 +36,10 @@ use Payroll\Attendance\Controllers\PayrollReportController;
 use Payroll\Attendance\Controllers\SssBracketController;
 use Payroll\Attendance\Controllers\TimeLogController;
 use Payroll\Audit\Controllers\AuditLogController;
+use Payroll\Contractor\Controllers\ContractorCashAdvanceController;
+use Payroll\Contractor\Controllers\ContractorController;
+use Payroll\Contractor\Controllers\ContractorPayrollPeriodController;
+use Payroll\Contractor\Controllers\ContractorProjectController;
 use Payroll\Employee\Controllers\EmployeeController;
 use Payroll\Employee\Controllers\EmployeeScheduleController;
 
@@ -137,11 +141,12 @@ Route::middleware(['auth'])->group(function () {
         Route::get('employees/{employee}', [EmployeeController::class, 'show'])->name('employees.show');
         Route::get('employees/{employee}/edit', [EmployeeController::class, 'edit'])->name('employees.edit');
         Route::put('employees/{employee}', [EmployeeController::class, 'update'])->name('employees.update');
-        Route::delete('employees/{employee}', [EmployeeController::class, 'destroy'])->name('employees.destroy');
+        Route::post('employees/{employee}/deactivate', [EmployeeController::class, 'deactivate'])->name('employees.deactivate');
         Route::post('employees/{employee}/rehire', [EmployeeController::class, 'rehire'])->name('employees.rehire');
         Route::post('employees/{employee}/link-user', [EmployeeController::class, 'linkUser'])->name('employees.link-user');
         Route::post('employees/{employee}/unlink-user', [EmployeeController::class, 'unlinkUser'])->name('employees.unlink-user');
         Route::post('employees/sync-user/{user}', [EmployeeController::class, 'syncUser'])->name('employees.sync-user');
+        Route::post('employees/sync-all', [EmployeeController::class, 'syncAll'])->name('employees.sync-all');
 
         Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit.index');
 
@@ -169,6 +174,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('periods/{period}', [PayrollPeriodController::class, 'show'])->name('periods.show');
         Route::post('periods/{period}/approve', [PayrollPeriodController::class, 'approve'])->name('periods.approve');
         Route::post('periods/{period}/void', [PayrollPeriodController::class, 'void'])->name('periods.void');
+        Route::delete('periods/{period}', [PayrollPeriodController::class, 'destroy'])->name('periods.destroy');
         Route::get('periods/{period}/payslip/{item}', [PayrollPeriodController::class, 'payslip'])->name('payslip');
         Route::get('my-payslip', [PayrollPeriodController::class, 'myPayslip'])->name('my-payslip');
 
@@ -203,6 +209,29 @@ Route::middleware(['auth'])->group(function () {
         Route::post('cash-advances', [CashAdvanceController::class, 'store'])->name('cash-advances.store');
         Route::post('cash-advances/{cashAdvance}/approve', [CashAdvanceController::class, 'approve'])->name('cash-advances.approve');
         Route::post('cash-advances/{cashAdvance}/deny', [CashAdvanceController::class, 'deny'])->name('cash-advances.deny');
+
+        // Contractors
+        Route::get('contractors', [ContractorController::class, 'index'])->name('contractors.index');
+        Route::post('contractors', [ContractorController::class, 'store'])->name('contractors.store');
+        Route::put('contractors/{contractor}', [ContractorController::class, 'update'])->name('contractors.update');
+        Route::delete('contractors/{contractor}', [ContractorController::class, 'destroy'])->name('contractors.destroy');
+
+        Route::get('contractors/{contractor}/projects', [ContractorProjectController::class, 'index'])->name('contractors.projects');
+        Route::post('contractors/{contractor}/projects', [ContractorProjectController::class, 'store'])->name('contractors.projects.store');
+        Route::put('projects/{project}', [ContractorProjectController::class, 'update'])->name('contractors.projects.update');
+        Route::post('projects/{project}/activate', [ContractorProjectController::class, 'activate'])->name('contractors.projects.activate');
+        Route::delete('projects/{project}', [ContractorProjectController::class, 'destroy'])->name('contractors.projects.destroy');
+
+        Route::get('contractor-cash-advances', [ContractorCashAdvanceController::class, 'index'])->name('contractor-cash-advances.index');
+        Route::post('contractor-cash-advances', [ContractorCashAdvanceController::class, 'store'])->name('contractor-cash-advances.store');
+        Route::post('contractor-cash-advances/{cashAdvance}/approve', [ContractorCashAdvanceController::class, 'approve'])->name('contractor-cash-advances.approve');
+        Route::post('contractor-cash-advances/{cashAdvance}/deny', [ContractorCashAdvanceController::class, 'deny'])->name('contractor-cash-advances.deny');
+
+        Route::get('contractor-periods', [ContractorPayrollPeriodController::class, 'index'])->name('contractor.periods.index');
+        Route::post('contractor-periods', [ContractorPayrollPeriodController::class, 'generate'])->name('contractor.periods.generate');
+        Route::get('contractor-periods/{period}', [ContractorPayrollPeriodController::class, 'show'])->name('contractor.periods.show');
+        Route::post('contractor-periods/{period}/approve', [ContractorPayrollPeriodController::class, 'approve'])->name('contractor.periods.approve');
+        Route::delete('contractor-periods/{period}', [ContractorPayrollPeriodController::class, 'destroy'])->name('contractor.periods.destroy');
     });
 
     Route::prefix('api')->group(function () {

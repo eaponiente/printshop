@@ -7,6 +7,7 @@ use App\Models\Payroll\Employee;
 use App\Models\Payroll\EmployeeSchedule;
 use App\Models\Payroll\Fine;
 use App\Models\Payroll\Holiday;
+use App\Models\Payroll\LeaveRequest;
 use App\Models\Payroll\OvertimeRequest;
 use App\Models\Payroll\TimeLog;
 use Carbon\Carbon;
@@ -59,6 +60,7 @@ class AttendanceService
 
         $scheduleStart = Carbon::parse("{$date} {$schedStartTime}");
         $scheduleEnd = Carbon::parse("{$date} {$schedEndTime}");
+        $paidEndTime = $scheduleEnd->copy()->subMinutes($unpaidTailMinutes);
 
         if ($hasAnyPunch) {
             $isPresent = true;
@@ -70,6 +72,8 @@ class AttendanceService
                 if ($rawInTime->gt($scheduleStart)) {
                     $lateMinutes = abs($rawInTime->diffInMinutes($scheduleStart));
                 }
+
+                $lateDeduction = round($lateMinutes * ($hourlyRate / 60), 2);
 
                 // Cap early arrival: don't credit time before schedule start
                 $inTime = $rawInTime->lt($scheduleStart) ? $scheduleStart->copy() : $rawInTime->copy();
@@ -100,16 +104,16 @@ class AttendanceService
                 $undertimeMinutes = $lunchDeductionMinutes;
                 if ($outPunch) {
                     $outTimeRaw = Carbon::parse($outPunch->timestamp);
-                    if (! $isRestDay && $outTimeRaw->lt($scheduleEnd)) {
-                        $undertimeMinutes += abs($scheduleEnd->diffInMinutes($outTimeRaw));
+                    if (! $isRestDay && $outTimeRaw->lt($paidEndTime)) {
+                        $undertimeMinutes += abs($paidEndTime->diffInMinutes($outTimeRaw));
                     }
                 }
                 $undertimeDeduction = round(($undertimeMinutes / 60) * $hourlyRate, 2);
 
                 // Hours worked (uses capped inTime)
-                $endTime = $outPunch ? Carbon::parse($outPunch->timestamp) : $scheduleEnd;
-                if (! $isRestDay && $endTime->gt($scheduleEnd)) {
-                    $endTime = $scheduleEnd;
+                $endTime = $outPunch ? Carbon::parse($outPunch->timestamp) : $paidEndTime;
+                if (! $isRestDay && $endTime->gt($paidEndTime)) {
+                    $endTime = $paidEndTime;
                 }
 
                 if ($lunchOut && $lunchIn) {
@@ -148,7 +152,7 @@ class AttendanceService
                         ->first();
 
                     if ($otRequest) {
-                        $approvedMins = $otRequest->hours_needed * 60;
+                        $approvedMins = $otRequest->getApprovedMinutes();
                         $otMins = min($otMins, $approvedMins);
                     } else {
                         $otMins = 0;
@@ -180,63 +184,113 @@ class AttendanceService
         $holidayPay = 0;
 
         if ($holiday) {
-            $holidayType = $holiday->type->value;
-            if ($holiday->type === HolidayType::REGULAR) {
-                if ($isPresent) {
-                    $holidayPayPercent = 200;
-                } else {
-                    $prevWorkDate = $this->findLastWorkingDay($employee, $date);
-                    $prevSheet = $prevWorkDate
-                        ? AttendanceSheet::where('employee_id', $employee->id)->where('date', $prevWorkDate)->first()
-                        : null;
-                    if ($prevSheet && ($prevSheet->is_present || $prevSheet->absence_type === 'approved_leave')) {
-                        $holidayPayPercent = 100;
+            // Holiday on Sunday = no holiday pay for anyone
+            if ($dateObj->dayOfWeek === 0) {
+                // Intentionally skip: no holiday pay when holiday falls on Sunday
+            } else {
+                $holidayType = $holiday->type->value;
+                if ($holiday->type === HolidayType::REGULAR) {
+                    if ($isPresent) {
+                        $holidayPayPercent = $isRestDay ? 260 : 200;
                     } else {
-                        $holidayPayPercent = 0;
+                        $prevWorkDate = $this->findLastWorkingDay($employee, $date);
+                        $prevSheet = $prevWorkDate
+                            ? AttendanceSheet::where('employee_id', $employee->id)->where('date', $prevWorkDate)->first()
+                            : null;
+                        if ($prevSheet && ($prevSheet->is_present || $prevSheet->absence_type === 'approved_leave')) {
+                            $holidayPayPercent = 100;
+                        } else {
+                            $holidayPayPercent = 0;
+                        }
+                    }
+                } elseif ($holiday->type === HolidayType::SPECIAL) {
+                    $holidayPayPercent = $isPresent ? ($isRestDay ? 150 : 130) : 0;
+                }
+
+                if ($holidayPayPercent > 0) {
+                    if ($isPresent) {
+                        $basePayPercent = $isRestDay ? 130 : 100;
+                        $holidayPay = round($dailyRate * ($holidayPayPercent - $basePayPercent) / 100, 2);
+                    } else {
+                        $holidayPay = round($dailyRate * $holidayPayPercent / 100, 2);
                     }
                 }
-            } elseif ($holiday->type === HolidayType::SPECIAL) {
-                $holidayPayPercent = $isPresent ? 130 : 0;
-            }
-
-            if ($holidayPayPercent > 0) {
-                if ($isPresent) {
-                    $holidayPay = round($dailyRate * ($holidayPayPercent - 100) / 100, 2);
-                } else {
-                    $holidayPay = round($dailyRate * $holidayPayPercent / 100, 2);
-                }
             }
         }
 
-        // Daily wage — cap paid hours at 8h when no approved overtime
-        $netWorkMinutes = round($hoursWorked * 60);
+        // Leave check
+        $leaveRequest = LeaveRequest::where('employee_id', $employee->id)
+            ->where('date', $date)
+            ->where('status', 'approved')
+            ->first();
 
-        if (! $isRestDay) {
-            $hasApprovedOT = OvertimeRequest::where('employee_id', $employee->id)
-                ->where('date', $date)
-                ->where('status', 'approved')
-                ->exists();
+        $leaveType = null;
+        $leaveDuration = null;
+        $leaveIsPaid = false;
+        $leaveHoursCredited = 0;
 
-            if ($hasApprovedOT) {
-                $regularPaidMinutes = $netWorkMinutes;
-            } else {
-                $maxPaidMinutes = max(480 - $lateMinutes, 240);
-                $regularPaidMinutes = min($netWorkMinutes, $maxPaidMinutes);
+        $hasFullDayLeave = $leaveRequest && $leaveRequest->duration === 'full';
+
+        if ($hasFullDayLeave) {
+            $leaveType = $leaveRequest->leave_type;
+            $leaveDuration = 'full';
+            $leaveIsPaid = $leaveRequest->is_paid;
+            $leaveHoursCredited = 8;
+
+            $isPresent = true;
+            $absenceType = 'approved_leave';
+            $hoursWorked = 0;
+            $lateMinutes = 0;
+            $lateDeduction = 0;
+            $undertimeMinutes = 0;
+            $undertimeDeduction = 0;
+            $overtimeMinutes = 0;
+            $overtimePay = 0;
+            $overtimeMultiplier = null;
+
+            $holidayType = null;
+            $holidayPayPercent = null;
+            $holidayPay = 0;
+        }
+
+        // Daily wage
+        $fineDeduction = Fine::where('employee_id', $employee->id)->where('date', $date)->sum('amount');
+
+        if ($hasFullDayLeave) {
+            $basePay = $leaveIsPaid ? $dailyRate : 0;
+            $dailyWage = round($basePay - $fineDeduction, 2);
+            if ($dailyWage < 0) {
+                $dailyWage = 0;
             }
         } else {
-            $regularPaidMinutes = $netWorkMinutes;
-        }
+            $netWorkMinutes = round($hoursWorked * 60);
 
-        $basePaidHours = $regularPaidMinutes / 60;
+            if (! $isRestDay) {
+                $hasApprovedOT = OvertimeRequest::where('employee_id', $employee->id)
+                    ->where('date', $date)
+                    ->where('status', 'approved')
+                    ->exists();
 
-        $basePay = $isPresent ? round($basePaidHours * $hourlyRate, 2) : 0;
-        if ($isRestDay && $isPresent) {
-            $basePay = round($hoursWorked * $hourlyRate * 1.30, 2);
-        }
-        $fineDeduction = Fine::where('employee_id', $employee->id)->where('date', $date)->sum('amount');
-        $dailyWage = round($basePay - $undertimeDeduction - $fineDeduction + $overtimePay + $holidayPay, 2);
-        if ($dailyWage < 0) {
-            $dailyWage = 0;
+                if ($hasApprovedOT) {
+                    $regularPaidMinutes = $netWorkMinutes;
+                } else {
+                    $maxPaidMinutes = max(480 - $lateMinutes, 240);
+                    $regularPaidMinutes = min($netWorkMinutes, $maxPaidMinutes);
+                }
+            } else {
+                $regularPaidMinutes = $netWorkMinutes;
+            }
+
+            $basePaidHours = $regularPaidMinutes / 60;
+
+            $basePay = $isPresent ? round($basePaidHours * $hourlyRate, 2) : 0;
+            if ($isRestDay && $isPresent) {
+                $basePay = round($hoursWorked * $hourlyRate * 1.30, 2);
+            }
+            $dailyWage = round($basePay - $undertimeDeduction - $fineDeduction + $overtimePay + $holidayPay, 2);
+            if ($dailyWage < 0) {
+                $dailyWage = 0;
+            }
         }
 
         $sheet = AttendanceSheet::where('employee_id', $employee->id)
@@ -270,6 +324,10 @@ class AttendanceService
             'is_present' => $isPresent,
             'absence_type' => $absenceType,
             'is_rest_day' => $isRestDay,
+            'leave_type' => $leaveType,
+            'leave_duration' => $leaveDuration,
+            'leave_is_paid' => $leaveIsPaid,
+            'leave_hours_credited' => $leaveHoursCredited,
         ];
 
         if ($sheet) {

@@ -29,9 +29,7 @@ class BranchController extends Controller
     public function store(StoreBranchRequest $request): RedirectResponse
     {
         try {
-            Branch::create([
-                'name' => $request->name,
-            ]);
+            Branch::create($request->validated());
 
             return redirect()->back()->with('success', 'Branch created successfully.');
         } catch (\Exception $e) {

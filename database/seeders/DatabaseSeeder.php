@@ -22,8 +22,8 @@ class DatabaseSeeder extends Seeder
                 // ExpenseSeeder::class,
                 HolidaySeeder::class,
                 SssBracketSeeder::class,
-                //AttendanceDemoSeeder::class,
-                //EmployeeScenarioSeeder::class,
+                // AttendanceDemoSeeder::class,
+                // EmployeeScenarioSeeder::class,
             ]);
         } else {
             $this->call([

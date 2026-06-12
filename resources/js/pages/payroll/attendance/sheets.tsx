@@ -35,15 +35,20 @@ type Sheet = {
     late_minutes: number;
     late_deduction: number;
     undertime_minutes: number;
+    overtime_minutes: number;
     holiday_pay: number;
     overtime_pay: number;
     daily_wage: number;
+    fine_deduction: number;
     is_present: boolean;
     is_rest_day: boolean;
     absence_type: string | null;
     holiday_type: string | null;
     holiday_pay_percent: number | null;
     locked_at: string | null;
+    leave_type: string | null;
+    leave_duration: string | null;
+    leave_is_paid: boolean;
 };
 
 type PaginationLink = { url: string | null; label: string; active: boolean };
@@ -72,8 +77,16 @@ const statusBadge = (sheet: Sheet | undefined) => {
         return { text: 'Rest', className: 'text-blue-500' };
     }
 
+    if (sheet.leave_type) {
+        return { text: 'Leave', className: 'text-teal-600' };
+    }
+
     if (sheet.is_present) {
         return { text: 'Present', className: 'text-green-600' };
+    }
+
+    if (sheet.holiday_pay_percent !== null && sheet.holiday_pay_percent > 0) {
+        return { text: 'Holiday', className: 'text-amber-600' };
     }
 
     if (sheet.absence_type === 'unexcused') {
@@ -241,7 +254,7 @@ export default function AttendanceSheets({
                                                 {sheet ? (
                                                     <button
                                                         type="button"
-                                                        className="block w-full rounded p-1 text-center hover:bg-accent/50"
+                                                        className="block w-full cursor-pointer rounded border border-dashed border-muted-foreground/25 p-1 text-center hover:border-muted-foreground/50 hover:bg-accent/50"
                                                         onClick={() =>
                                                             router.get(
                                                                 `/payroll/attendance-sheets/${emp.id}?date=${date}`,
@@ -260,12 +273,48 @@ export default function AttendanceSheets({
                                                                 )}
                                                             </div>
                                                         )}
-                                                        {sheet.holiday_type && (
-                                                            <div className="mt-0.5 text-xs text-amber-600">
-                                                                {sheet.holiday_type ===
-                                                                'regular'
-                                                                    ? `Holiday ${sheet.holiday_pay_percent}%`
-                                                                    : 'Special'}
+                                                        {sheet.leave_type && (
+                                                            <div className="mt-0.5 text-xs text-teal-600">
+                                                                {sheet.leave_duration ===
+                                                                'full'
+                                                                    ? 'Full Leave'
+                                                                    : 'Leave'}
+                                                            </div>
+                                                        )}
+                                                        {sheet.late_minutes >
+                                                            0 && (
+                                                            <div className="mt-0.5 text-[10px] text-red-600">
+                                                                Late{' '}
+                                                                {
+                                                                    sheet.late_minutes
+                                                                }
+                                                                m
+                                                            </div>
+                                                        )}
+                                                        {sheet.undertime_minutes >
+                                                            0 && (
+                                                            <div className="mt-0.5 text-[10px] text-orange-600">
+                                                                UT{' '}
+                                                                {
+                                                                    sheet.undertime_minutes
+                                                                }
+                                                                m
+                                                            </div>
+                                                        )}
+                                                        {sheet.overtime_minutes >
+                                                            0 && (
+                                                            <div className="mt-0.5 text-[10px] text-blue-600">
+                                                                OT{' '}
+                                                                {
+                                                                    sheet.overtime_minutes
+                                                                }
+                                                                m
+                                                            </div>
+                                                        )}
+                                                        {sheet.fine_deduction >
+                                                            0 && (
+                                                            <div className="mt-0.5 text-[10px] text-red-600">
+                                                                Fined
                                                             </div>
                                                         )}
                                                     </button>

@@ -69,6 +69,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('payroll-periods.approve', [PayrollPeriodPolicy::class, 'approve']);
         Gate::define('payroll-periods.void', [PayrollPeriodPolicy::class, 'void']);
         Gate::define('payroll-periods.view', [PayrollPeriodPolicy::class, 'view']);
+        Gate::define('payroll-periods.delete', [PayrollPeriodPolicy::class, 'delete']);
 
         // Payroll attendance policies — registered with action-based gates
         // until the corresponding Eloquent models are created.

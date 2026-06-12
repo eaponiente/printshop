@@ -37,4 +37,9 @@ class PayrollPeriod extends Model
     {
         return $this->hasMany(PayrollPeriodItem::class);
     }
+
+    public function contractorItems(): HasMany
+    {
+        return $this->hasMany(PayrollPeriodContractorItem::class);
+    }
 }
