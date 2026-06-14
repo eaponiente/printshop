@@ -475,16 +475,15 @@ hourly_rate = daily_rate / 8
 monthly_salary = daily_rate × 26  (for government deduction computation only)
 ```
 
-### 3.2 Late Deduction — 3-Tier System (No Grace Period)
+### 3.2 Late Deduction — 2-Tier System (No Grace Period)
 
-| Late Minutes | Deduction Formula                           | Example (daily = ₱510, hourly = ₱63.75) |
-| ------------ | ------------------------------------------- | --------------------------------------- |
-| 0            | ₱0                                          | ₱0                                      |
-| 1–19         | `late_min × ₱5`                             | 15 min → ₱75                            |
-| 20–59        | Flat ₱100                                   | 25 min → ₱100                           |
-| 60+          | `₱100 + floor(late_min / 60) × hourly_rate` | 90 min → ₱100 + ₱63.75 = ₱163.75        |
+| Late Minutes | Deduction Formula                                    | Example (daily = ₱510, hourly = ₱63.75) |
+| ------------ | ---------------------------------------------------- | --------------------------------------- |
+| 0            | ₱0                                                   | ₱0                                      |
+| 1–20         | `late_min × ₱5`                                      | 15 min → ₱75                            |
+| 21+          | `(20 × ₱5) + ((late_min − 20) × (hourly_rate / 60))` | 25 min → ₱100 + (5 × 1.0625) = ₱105.31  |
 
-**Key**: Fractional hours past each full hour of lateness are NOT additionally penalized. 90 min costs same as 60 min: `floor(90/60) = 1`.
+**Key**: First 20 minutes are charged at ₱5 per minute (flat rate). Minutes beyond 20 are charged at `hourly_rate / 60` per minute (pro-rated).
 
 ### 3.3 Daily Wage Formula
 
@@ -552,22 +551,22 @@ actual_lunch   = LUNCH_IN − LUNCH_OUT (measured, not assumed)
 
 ### 3.6 Full Scenario Matrix (daily_rate = ₱510)
 
-| Scenario                       | Late | Worked | Computation          | daily_wage  |
-| ------------------------------ | ---- | ------ | -------------------- | ----------- |
-| On time, full day              | 0    | 8h     | `510`                | **₱510.00** |
-| On time, no uniform (₱20 fine) | 0    | 8h     | `510 − 20`           | **₱490.00** |
-| Late 10 min                    | 10   | 7.83h  | `510 − 50`           | **₱460.00** |
-| Late 15 min                    | 15   | 7.75h  | `510 − 75`           | **₱435.00** |
-| Late 19 min                    | 19   | 7.68h  | `510 − 95`           | **₱415.00** |
-| Late 20 min                    | 20   | 7.67h  | `510 − 100`          | **₱410.00** |
-| Late 45 min                    | 45   | 7.25h  | `510 − 100`          | **₱410.00** |
-| Late 60 min (1h)               | 60   | 7h     | `510 − 100 − 63.75`  | **₱346.25** |
-| Late 90 min (1.5h)             | 90   | 6.5h   | `510 − 100 − 63.75`  | **₱346.25** |
-| Late 120 min (2h)              | 120  | 6h     | `510 − 100 − 127.50` | **₱282.50** |
-| Late 150 min (2.5h)            | 150  | 5.5h   | `510 − 100 − 127.50` | **₱282.50** |
-| Late 180 min (3h)              | 180  | 5h     | `510 − 100 − 191.25` | **₱218.75** |
-| Not late, left early (5h)      | 0    | 5h     | `63.75 × 5`          | **₱318.75** |
-| Not late, left early (2h)      | 0    | 2h     | `63.75 × 2`          | **₱127.50** |
+| Scenario                       | Late | Worked | Computation    | daily_wage  |
+| ------------------------------ | ---- | ------ | -------------- | ----------- |
+| On time, full day              | 0    | 8h     | `510`          | **₱510.00** |
+| On time, no uniform (₱20 fine) | 0    | 8h     | `510 − 20`     | **₱490.00** |
+| Late 10 min                    | 10   | 7.83h  | `510 − 50`     | **₱460.00** |
+| Late 15 min                    | 15   | 7.75h  | `510 − 75`     | **₱435.00** |
+| Late 20 min                    | 20   | 7.67h  | `510 − 100`    | **₱410.00** |
+| Late 25 min                    | 25   | 7.58h  | `510 − 105.31` | **₱404.69** |
+| Late 45 min                    | 45   | 7.25h  | `510 − 126.56` | **₱383.44** |
+| Late 60 min (1h)               | 60   | 7h     | `510 − 142.50` | **₱367.50** |
+| Late 90 min (1.5h)             | 90   | 6.5h   | `510 − 174.38` | **₱335.62** |
+| Late 120 min (2h)              | 120  | 6h     | `510 − 206.25` | **₱303.75** |
+| Late 150 min (2.5h)            | 150  | 5.5h   | `510 − 238.13` | **₱271.87** |
+| Late 180 min (3h)              | 180  | 5h     | `510 − 270.00` | **₱240.00** |
+| Not late, left early (5h)      | 0    | 5h     | `63.75 × 5`    | **₱318.75** |
+| Not late, left early (2h)      | 0    | 2h     | `63.75 × 2`    | **₱127.50** |
 
 ### 3.7 Holiday Pay
 
@@ -985,12 +984,12 @@ Admin     → Superadmin (never self-approved)
 | #   | Scenario                        | Behavior                                                         |
 | --- | ------------------------------- | ---------------------------------------------------------------- |
 | E9  | Late 10 min                     | Deduction = 10 × ₱5 = ₱50                                        |
-| E10 | Late 19 min                     | Deduction = 19 × ₱5 = ₱95                                        |
-| E11 | Late 20 min                     | Flat ₱100 deduction                                              |
-| E12 | Late 45 min                     | Flat ₱100 deduction                                              |
-| E13 | Late 60 min (1 hour)            | ₱100 + 1 × hourly_rate. Example: ₱100 + ₱63.75 = ₱163.75         |
-| E14 | Late 90 min (1.5 hours)         | ₱100 + floor(90/60) × hourly = same as 60 min                    |
-| E15 | Late 150 min (2.5 hours)        | ₱100 + floor(150/60) × hourly = same as 120 min                  |
+| E10 | Late 20 min                     | Deduction = 20 × ₱5 = ₱100                                       |
+| E11 | Late 25 min                     | Deduction = 100 + (5 × 1.0625) = ₱105.31                         |
+| E12 | Late 45 min                     | Deduction = 100 + (25 × 1.0625) = ₱126.56                        |
+| E13 | Late 60 min (1 hour)            | Deduction = 100 + (40 × 1.0625) = ₱142.50                        |
+| E14 | Late 90 min (1.5 hours)         | Deduction = 100 + (70 × 1.0625) = ₱174.38                        |
+| E15 | Late 150 min (2.5 hours)        | Deduction = 100 + (130 × 1.0625) = ₱238.13                       |
 | E16 | Not late, worked 5h             | Proportional: hourly_rate × 5                                    |
 | E17 | Not late, worked 2h             | Proportional: hourly_rate × 2                                    |
 | E18 | OT approved 3h, stayed 2h       | Lower-of-two: 120 min OT. Pay = 2 × hourly × 1.25 (regular day). |
