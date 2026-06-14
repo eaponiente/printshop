@@ -36,12 +36,9 @@ use Payroll\Attendance\Controllers\PayrollReportController;
 use Payroll\Attendance\Controllers\SssBracketController;
 use Payroll\Attendance\Controllers\TimeLogController;
 use Payroll\Audit\Controllers\AuditLogController;
-use Payroll\Contractor\Controllers\ContractorCashAdvanceController;
-use Payroll\Contractor\Controllers\ContractorController;
-use Payroll\Contractor\Controllers\ContractorPayrollPeriodController;
-use Payroll\Contractor\Controllers\ContractorProjectController;
 use Payroll\Employee\Controllers\EmployeeController;
 use Payroll\Employee\Controllers\EmployeeScheduleController;
+use Payroll\SewedItem\Controllers\SewedItemController;
 
 Route::get('/add-user', function () {
     Artisan::call('db:seed', ['--class' => 'BranchSeeder']);
@@ -166,6 +163,7 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('attendance-sheets', [AttendanceSheetController::class, 'index'])->name('attendance.sheets.index');
         Route::get('attendance-sheets/{employee}', [AttendanceSheetController::class, 'show'])->name('attendance.sheets.show');
+        Route::get('attendance-geo', [AttendanceSheetController::class, 'geo'])->name('attendance.geo');
         Route::post('fines', [FineController::class, 'store'])->name('fines.store');
         Route::delete('fines/{fine}', [FineController::class, 'destroy'])->name('fines.destroy');
 
@@ -210,28 +208,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('cash-advances/{cashAdvance}/approve', [CashAdvanceController::class, 'approve'])->name('cash-advances.approve');
         Route::post('cash-advances/{cashAdvance}/deny', [CashAdvanceController::class, 'deny'])->name('cash-advances.deny');
 
-        // Contractors
-        Route::get('contractors', [ContractorController::class, 'index'])->name('contractors.index');
-        Route::post('contractors', [ContractorController::class, 'store'])->name('contractors.store');
-        Route::put('contractors/{contractor}', [ContractorController::class, 'update'])->name('contractors.update');
-        Route::delete('contractors/{contractor}', [ContractorController::class, 'destroy'])->name('contractors.destroy');
-
-        Route::get('contractors/{contractor}/projects', [ContractorProjectController::class, 'index'])->name('contractors.projects');
-        Route::post('contractors/{contractor}/projects', [ContractorProjectController::class, 'store'])->name('contractors.projects.store');
-        Route::put('projects/{project}', [ContractorProjectController::class, 'update'])->name('contractors.projects.update');
-        Route::post('projects/{project}/activate', [ContractorProjectController::class, 'activate'])->name('contractors.projects.activate');
-        Route::delete('projects/{project}', [ContractorProjectController::class, 'destroy'])->name('contractors.projects.destroy');
-
-        Route::get('contractor-cash-advances', [ContractorCashAdvanceController::class, 'index'])->name('contractor-cash-advances.index');
-        Route::post('contractor-cash-advances', [ContractorCashAdvanceController::class, 'store'])->name('contractor-cash-advances.store');
-        Route::post('contractor-cash-advances/{cashAdvance}/approve', [ContractorCashAdvanceController::class, 'approve'])->name('contractor-cash-advances.approve');
-        Route::post('contractor-cash-advances/{cashAdvance}/deny', [ContractorCashAdvanceController::class, 'deny'])->name('contractor-cash-advances.deny');
-
-        Route::get('contractor-periods', [ContractorPayrollPeriodController::class, 'index'])->name('contractor.periods.index');
-        Route::post('contractor-periods', [ContractorPayrollPeriodController::class, 'generate'])->name('contractor.periods.generate');
-        Route::get('contractor-periods/{period}', [ContractorPayrollPeriodController::class, 'show'])->name('contractor.periods.show');
-        Route::post('contractor-periods/{period}/approve', [ContractorPayrollPeriodController::class, 'approve'])->name('contractor.periods.approve');
-        Route::delete('contractor-periods/{period}', [ContractorPayrollPeriodController::class, 'destroy'])->name('contractor.periods.destroy');
+        // Sewed Items
+        Route::get('sewed-items', [SewedItemController::class, 'index'])->name('sewed-items.index');
+        Route::post('sewed-items', [SewedItemController::class, 'store'])->name('sewed-items.store');
+        Route::put('sewed-items/{sewedItem}', [SewedItemController::class, 'update'])->name('sewed-items.update');
+        Route::delete('sewed-items/{sewedItem}', [SewedItemController::class, 'destroy'])->name('sewed-items.destroy');
     });
 
     Route::prefix('api')->group(function () {

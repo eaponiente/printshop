@@ -73,7 +73,9 @@ class AttendanceService
                     $lateMinutes = abs($rawInTime->diffInMinutes($scheduleStart));
                 }
 
-                $lateDeduction = round($lateMinutes * ($hourlyRate / 60), 2);
+                $lateDeduction = $lateMinutes <= 20
+                    ? round($lateMinutes * 5, 2)
+                    : round((20 * 5) + (($lateMinutes - 20) * ($hourlyRate / 60)), 2);
 
                 // Cap early arrival: don't credit time before schedule start
                 $inTime = $rawInTime->lt($scheduleStart) ? $scheduleStart->copy() : $rawInTime->copy();

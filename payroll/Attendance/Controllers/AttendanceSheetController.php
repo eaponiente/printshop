@@ -13,6 +13,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
+use Payroll\Attendance\Enums\PunchType;
 
 class AttendanceSheetController extends Controller
 {
@@ -100,5 +101,79 @@ class AttendanceSheetController extends Controller
             'fines' => $fines,
             'timeLogs' => $timeLogs,
         ]);
+    }
+
+    public function geo(Request $request)
+    {
+        $user = auth()->user();
+
+        if (! $user->isSuperAdmin()) {
+            abort(403);
+        }
+
+        $branchId = $request->query('branch_id');
+        $dateFrom = $request->query('date_from', now()->startOfWeek()->toDateString());
+        $dateTo = $request->query('date_to', now()->toDateString());
+
+        $branches = Branch::orderBy('name')->get(['id', 'name', 'latitude', 'longitude', 'geofence_radius']);
+
+        $branch = null;
+        if ($branchId) {
+            $branch = $branches->firstWhere('id', (int) $branchId);
+        }
+
+        $query = TimeLog::with(['employee:id,first_name,last_name,branch_id', 'employee.branch:id,name'])
+            ->whereIn('type', [PunchType::IN->value, PunchType::OUT->value])
+            ->whereBetween('timestamp', [$dateFrom.' 00:00:00', $dateTo.' 23:59:59'])
+            ->whereNull('duplicate_of');
+
+        if ($branchId) {
+            $query->whereHas('employee', fn ($q) => $q->where('branch_id', $branchId));
+        }
+
+        $timeLogs = $query->orderBy('timestamp', 'desc')->paginate(50);
+
+        $timeLogs->getCollection()->transform(function ($log) use ($branch) {
+            $distance = null;
+            $proximity = null;
+
+            if ($log->latitude !== null && $log->longitude !== null && $branch && $branch->latitude !== null && $branch->longitude !== null) {
+                $distance = $this->haversineDistance((float) $log->latitude, (float) $log->longitude, (float) $branch->latitude, (float) $branch->longitude);
+                $radius = $branch->geofence_radius ?? 100;
+                $proximity = $distance <= $radius ? 'within' : 'outside';
+            } elseif ($log->latitude === null || $log->longitude === null) {
+                $proximity = 'no_location';
+            } else {
+                $proximity = 'no_branch_coords';
+            }
+
+            $log->distance = $distance;
+            $log->proximity = $proximity;
+
+            return $log;
+        });
+
+        return Inertia::render('payroll/attendance/geo', [
+            'timeLogs' => $timeLogs,
+            'branches' => $branches,
+            'selectedBranch' => $branchId ? (int) $branchId : null,
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
+        ]);
+    }
+
+    private function haversineDistance(float $lat1, float $lng1, float $lat2, float $lng2): int
+    {
+        $earthRadius = 6371000;
+
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLng = deg2rad($lng2 - $lng1);
+
+        $a = sin($dLat / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
+
+        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+
+        return (int) round($earthRadius * $c);
     }
 }

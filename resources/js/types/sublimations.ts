@@ -35,4 +35,12 @@ export type Sublimation = {
     customer?: Customer;
     tags?: Tag[];
     transaction: Transaction;
+    sewed_item?: {
+        id: number;
+        quantity: number;
+        unit_price: number;
+        amount: number;
+        sewed_date: string;
+        notes: string | null;
+    } | null;
 };

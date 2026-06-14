@@ -32,7 +32,7 @@ class SublimationController extends Controller
 
     public function index(IndexSublimationRequest $request): Response
     {
-        $query = Sublimation::with(['tags', 'branch', 'user', 'customer', 'transaction' => function ($query) {
+        $query = Sublimation::with(['tags', 'branch', 'user', 'customer', 'sewedItem', 'transaction' => function ($query) {
             $query->withCount('payments');
         }]);
 

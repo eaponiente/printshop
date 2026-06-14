@@ -27,6 +27,7 @@ use Payroll\Attendance\Policies\TimeLogPolicy;
 use Payroll\Audit\Models\AuditLog;
 use Payroll\Audit\Policies\AuditLogPolicy;
 use Payroll\Employee\Policies\EmployeePolicy as PayrollEmployeePolicy;
+use Payroll\SewedItem\Policies\SewedItemPolicy;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -63,6 +64,12 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(AuditLog::class, AuditLogPolicy::class);
         Gate::policy(Holiday::class, HolidayPolicy::class);
         Gate::policy(PayrollPeriod::class, PayrollPeriodPolicy::class);
+
+        // Sewed Items
+        Gate::define('sewed-items.viewAny', [SewedItemPolicy::class, 'viewAny']);
+        Gate::define('sewed-items.create', [SewedItemPolicy::class, 'create']);
+        Gate::define('sewed-items.update', [SewedItemPolicy::class, 'update']);
+        Gate::define('sewed-items.delete', [SewedItemPolicy::class, 'delete']);
 
         // Custom action gates for payroll periods (not auto-registered by Gate::policy)
         Gate::define('payroll-periods.generate', [PayrollPeriodPolicy::class, 'generate']);

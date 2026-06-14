@@ -11,6 +11,7 @@ import {
     SelectTrigger,
 } from '@/components/ui/select';
 import { formatStatus } from '@/utils/formatters';
+import SewedItemDialog from '@/pages/sublimations/components/sewed-item-dialog';
 
 interface StatusCellProps {
     item: any;
@@ -20,6 +21,7 @@ interface StatusCellProps {
 // 1. Define a standalone component for the Status Cell
 export const StatusCell = ({ item, statuses }: StatusCellProps) => {
     const [isUpdating, setIsUpdating] = useState(false);
+    const [showSewedDialog, setShowSewedDialog] = useState(false);
 
     const { auth } = usePage().props;
 
@@ -75,6 +77,11 @@ export const StatusCell = ({ item, statuses }: StatusCellProps) => {
 
     const updateStatus = (newStatus: string) => {
         if (newStatus === item.status) {
+            return;
+        }
+
+        if (newStatus === 'sewed' && !item.sewed_item) {
+            setShowSewedDialog(true);
             return;
         }
 
@@ -150,6 +157,12 @@ export const StatusCell = ({ item, statuses }: StatusCellProps) => {
                     ))}
                 </SelectContent>
             </Select>
+
+            <SewedItemDialog
+                open={showSewedDialog}
+                setOpen={setShowSewedDialog}
+                sublimation={item}
+            />
         </div>
     );
 };

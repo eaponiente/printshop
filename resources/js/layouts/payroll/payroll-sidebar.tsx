@@ -9,6 +9,7 @@ import {
     FileText,
     HandCoins,
     LayoutGrid,
+    MapPin,
     Printer,
     ScrollText,
     Settings,
@@ -55,8 +56,8 @@ const managementNav: NavItem[] = [
         icon: UserRound,
     },
     {
-        title: 'Contractors',
-        href: '/payroll/contractors',
+        title: 'Sewed Items',
+        href: '/payroll/sewed-items',
         icon: BriefcaseBusiness,
     },
     {
@@ -76,6 +77,11 @@ const superadminNav: NavItem[] = [
         title: 'Holidays',
         href: '/payroll/holidays',
         icon: CalendarDays,
+    },
+    {
+        title: 'Attendance Geo',
+        href: '/payroll/attendance-geo',
+        icon: MapPin,
     },
     {
         title: 'SSS Brackets',
