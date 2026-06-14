@@ -4,9 +4,12 @@ namespace Payroll\SewedItem\Controllers;
 
 use App\Enums\Sublimations\SublimationStatus;
 use App\Http\Controllers\Controller;
+use App\Models\Branch;
 use App\Models\Payroll\SewedItem;
 use App\Models\Sublimation;
+use App\Models\User;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -17,7 +20,7 @@ class SewedItemController extends Controller
 {
     use AuthorizesRequests;
 
-    public function index()
+    public function index(Request $request)
     {
         $user = auth()->user();
 
@@ -37,10 +40,55 @@ class SewedItemController extends Controller
             $query->where('user_id', $user->id);
         }
 
-        $sewedItems = $query->orderBy('sewed_date', 'desc')->paginate(20);
+        $filters = [
+            'date_from' => $request->query('date_from'),
+            'date_to' => $request->query('date_to'),
+            'branch_id' => $request->query('branch_id'),
+            'user_id' => $request->query('user_id'),
+        ];
+
+        if ($filters['date_from']) {
+            $query->where('sewed_date', '>=', $filters['date_from']);
+        }
+
+        if ($filters['date_to']) {
+            $query->where('sewed_date', '<=', $filters['date_to']);
+        }
+
+        if ($filters['branch_id'] && ($user->isSuperAdmin() || $user->isAdmin())) {
+            $query->where('branch_id', $filters['branch_id']);
+        }
+
+        if ($filters['user_id'] && $user->isSuperAdmin()) {
+            $query->where('user_id', $filters['user_id']);
+        }
+
+        $sewedItems = $query->orderBy('sewed_date', 'desc')->paginate(20)->appends(array_filter($filters));
+
+        $branches = [];
+        $staff = [];
+
+        if ($user->isSuperAdmin() || $user->isAdmin()) {
+            $branches = Branch::orderBy('name')->get(['id', 'name']);
+
+            $selectedBranchId = $filters['branch_id'] ?: ($user->isAdmin() ? $user->branch_id : null);
+
+            $staffQuery = User::where('role', 'staff');
+
+            if ($user->isAdmin()) {
+                $staffQuery->where('branch_id', $user->branch_id);
+            } elseif ($selectedBranchId) {
+                $staffQuery->where('branch_id', $selectedBranchId);
+            }
+
+            $staff = $staffQuery->orderBy('last_name')->get(['id', 'first_name', 'last_name']);
+        }
 
         return Inertia::render('payroll/sewed-items/index', [
             'sewedItems' => $sewedItems,
+            'filters' => $filters,
+            'branches' => $branches,
+            'staff' => $staff,
         ]);
     }
 

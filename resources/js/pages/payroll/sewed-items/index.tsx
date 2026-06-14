@@ -1,6 +1,7 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { route } from 'ziggy-js';
-import { Pencil } from 'lucide-react';
+import { Pencil, Search, X } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -8,11 +9,17 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import PayrollLayout from '@/layouts/payroll/payroll-layout';
 import type { BreadcrumbItem } from '@/types';
 import { formatCurrency } from '@/utils/formatters';
 import { toManilaTime } from '@/utils/dateHelper';
-import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -39,15 +46,39 @@ type SewedItem = {
     user: { id: number; first_name: string; last_name: string };
 };
 
+type Filters = {
+    date_from?: string;
+    date_to?: string;
+    branch_id?: string;
+    user_id?: string;
+};
+
 type Props = {
     sewedItems: {
         data: SewedItem[];
         prev_page_url: string | null;
         next_page_url: string | null;
     };
+    filters: Filters;
+    branches: { id: number; name: string }[];
+    staff: { id: number; first_name: string; last_name: string }[];
 };
 
-export default function SewedItemsIndex({ sewedItems }: Props) {
+export default function SewedItemsIndex({
+    sewedItems,
+    filters,
+    branches,
+    staff,
+}: Props) {
+    const { auth } = usePage().props as any;
+    const isSuperAdmin = auth?.user?.role === 'superadmin';
+    const isAdmin = auth?.user?.role === 'admin';
+    const canFilter = isSuperAdmin || isAdmin;
+
+    const [dateFrom, setDateFrom] = useState(filters.date_from ?? '');
+    const [dateTo, setDateTo] = useState(filters.date_to ?? '');
+    const [branchId, setBranchId] = useState(filters.branch_id ?? '');
+    const [userId, setUserId] = useState(filters.user_id ?? '');
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editQuantity, setEditQuantity] = useState('');
     const [editUnitPrice, setEditUnitPrice] = useState('');
@@ -89,12 +120,122 @@ export default function SewedItemsIndex({ sewedItems }: Props) {
         );
     };
 
+    const applyFilters = () => {
+        const params: Record<string, string> = {};
+        if (dateFrom) params.date_from = dateFrom;
+        if (dateTo) params.date_to = dateTo;
+        if (canFilter && branchId) params.branch_id = branchId;
+        if (isSuperAdmin && userId) params.user_id = userId;
+
+        router.get('/payroll/sewed-items', params, {
+            preserveState: true,
+            replace: true,
+        });
+    };
+
+    const resetFilters = () => {
+        setDateFrom('');
+        setDateTo('');
+        setBranchId('');
+        setUserId('');
+        router.get(
+            '/payroll/sewed-items',
+            {},
+            { preserveState: true, replace: true },
+        );
+    };
+
     return (
         <PayrollLayout breadcrumbs={breadcrumbs}>
             <Head title="Sewed Items" />
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <div className="flex items-center justify-between">
                     <h1 className="text-xl font-semibold">Sewed Items</h1>
+                </div>
+
+                <div className="flex flex-wrap items-end gap-2">
+                    <div className="flex flex-col gap-1">
+                        <label className="text-xs text-muted-foreground">
+                            Date From
+                        </label>
+                        <Input
+                            type="date"
+                            value={dateFrom}
+                            onChange={(e) => setDateFrom(e.target.value)}
+                            className="h-8 w-36"
+                        />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                        <label className="text-xs text-muted-foreground">
+                            Date To
+                        </label>
+                        <Input
+                            type="date"
+                            value={dateTo}
+                            onChange={(e) => setDateTo(e.target.value)}
+                            className="h-8 w-36"
+                        />
+                    </div>
+                    {canFilter && (
+                        <div className="flex flex-col gap-1">
+                            <label className="text-xs text-muted-foreground">
+                                Branch
+                            </label>
+                            <Select
+                                value={branchId}
+                                onValueChange={setBranchId}
+                            >
+                                <SelectTrigger className="h-8 w-40">
+                                    <SelectValue placeholder="All branches" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {branches.map((b) => (
+                                        <SelectItem
+                                            key={b.id}
+                                            value={String(b.id)}
+                                        >
+                                            {b.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
+                    {isSuperAdmin && (
+                        <div className="flex flex-col gap-1">
+                            <label className="text-xs text-muted-foreground">
+                                Staff
+                            </label>
+                            <Select value={userId} onValueChange={setUserId}>
+                                <SelectTrigger className="h-8 w-44">
+                                    <SelectValue placeholder="All staff" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {staff.map((s) => (
+                                        <SelectItem
+                                            key={s.id}
+                                            value={String(s.id)}
+                                        >
+                                            {s.first_name} {s.last_name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
+                    <Button size="sm" onClick={applyFilters} className="h-8">
+                        <Search className="mr-1 h-3.5 w-3.5" />
+                        Filter
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={resetFilters}
+                        className="h-8"
+                    >
+                        <X className="mr-1 h-3.5 w-3.5" />
+                        Reset
+                    </Button>
                 </div>
 
                 <div className="overflow-x-auto rounded-md border bg-sidebar">
