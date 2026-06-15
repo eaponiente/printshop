@@ -3,12 +3,15 @@
 namespace Payroll\Attendance\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\Payroll\AttendanceSheet;
 use App\Models\Payroll\Employee;
 use App\Models\Payroll\LeaveRequest;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use Payroll\Attendance\Services\AttendanceService;
 use Payroll\Audit\Traits\Auditable;
 
 class LeaveRequestController extends Controller
@@ -64,11 +67,27 @@ class LeaveRequestController extends Controller
     {
         Gate::authorize('leave-requests.approve', [$leaveRequest->employee->branch_id, $leaveRequest->employee->user?->id]);
 
+        $lockedSheet = AttendanceSheet::where('employee_id', $leaveRequest->employee_id)
+            ->where('date', $leaveRequest->date->toDateString())
+            ->whereNotNull('locked_at')
+            ->first();
+
+        if ($lockedSheet) {
+            throw ValidationException::withMessages([
+                'error' => 'Attendance sheet for this date is locked in a payroll period.',
+            ]);
+        }
+
         $leaveRequest->update([
             'status' => 'approved',
             'approved_by' => auth()->id(),
             'approved_at' => now(),
         ]);
+
+        app(AttendanceService::class)->processDailyAttendance(
+            $leaveRequest->employee,
+            $leaveRequest->date->toDateString(),
+        );
 
         return back()->with('success', 'Leave request approved.');
     }

@@ -1,7 +1,7 @@
 import { router } from '@inertiajs/react';
+import { Lock, Plus, X } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
-import { Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,9 +33,16 @@ type Props = {
     employeeId: number;
     date: string;
     fines: FineRow[];
+    lockedAt?: string | null;
 };
 
-export default function SheetFinesCard({ employeeId, date, fines }: Props) {
+export default function SheetFinesCard({
+    employeeId,
+    date,
+    fines,
+    lockedAt,
+}: Props) {
+    const isLocked = !!lockedAt;
     const [showForm, setShowForm] = useState(false);
     const [fineType, setFineType] = useState('No Uniform');
     const [amount, setAmount] = useState(String(FINE_TYPES['No Uniform']));
@@ -66,9 +73,17 @@ export default function SheetFinesCard({ employeeId, date, fines }: Props) {
 
     return (
         <div className="rounded-md border border-sidebar-border bg-sidebar p-4 text-sm">
-            <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
-                Fines
-            </h3>
+            <div className="mb-2 flex items-center gap-2">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase">
+                    Fines
+                </h3>
+                {isLocked && (
+                    <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                        <Lock className="h-3 w-3" />
+                        Locked
+                    </span>
+                )}
+            </div>
             {fines.length > 0 ? (
                 <div className="mb-3 space-y-1.5">
                     {fines.map((f) => (
@@ -89,14 +104,16 @@ export default function SheetFinesCard({ employeeId, date, fines }: Props) {
                                     </span>
                                 )}
                             </div>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 px-1 text-red-500"
-                                onClick={() => removeFine(f.id)}
-                            >
-                                <X className="h-3 w-3" />
-                            </Button>
+                            {!isLocked && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 px-1 text-red-500"
+                                    onClick={() => removeFine(f.id)}
+                                >
+                                    <X className="h-3 w-3" />
+                                </Button>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -106,7 +123,7 @@ export default function SheetFinesCard({ employeeId, date, fines }: Props) {
                 </p>
             )}
 
-            {!showForm && (
+            {!showForm && !isLocked && (
                 <Button
                     variant="outline"
                     size="sm"

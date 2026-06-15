@@ -3,6 +3,7 @@
 namespace Payroll\Attendance\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\Payroll\AttendanceSheet;
 use App\Models\Payroll\CorrectionRequest;
 use App\Models\Payroll\CorrectionRequestItem;
 use App\Models\Payroll\Employee;
@@ -11,6 +12,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Payroll\Attendance\Enums\PunchSource;
 use Payroll\Attendance\Enums\PunchType;
@@ -73,6 +75,17 @@ class CorrectionRequestController extends Controller
             return back()->withErrors(['error' => 'A correction request already exists for this date.']);
         }
 
+        $lockedSheet = AttendanceSheet::where('employee_id', $employee->id)
+            ->where('date', $validated['date'])
+            ->whereNotNull('locked_at')
+            ->first();
+
+        if ($lockedSheet) {
+            throw ValidationException::withMessages([
+                'error' => 'Attendance sheet for this date is locked in a payroll period.',
+            ]);
+        }
+
         DB::transaction(function () use ($employee, $validated) {
             $correction = CorrectionRequest::create([
                 'employee_id' => $employee->id,
@@ -97,6 +110,17 @@ class CorrectionRequestController extends Controller
     public function approve(CorrectionRequest $correction)
     {
         Gate::authorize('correction-requests.approve', [$correction->employee->branch_id, $correction->employee->user?->id]);
+
+        $lockedSheet = AttendanceSheet::where('employee_id', $correction->employee_id)
+            ->where('date', $correction->date->toDateString())
+            ->whereNotNull('locked_at')
+            ->first();
+
+        if ($lockedSheet) {
+            throw ValidationException::withMessages([
+                'error' => 'Attendance sheet for this date is locked in a payroll period.',
+            ]);
+        }
 
         $firstLogId = null;
 

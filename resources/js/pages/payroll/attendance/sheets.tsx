@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { ArrowLeft, ArrowRight, CalendarDays } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     Select,
@@ -50,8 +50,6 @@ type Sheet = {
     leave_duration: string | null;
     leave_is_paid: boolean;
 };
-
-type PaginationLink = { url: string | null; label: string; active: boolean };
 
 type Props = {
     employees: {
@@ -147,7 +145,10 @@ export default function AttendanceSheets({
     };
 
     const goToPage = (url: string | null) => {
-        if (!url) return;
+        if (!url) {
+            return;
+        }
+
         const parsed = new URL(url, window.location.origin);
         navigate({
             date: parsed.searchParams.get('date') ?? currentDate,
@@ -254,8 +255,9 @@ export default function AttendanceSheets({
                                                 {sheet ? (
                                                     <button
                                                         type="button"
-                                                        className="block w-full cursor-pointer rounded border border-dashed border-muted-foreground/25 p-1 text-center hover:border-muted-foreground/50 hover:bg-accent/50"
+                                                        className={`block w-full rounded border border-dashed p-1 text-center ${sheet.locked_at ? 'cursor-default border-amber-300/50 bg-amber-50/50' : 'cursor-pointer border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-accent/50'}`}
                                                         onClick={() =>
+                                                            !sheet.locked_at &&
                                                             router.get(
                                                                 `/payroll/attendance-sheets/${emp.id}?date=${date}`,
                                                             )
@@ -266,6 +268,12 @@ export default function AttendanceSheets({
                                                         >
                                                             {status.text}
                                                         </span>
+                                                        {sheet.locked_at && (
+                                                            <div className="mt-0.5 flex items-center justify-center gap-0.5 text-[10px] text-amber-600">
+                                                                <Lock className="h-3 w-3" />
+                                                                Locked
+                                                            </div>
+                                                        )}
                                                         {sheet.is_present && (
                                                             <div className="mt-0.5 font-mono text-xs">
                                                                 {formatCurrency(

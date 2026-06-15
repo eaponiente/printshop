@@ -3,6 +3,7 @@ import {
     CalendarDays,
     Clock,
     Coffee,
+    Lock,
     LogIn,
     LogOut,
     User,
@@ -65,18 +66,6 @@ type Props = {
 };
 
 type Tab = 'punch' | 'history' | 'profile';
-
-const statusBadge = (s: string) => {
-    const map: Record<string, string> = {
-        pending: 'bg-yellow-100 text-yellow-700',
-        approved: 'bg-green-100 text-green-700',
-        denied: 'bg-red-100 text-red-700',
-        unpaid: 'bg-orange-100 text-orange-700',
-        paid: 'bg-blue-100 text-blue-700',
-    };
-
-    return map[s] ?? 'bg-gray-100 text-gray-600';
-};
 
 const TAB_PROPS: Partial<Record<Tab, string[]>> = {
     history: ['weekSheets', 'recentTimeLogs', 'tab'],
@@ -154,7 +143,12 @@ export default function MyAttendance(props: Props) {
                     ))}
                 </div>
 
-                {tab === 'punch' && <PunchTab punchState={punchState} />}
+                {tab === 'punch' && (
+                    <PunchTab
+                        punchState={punchState}
+                        weekSheets={props.weekSheets}
+                    />
+                )}
                 {tab === 'history' && (
                     <HistoryTab
                         weekSheets={props.weekSheets}
@@ -174,7 +168,17 @@ export default function MyAttendance(props: Props) {
     );
 }
 
-function PunchTab({ punchState }: { punchState: any }) {
+function PunchTab({
+    punchState,
+    weekSheets,
+}: {
+    punchState: any;
+    weekSheets: any[];
+}) {
+    const today = new Date().toISOString().substring(0, 10);
+    const todaySheet = weekSheets?.find((s: any) => s.date === today);
+    const isLocked = todaySheet?.locked_at != null;
+
     const punch = (type: string) => {
         const label = typeLabel(type);
         const payload: Record<string, string | number | null> = {
@@ -193,6 +197,7 @@ function PunchTab({ punchState }: { punchState: any }) {
         if (type === 'in' || type === 'out') {
             if (!navigator.geolocation) {
                 sendPunch();
+
                 return;
             }
 
@@ -242,11 +247,22 @@ function PunchTab({ punchState }: { punchState: any }) {
                 </div>
             )}
 
+            {isLocked && (
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-700">
+                    <div className="flex items-center gap-2">
+                        <Lock className="h-4 w-4" />
+                        Attendance is locked (payroll generated). Punching is
+                        disabled.
+                    </div>
+                </div>
+            )}
+
             <div className="space-y-2">
                 <Button
                     size="lg"
                     variant="outline"
                     onClick={() => punch('in')}
+                    disabled={isLocked}
                     className="h-16 w-full flex-row gap-3"
                 >
                     <LogIn className="h-5 w-5" />
@@ -257,6 +273,7 @@ function PunchTab({ punchState }: { punchState: any }) {
                     size="lg"
                     variant="outline"
                     onClick={() => punch('lunch_out')}
+                    disabled={isLocked}
                     className="h-16 w-full flex-row gap-3"
                 >
                     <Coffee className="h-5 w-5" />
@@ -267,6 +284,7 @@ function PunchTab({ punchState }: { punchState: any }) {
                     size="lg"
                     variant="outline"
                     onClick={() => punch('lunch_in')}
+                    disabled={isLocked}
                     className="h-16 w-full flex-row gap-3"
                 >
                     <UtensilsCrossed className="h-5 w-5" />
@@ -277,6 +295,7 @@ function PunchTab({ punchState }: { punchState: any }) {
                     size="lg"
                     variant="outline"
                     onClick={() => punch('out')}
+                    disabled={isLocked}
                     className="h-16 w-full flex-row gap-3"
                 >
                     <LogOut className="h-5 w-5" />

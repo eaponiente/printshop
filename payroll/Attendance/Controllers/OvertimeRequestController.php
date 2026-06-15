@@ -3,6 +3,7 @@
 namespace Payroll\Attendance\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\Payroll\AttendanceSheet;
 use App\Models\Payroll\Employee;
 use App\Models\Payroll\EmployeeSchedule;
 use App\Models\Payroll\Holiday;
@@ -11,7 +12,9 @@ use Carbon\Carbon;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use Payroll\Attendance\Services\AttendanceService;
 
 class OvertimeRequestController extends Controller
 {
@@ -70,11 +73,27 @@ class OvertimeRequestController extends Controller
     {
         Gate::authorize('overtime-requests.approve', [$overtimeRequest->employee->branch_id, $overtimeRequest->employee->user?->id]);
 
+        $lockedSheet = AttendanceSheet::where('employee_id', $overtimeRequest->employee_id)
+            ->where('date', $overtimeRequest->date->toDateString())
+            ->whereNotNull('locked_at')
+            ->first();
+
+        if ($lockedSheet) {
+            throw ValidationException::withMessages([
+                'error' => 'Attendance sheet for this date is locked in a payroll period.',
+            ]);
+        }
+
         $overtimeRequest->update([
             'status' => 'approved',
             'approved_by' => auth()->id(),
             'approved_at' => now(),
         ]);
+
+        app(AttendanceService::class)->processDailyAttendance(
+            $overtimeRequest->employee,
+            $overtimeRequest->date->toDateString(),
+        );
 
         return back()->with('success', 'OT request approved.');
     }

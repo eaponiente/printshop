@@ -76,6 +76,7 @@ export default function CorrectionRequests({ requests }: Props) {
                                 hour: '2-digit',
                                 minute: '2-digit',
                             });
+
                             return `${i.punch_type.toUpperCase()} ${time}`;
                         })
                         .join(', ');
@@ -134,6 +135,13 @@ export default function CorrectionRequests({ requests }: Props) {
                                               {
                                                   onSuccess: () =>
                                                       toast.success('Approved'),
+                                                  onError: (err: any) => {
+                                                      const msg =
+                                                          err?.error ||
+                                                          err?.message ||
+                                                          'Failed to approve.';
+                                                      toast.error(msg);
+                                                  },
                                               },
                                           )
                                       }
@@ -201,6 +209,10 @@ function DenyDialog({
         const fd = new FormData(e.currentTarget);
         router.post(`/payroll/correction-requests/${id}/deny`, fd, {
             onSuccess: () => toast.success('Denied'),
+            onError: (err: any) => {
+                const msg = err?.error || err?.message || 'Failed to deny.';
+                toast.error(msg);
+            },
         });
     };
 

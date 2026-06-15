@@ -231,11 +231,11 @@ class AttendanceService
         $leaveIsPaid = false;
         $leaveHoursCredited = 0;
 
-        $hasFullDayLeave = $leaveRequest && $leaveRequest->duration === 'full';
+        $hasFullDayLeave = $leaveRequest && $leaveRequest->duration === 'full_day';
 
         if ($hasFullDayLeave) {
             $leaveType = $leaveRequest->leave_type;
-            $leaveDuration = 'full';
+            $leaveDuration = 'full_day';
             $leaveIsPaid = $leaveRequest->is_paid;
             $leaveHoursCredited = 8;
 

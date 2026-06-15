@@ -11,6 +11,7 @@ use DB;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Payroll\Attendance\Enums\PunchType;
 use Payroll\Attendance\Services\TimeLogService;
@@ -76,6 +77,18 @@ class TimeLogController extends Controller
         $type = PunchType::from($request->input('type'));
         Gate::authorize('time-logs.punch', [$employee->branch_id]);
 
+        $today = now()->toDateString();
+        $lockedSheet = AttendanceSheet::where('employee_id', $employee->id)
+            ->where('date', $today)
+            ->whereNotNull('locked_at')
+            ->first();
+
+        if ($lockedSheet) {
+            throw ValidationException::withMessages([
+                'error' => 'Attendance sheet for this date is locked in a payroll period.',
+            ]);
+        }
+
         $latitude = $request->input('latitude');
         $longitude = $request->input('longitude');
         $accuracyMeters = $request->input('accuracy_meters');
@@ -106,6 +119,18 @@ class TimeLogController extends Controller
 
         $employee = Employee::findOrFail($request->input('employee_id'));
         Gate::authorize('time-logs.manual', [$employee->branch_id]);
+
+        $date = Carbon::parse($request->input('timestamp'))->toDateString();
+        $lockedSheet = AttendanceSheet::where('employee_id', $employee->id)
+            ->where('date', $date)
+            ->whereNotNull('locked_at')
+            ->first();
+
+        if ($lockedSheet) {
+            throw ValidationException::withMessages([
+                'error' => 'Attendance sheet for this date is locked in a payroll period.',
+            ]);
+        }
 
         try {
             $log = $service->manualLog($employee, $request->only(['type', 'timestamp', 'note']));

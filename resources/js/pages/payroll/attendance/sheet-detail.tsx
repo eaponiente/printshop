@@ -40,6 +40,7 @@ type Props = {
         leave_hours_credited: number;
         daily_wage: number;
     } | null;
+    lockedAt: string | null;
     fines: {
         id: number;
         fine_type: string;
@@ -61,6 +62,7 @@ export default function SheetDetail({
     employee,
     date,
     sheet,
+    lockedAt,
     fines,
     timeLogs,
 }: Props) {
@@ -266,6 +268,7 @@ export default function SheetDetail({
                             employeeId={employee.id}
                             date={date}
                             fines={fines}
+                            lockedAt={lockedAt}
                         />
 
                         {/* Daily Wage */}
@@ -314,15 +317,30 @@ function Row({
 }
 
 function statusLabel(sheet: NonNullable<Props['sheet']>) {
-    if (sheet.is_rest_day) return 'Rest Day';
-    if (sheet.is_present) return 'Present';
-    if (sheet.absence_type === 'unexcused') return 'Absent (Unexcused)';
+    if (sheet.is_rest_day) {
+        return 'Rest Day';
+    }
+
+    if (sheet.is_present) {
+        return 'Present';
+    }
+
+    if (sheet.absence_type === 'unexcused') {
+        return 'Absent (Unexcused)';
+    }
+
     return sheet.absence_type ?? 'Absent';
 }
 
 function statusClass(sheet: NonNullable<Props['sheet']>) {
-    if (sheet.is_rest_day) return 'font-medium text-blue-500';
-    if (sheet.is_present) return 'font-medium text-green-600';
+    if (sheet.is_rest_day) {
+        return 'font-medium text-blue-500';
+    }
+
+    if (sheet.is_present) {
+        return 'font-medium text-green-600';
+    }
+
     return 'font-medium text-red-500';
 }
 

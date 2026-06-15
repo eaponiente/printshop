@@ -29,3 +29,5 @@ yarn-error.log
 /.zed
 .cursor
 AGENTS.md
+/testing
+/database/database.sqlite

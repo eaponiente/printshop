@@ -98,6 +98,7 @@ class AttendanceSheetController extends Controller
             'employee' => $employee->load('branch'),
             'date' => $date,
             'sheet' => $sheet,
+            'lockedAt' => $sheet?->locked_at?->toDateTimeString(),
             'fines' => $fines,
             'timeLogs' => $timeLogs,
         ]);

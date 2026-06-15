@@ -108,6 +108,13 @@ export default function LeaveRequests({ requests }: Props) {
                                               {
                                                   onSuccess: () =>
                                                       toast.success('Approved'),
+                                                  onError: (err: any) => {
+                                                      const msg =
+                                                          err?.error ||
+                                                          err?.message ||
+                                                          'Failed to approve.';
+                                                      toast.error(msg);
+                                                  },
                                               },
                                           )
                                       }
@@ -124,6 +131,13 @@ export default function LeaveRequests({ requests }: Props) {
                                               {
                                                   onSuccess: () =>
                                                       toast.success('Denied'),
+                                                  onError: (err: any) => {
+                                                      const msg =
+                                                          err?.error ||
+                                                          err?.message ||
+                                                          'Failed to deny.';
+                                                      toast.error(msg);
+                                                  },
                                               },
                                           )
                                       }

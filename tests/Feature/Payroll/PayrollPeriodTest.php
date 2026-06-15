@@ -416,7 +416,7 @@ it('processes full-day paid leave', function () {
         'employee_id' => $emp->id,
         'date' => '2026-05-29',
         'leave_type' => 'vacation',
-        'duration' => 'full',
+        'duration' => 'full_day',
         'is_paid' => true,
         'reason' => 'Vacation',
         'status' => 'approved',
@@ -432,7 +432,7 @@ it('processes full-day paid leave', function () {
     expect($sheet->is_present)->toBeTrue();
     expect($sheet->absence_type)->toBe('approved_leave');
     expect($sheet->leave_type)->toBe('vacation');
-    expect($sheet->leave_duration)->toBe('full');
+    expect($sheet->leave_duration)->toBe('full_day');
     expect($sheet->leave_is_paid)->toBeTrue();
     expect((float) $sheet->leave_hours_credited)->toBe(8.0);
     expect((float) $sheet->daily_wage)->toBe(510.0);
@@ -448,7 +448,7 @@ it('processes full-day unpaid leave', function () {
         'employee_id' => $emp->id,
         'date' => '2026-05-29',
         'leave_type' => 'unpaid',
-        'duration' => 'full',
+        'duration' => 'full_day',
         'is_paid' => false,
         'reason' => 'Personal',
         'status' => 'approved',
@@ -464,7 +464,7 @@ it('processes full-day unpaid leave', function () {
     expect($sheet->is_present)->toBeTrue();
     expect($sheet->absence_type)->toBe('approved_leave');
     expect($sheet->leave_is_paid)->toBeFalse();
-    expect($sheet->leave_duration)->toBe('full');
+    expect($sheet->leave_duration)->toBe('full_day');
     expect((float) $sheet->daily_wage)->toBe(0.0);
 });
 
@@ -475,7 +475,7 @@ it('includes leave_paid_days in payroll period item', function () {
         'employee_id' => $emp->id,
         'date' => '2026-05-29',
         'leave_type' => 'vacation',
-        'duration' => 'full',
+        'duration' => 'full_day',
         'is_paid' => true,
         'reason' => 'Vacation',
         'status' => 'approved',
