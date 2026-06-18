@@ -63,6 +63,7 @@ type Props = {
     recentTimeLogs: any[];
     weekStart: string;
     weekEnd: string;
+    enableCustomPunchTime: boolean;
 };
 
 type Tab = 'punch' | 'history' | 'profile';
@@ -75,7 +76,11 @@ export default function MyAttendance(props: Props) {
     const { punchState, employee } = props;
     const [tab, setTabState] = useState<Tab>((props.tab as Tab) ?? 'punch');
     const [loadedTabs, setLoadedTabs] = useState<Set<Tab>>(
-        new Set(['punch', 'profile']),
+        new Set([
+            'punch',
+            'profile',
+            ...(props.tab === 'history' ? ['history' as Tab] : []),
+        ]),
     );
 
     const switchTab = (key: Tab) => {
@@ -147,6 +152,7 @@ export default function MyAttendance(props: Props) {
                     <PunchTab
                         punchState={punchState}
                         weekSheets={props.weekSheets}
+                        enableCustomPunchTime={props.enableCustomPunchTime}
                     />
                 )}
                 {tab === 'history' && (
@@ -171,25 +177,63 @@ export default function MyAttendance(props: Props) {
 function PunchTab({
     punchState,
     weekSheets,
+    enableCustomPunchTime,
 }: {
     punchState: any;
     weekSheets: any[];
+    enableCustomPunchTime: boolean;
 }) {
     const today = new Date().toISOString().substring(0, 10);
+    const now = new Date();
+    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
     const todaySheet = weekSheets?.find((s: any) => s.date === today);
     const isLocked = todaySheet?.locked_at != null;
 
+    const firstInLog = punchState?.logs?.find(
+        (l: any) =>
+            (typeof l.type === 'string' ? l.type : l.type?.value) === 'in',
+    );
+    const lastOutLog = [...(punchState?.logs || [])]
+        .reverse()
+        .find(
+            (l: any) =>
+                (typeof l.type === 'string' ? l.type : l.type?.value) === 'out',
+        );
+
+    const [punching, setPunching] = useState(false);
+    const [selectedDate, setSelectedDate] = useState(today);
+    const [selectedTime, setSelectedTime] = useState(currentTime);
+
+    const resetToNow = () => {
+        const fresh = new Date();
+        setSelectedDate(fresh.toISOString().substring(0, 10));
+        setSelectedTime(
+            `${String(fresh.getHours()).padStart(2, '0')}:${String(fresh.getMinutes()).padStart(2, '0')}`,
+        );
+    };
+
     const punch = (type: string) => {
         const label = typeLabel(type);
+        setPunching(true);
         const payload: Record<string, string | number | null> = {
             type,
         };
 
+        if (enableCustomPunchTime) {
+            payload.timestamp = `${selectedDate} ${selectedTime}:00`;
+        }
+
         const sendPunch = () => {
             router.post('/payroll/attendance/punch', payload, {
-                onSuccess: () => toast.success(`${label} recorded.`),
-                onError: (err: any) =>
-                    toast.error(err.message ?? 'Failed to record punch.'),
+                onSuccess: () => {
+                    toast.success(`${label} recorded.`);
+                    router.reload();
+                },
+                onError: (err: any) => {
+                    setPunching(false);
+                    toast.error(err.message ?? 'Failed to record punch.');
+                },
             });
         };
 
@@ -241,6 +285,36 @@ function PunchTab({
                 </div>
             )}
 
+            {(firstInLog || lastOutLog) && (
+                <div className="flex items-center justify-center gap-3 rounded-md border bg-sidebar px-4 py-2 text-sm">
+                    <span className="text-muted-foreground">In</span>
+                    <span className="font-mono font-medium">
+                        {firstInLog
+                            ? new Date(firstInLog.timestamp).toLocaleTimeString(
+                                  'en-PH',
+                                  {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                  },
+                              )
+                            : '—'}
+                    </span>
+                    <span className="text-border">|</span>
+                    <span className="text-muted-foreground">Out</span>
+                    <span className="font-mono font-medium">
+                        {lastOutLog
+                            ? new Date(lastOutLog.timestamp).toLocaleTimeString(
+                                  'en-PH',
+                                  {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                  },
+                              )
+                            : '—'}
+                    </span>
+                </div>
+            )}
+
             {punchState?.is_complete && (
                 <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-700">
                     All punches complete for today.
@@ -257,49 +331,97 @@ function PunchTab({
                 </div>
             )}
 
-            <div className="space-y-2">
+            {enableCustomPunchTime && (
+                <div className="space-y-2 rounded-md border bg-sidebar p-3">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-xs font-semibold text-muted-foreground uppercase">
+                            Set Punch Time
+                        </h3>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs text-muted-foreground"
+                            onClick={resetToNow}
+                            type="button"
+                        >
+                            <Clock className="mr-1 h-3 w-3" />
+                            Now
+                        </Button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                            <Label className="text-[10px] text-muted-foreground uppercase">
+                                Date
+                            </Label>
+                            <Input
+                                type="date"
+                                value={selectedDate}
+                                onChange={(e) =>
+                                    setSelectedDate(e.target.value)
+                                }
+                                className="h-8 text-xs"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="text-[10px] text-muted-foreground uppercase">
+                                Time
+                            </Label>
+                            <Input
+                                type="time"
+                                value={selectedTime}
+                                onChange={(e) =>
+                                    setSelectedTime(e.target.value)
+                                }
+                                className="h-8 text-xs"
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <Button
                     size="lg"
                     variant="outline"
                     onClick={() => punch('in')}
-                    disabled={isLocked}
-                    className="h-16 w-full flex-row gap-3"
+                    disabled={isLocked || punching}
+                    className="h-14 flex-col gap-1"
                 >
-                    <LogIn className="h-5 w-5" />
-                    <span>Punch In</span>
+                    <LogIn className="h-4 w-4" />
+                    <span className="text-xs">Punch In</span>
                 </Button>
 
                 <Button
                     size="lg"
                     variant="outline"
                     onClick={() => punch('lunch_out')}
-                    disabled={isLocked}
-                    className="h-16 w-full flex-row gap-3"
+                    disabled={isLocked || punching}
+                    className="h-14 flex-col gap-1"
                 >
-                    <Coffee className="h-5 w-5" />
-                    <span>Lunch Out</span>
+                    <Coffee className="h-4 w-4" />
+                    <span className="text-xs">Go to Lunch</span>
                 </Button>
 
                 <Button
                     size="lg"
                     variant="outline"
                     onClick={() => punch('lunch_in')}
-                    disabled={isLocked}
-                    className="h-16 w-full flex-row gap-3"
+                    disabled={isLocked || punching}
+                    className="h-14 flex-col gap-1"
                 >
-                    <UtensilsCrossed className="h-5 w-5" />
-                    <span>Lunch In</span>
+                    <UtensilsCrossed className="h-4 w-4" />
+                    <span className="text-xs">Back from Lunch</span>
                 </Button>
 
                 <Button
                     size="lg"
                     variant="outline"
                     onClick={() => punch('out')}
-                    disabled={isLocked}
-                    className="h-16 w-full flex-row gap-3"
+                    disabled={isLocked || punching}
+                    className="h-14 flex-col gap-1"
                 >
-                    <LogOut className="h-5 w-5" />
-                    <span>Punch Out</span>
+                    <LogOut className="h-4 w-4" />
+                    <span className="text-xs">Punch Out</span>
                 </Button>
             </div>
 
@@ -487,8 +609,8 @@ function HistoryTab({
 function typeLabel(type: string) {
     const map: Record<string, string> = {
         in: 'Punch In',
-        lunch_out: 'Lunch Out',
-        lunch_in: 'Lunch In',
+        lunch_out: 'Break Out',
+        lunch_in: 'Break In',
         out: 'Punch Out',
     };
 

@@ -20,7 +20,6 @@ type Props = {
 export default function LeaveRequestForm({ onClose }: Props) {
     const [date, setDate] = useState('');
     const [leaveType, setLeaveType] = useState('vacation');
-    const [duration, setDuration] = useState('full_day');
     const [reason, setReason] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
@@ -37,7 +36,7 @@ export default function LeaveRequestForm({ onClose }: Props) {
             {
                 date,
                 leave_type: leaveType,
-                duration,
+                duration: 'full_day',
                 reason,
                 is_paid: leaveType !== 'unpaid',
             },
@@ -46,7 +45,6 @@ export default function LeaveRequestForm({ onClose }: Props) {
                     toast.success('Leave request submitted.');
                     setDate('');
                     setLeaveType('vacation');
-                    setDuration('full_day');
                     setReason('');
                     onClose();
                 },
@@ -70,50 +68,25 @@ export default function LeaveRequestForm({ onClose }: Props) {
                 />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                    <Label htmlFor="lv_type">Type *</Label>
-                    <Select
-                        value={leaveType}
-                        onValueChange={(v) => setLeaveType(v)}
-                    >
-                        <SelectTrigger id="lv_type">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="vacation">Vacation</SelectItem>
-                            <SelectItem value="sick">Sick</SelectItem>
-                            <SelectItem value="emergency">Emergency</SelectItem>
-                            <SelectItem value="maternity">Maternity</SelectItem>
-                            <SelectItem value="paternity">Paternity</SelectItem>
-                            <SelectItem value="bereavement">
-                                Bereavement
-                            </SelectItem>
-                            <SelectItem value="unpaid">Unpaid</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-
-                <div className="space-y-1">
-                    <Label htmlFor="lv_duration">Duration *</Label>
-                    <Select
-                        value={duration}
-                        onValueChange={(v) => setDuration(v)}
-                    >
-                        <SelectTrigger id="lv_duration">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="full_day">Full Day</SelectItem>
-                            <SelectItem value="half_day_morning">
-                                Half Day (AM)
-                            </SelectItem>
-                            <SelectItem value="half_day_afternoon">
-                                Half Day (PM)
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
+            <div className="space-y-1">
+                <Label htmlFor="lv_type">Type *</Label>
+                <Select
+                    value={leaveType}
+                    onValueChange={(v) => setLeaveType(v)}
+                >
+                    <SelectTrigger id="lv_type">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="vacation">Vacation</SelectItem>
+                        <SelectItem value="sick">Sick</SelectItem>
+                        <SelectItem value="emergency">Emergency</SelectItem>
+                        <SelectItem value="maternity">Maternity</SelectItem>
+                        <SelectItem value="paternity">Paternity</SelectItem>
+                        <SelectItem value="bereavement">Bereavement</SelectItem>
+                        <SelectItem value="unpaid">Unpaid</SelectItem>
+                    </SelectContent>
+                </Select>
             </div>
 
             <div className="space-y-1">

@@ -30,6 +30,8 @@ export type Employee = {
     position: 'regular' | 'probation';
     status: 'active' | 'inactive' | 'resigned' | 'terminated';
     current_daily_rate: number;
+    default_paid_leave_days: number;
+    paid_leave_balance: number;
     sss_number: string | null;
     philhealth_number: string | null;
     pagibig_number: string | null;

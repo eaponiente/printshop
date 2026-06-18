@@ -66,32 +66,36 @@ type Props = {
     isSuperAdmin: boolean;
 };
 
-const statusBadge = (sheet: Sheet | undefined) => {
+const statusBadges = (
+    sheet: Sheet | undefined,
+): { text: string; className: string }[] => {
     if (!sheet) {
-        return { text: '—', className: 'text-gray-400' };
+        return [{ text: '—', className: 'text-gray-400' }];
     }
 
+    const badges: { text: string; className: string }[] = [];
+
     if (sheet.is_rest_day) {
-        return { text: 'Rest', className: 'text-blue-500' };
+        badges.push({ text: 'Rest', className: 'text-blue-500' });
     }
 
     if (sheet.leave_type) {
-        return { text: 'Leave', className: 'text-teal-600' };
-    }
-
-    if (sheet.is_present) {
-        return { text: 'Present', className: 'text-green-600' };
+        badges.push({ text: 'Leave', className: 'text-teal-600' });
     }
 
     if (sheet.holiday_pay_percent !== null && sheet.holiday_pay_percent > 0) {
-        return { text: 'Holiday', className: 'text-amber-600' };
+        badges.push({ text: 'Holiday', className: 'text-amber-600' });
     }
 
-    if (sheet.absence_type === 'unexcused') {
-        return { text: 'Absent', className: 'text-red-500' };
+    if (sheet.is_present && !sheet.leave_type) {
+        badges.push({ text: 'Present', className: 'text-green-600' });
+    } else if (sheet.absence_type === 'unexcused') {
+        badges.push({ text: 'Absent', className: 'text-red-500' });
+    } else if (badges.length === 0) {
+        badges.push({ text: 'Absent', className: 'text-red-500' });
     }
 
-    return { text: 'Absent', className: 'text-red-500' };
+    return badges;
 };
 
 const getWeekDates = (weekStart: string) => {
@@ -245,7 +249,7 @@ export default function AttendanceSheets({
                                     {weekDates.map((date) => {
                                         const key = `${emp.id}-${date}`;
                                         const sheet = sheets[key];
-                                        const status = statusBadge(sheet);
+                                        const badges = statusBadges(sheet);
 
                                         return (
                                             <td
@@ -263,11 +267,16 @@ export default function AttendanceSheets({
                                                             )
                                                         }
                                                     >
-                                                        <span
-                                                            className={`text-xs ${status.className}`}
-                                                        >
-                                                            {status.text}
-                                                        </span>
+                                                        {badges.map(
+                                                            (badge, i) => (
+                                                                <span
+                                                                    key={i}
+                                                                    className={`block text-xs ${badge.className}`}
+                                                                >
+                                                                    {badge.text}
+                                                                </span>
+                                                            ),
+                                                        )}
                                                         {sheet.locked_at && (
                                                             <div className="mt-0.5 flex items-center justify-center gap-0.5 text-[10px] text-amber-600">
                                                                 <Lock className="h-3 w-3" />
@@ -279,14 +288,6 @@ export default function AttendanceSheets({
                                                                 {formatCurrency(
                                                                     sheet.daily_wage,
                                                                 )}
-                                                            </div>
-                                                        )}
-                                                        {sheet.leave_type && (
-                                                            <div className="mt-0.5 text-xs text-teal-600">
-                                                                {sheet.leave_duration ===
-                                                                'full'
-                                                                    ? 'Full Leave'
-                                                                    : 'Leave'}
                                                             </div>
                                                         )}
                                                         {sheet.late_minutes >
@@ -328,9 +329,9 @@ export default function AttendanceSheets({
                                                     </button>
                                                 ) : (
                                                     <span
-                                                        className={`text-xs ${status.className}`}
+                                                        className={`text-xs ${badges[0].className}`}
                                                     >
-                                                        {status.text}
+                                                        {badges[0].text}
                                                     </span>
                                                 )}
                                             </td>

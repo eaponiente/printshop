@@ -31,6 +31,8 @@ class Employee extends Model
             'status' => EmployeeStatus::class,
             'position' => EmployeePosition::class,
             'current_daily_rate' => 'decimal:2',
+            'default_paid_leave_days' => 'decimal:1',
+            'paid_leave_balance' => 'decimal:1',
         ];
     }
 

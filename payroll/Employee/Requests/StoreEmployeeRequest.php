@@ -34,6 +34,8 @@ class StoreEmployeeRequest extends FormRequest
             'philhealth_number' => ['nullable', 'string', 'max:20'],
             'pagibig_number' => ['nullable', 'string', 'max:20'],
             'tin_number' => ['nullable', 'string', 'max:20'],
+            'default_paid_leave_days' => ['nullable', 'numeric', 'min:0'],
+            'paid_leave_balance' => ['nullable', 'numeric', 'min:0'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ];
     }

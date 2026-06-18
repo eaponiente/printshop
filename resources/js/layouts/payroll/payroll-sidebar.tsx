@@ -56,11 +56,6 @@ const managementNav: NavItem[] = [
         icon: UserRound,
     },
     {
-        title: 'Sewed Items',
-        href: '/payroll/sewed-items',
-        icon: BriefcaseBusiness,
-    },
-    {
         title: 'Payroll Periods',
         href: '/payroll/periods',
         icon: Banknote,
@@ -91,6 +86,11 @@ const superadminNav: NavItem[] = [
     {
         title: 'Company Config',
         href: '/payroll/company-config',
+        icon: Settings,
+    },
+    {
+        title: 'Payroll Settings',
+        href: '/payroll/settings',
         icon: Settings,
     },
     {
@@ -158,6 +158,19 @@ export function PayrollSidebar() {
                 <SidebarGroup>
                     <SidebarGroupLabel>Requests</SidebarGroupLabel>
                     <NavMain items={requestsNav} />
+                </SidebarGroup>
+
+                <SidebarGroup>
+                    <SidebarGroupLabel>Sewed</SidebarGroupLabel>
+                    <NavMain
+                        items={[
+                            {
+                                title: 'Sewed Items',
+                                href: '/payroll/sewed-items',
+                                icon: BriefcaseBusiness,
+                            },
+                        ]}
+                    />
                 </SidebarGroup>
 
                 {canManageAttendance && (

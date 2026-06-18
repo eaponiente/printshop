@@ -48,6 +48,8 @@ export default function EmployeeCreate({
         position: 'regular',
         status: 'active',
         daily_rate: 0,
+        default_paid_leave_days: 5,
+        paid_leave_balance: 5,
         sss_number: '',
         philhealth_number: '',
         pagibig_number: '',
@@ -276,6 +278,48 @@ export default function EmployeeCreate({
                                     }
                                 />
                                 <InputError message={errors.daily_rate} />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="default_paid_leave_days">
+                                    Default Paid Leave Days
+                                </Label>
+                                <Input
+                                    id="default_paid_leave_days"
+                                    type="number"
+                                    step="0.5"
+                                    min="0"
+                                    value={data.default_paid_leave_days}
+                                    onChange={(e) =>
+                                        setData(
+                                            'default_paid_leave_days',
+                                            Number(e.target.value),
+                                        )
+                                    }
+                                />
+                                <InputError
+                                    message={errors.default_paid_leave_days}
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="paid_leave_balance">
+                                    Current Leave Balance
+                                </Label>
+                                <Input
+                                    id="paid_leave_balance"
+                                    type="number"
+                                    step="0.5"
+                                    min="0"
+                                    value={data.paid_leave_balance}
+                                    onChange={(e) =>
+                                        setData(
+                                            'paid_leave_balance',
+                                            Number(e.target.value),
+                                        )
+                                    }
+                                />
+                                <InputError
+                                    message={errors.paid_leave_balance}
+                                />
                             </div>
                         </div>
                     </section>

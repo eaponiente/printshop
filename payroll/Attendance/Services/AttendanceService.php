@@ -10,6 +10,7 @@ use App\Models\Payroll\Holiday;
 use App\Models\Payroll\LeaveRequest;
 use App\Models\Payroll\OvertimeRequest;
 use App\Models\Payroll\TimeLog;
+use App\Services\Payroll\PayrollSettingService;
 use Carbon\Carbon;
 use Payroll\Attendance\Enums\HolidayType;
 
@@ -73,9 +74,17 @@ class AttendanceService
                     $lateMinutes = abs($rawInTime->diffInMinutes($scheduleStart));
                 }
 
-                $lateDeduction = $lateMinutes <= 20
-                    ? round($lateMinutes * 5, 2)
-                    : round((20 * 5) + (($lateMinutes - 20) * ($hourlyRate / 60)), 2);
+                $perMinute = (float) (app(PayrollSettingService::class)->get('late_deduction_per_minute', config('payroll.late_deduction_per_minute')));
+                $threshold = (int) (app(PayrollSettingService::class)->get('late_deduction_threshold_minutes', config('payroll.late_deduction_threshold_minutes')));
+
+                if ($lateMinutes <= $threshold) {
+                    $lateDeduction = round($lateMinutes * $perMinute, 2);
+                } else {
+                    $lateDeduction = round(
+                        ($threshold * $perMinute) + (($lateMinutes - $threshold) * ($hourlyRate / 60)),
+                        2
+                    );
+                }
 
                 // Cap early arrival: don't credit time before schedule start
                 $inTime = $rawInTime->lt($scheduleStart) ? $scheduleStart->copy() : $rawInTime->copy();
@@ -195,15 +204,7 @@ class AttendanceService
                     if ($isPresent) {
                         $holidayPayPercent = $isRestDay ? 260 : 200;
                     } else {
-                        $prevWorkDate = $this->findLastWorkingDay($employee, $date);
-                        $prevSheet = $prevWorkDate
-                            ? AttendanceSheet::where('employee_id', $employee->id)->where('date', $prevWorkDate)->first()
-                            : null;
-                        if ($prevSheet && ($prevSheet->is_present || $prevSheet->absence_type === 'approved_leave')) {
-                            $holidayPayPercent = 100;
-                        } else {
-                            $holidayPayPercent = 0;
-                        }
+                        $holidayPayPercent = 0;
                     }
                 } elseif ($holiday->type === HolidayType::SPECIAL) {
                     $holidayPayPercent = $isPresent ? ($isRestDay ? 150 : 130) : 0;
@@ -289,7 +290,7 @@ class AttendanceService
             if ($isRestDay && $isPresent) {
                 $basePay = round($hoursWorked * $hourlyRate * 1.30, 2);
             }
-            $dailyWage = round($basePay - $undertimeDeduction - $fineDeduction + $overtimePay + $holidayPay, 2);
+            $dailyWage = round($basePay - $lateDeduction - $undertimeDeduction - $fineDeduction + $overtimePay + $holidayPay, 2);
             if ($dailyWage < 0) {
                 $dailyWage = 0;
             }
@@ -351,30 +352,5 @@ class AttendanceService
             'rest_day_plus_regular' => 3.38,
             default => 1.25,
         };
-    }
-
-    protected function findLastWorkingDay(Employee $employee, string $date): ?string
-    {
-        $current = Carbon::parse($date)->subDay();
-
-        for ($i = 0; $i < 14; $i++) {
-            $dateStr = $current->toDateString();
-            $dayOfWeek = $current->dayOfWeek;
-
-            $schedule = EmployeeSchedule::activeForDate($employee->id, $dateStr);
-            $restDays = $schedule?->rest_days ?? [];
-
-            $isHoliday = Holiday::forDate($dateStr) !== null;
-            $isSunday = $dayOfWeek === 0;
-            $isRestDay = in_array($dayOfWeek, $restDays);
-
-            if (! $isHoliday && ! $isSunday && ! $isRestDay) {
-                return $dateStr;
-            }
-
-            $current->subDay();
-        }
-
-        return null;
     }
 }

@@ -39,30 +39,40 @@ class TimeLogController extends Controller
             ? $service->punchSequenceForDate($employee, now()->toDateString())
             : null;
 
+        $tab = $request->input('tab', 'punch');
         $weekStart = Carbon::now()->startOfWeek(Carbon::MONDAY)->toDateString();
         $weekEnd = Carbon::now()->endOfWeek(Carbon::SUNDAY)->toDateString();
 
+        $weekSheetsCallback = fn () => $employee
+            ? AttendanceSheet::where('employee_id', $employee->id)
+                ->whereBetween('date', [$weekStart, $weekEnd])
+                ->orderBy('date')
+                ->get()
+            : collect();
+
+        $recentTimeLogsCallback = fn () => $employee
+            ? TimeLog::where('employee_id', $employee->id)
+                ->whereBetween('timestamp', [$weekStart.' 00:00:00', $weekEnd.' 23:59:59'])
+                ->whereNull('duplicate_of')
+                ->orderBy('timestamp', 'desc')
+                ->limit(50)
+                ->get()
+            : collect();
+
         return Inertia::render('payroll/attendance/my-attendance', [
-            'tab' => $request->input('tab', 'punch'),
+            'tab' => $tab,
             'punchState' => $punchState,
             'employee' => $employee,
             'activeSchedule' => $employee?->activeSchedule(),
             'weekStart' => $weekStart,
             'weekEnd' => $weekEnd,
-            'weekSheets' => Inertia::lazy(fn () => $employee
-                ? AttendanceSheet::where('employee_id', $employee->id)
-                    ->whereBetween('date', [$weekStart, $weekEnd])
-                    ->orderBy('date')
-                    ->get()
-                : collect()),
-            'recentTimeLogs' => Inertia::lazy(fn () => $employee
-                ? TimeLog::where('employee_id', $employee->id)
-                    ->whereBetween('timestamp', [$weekStart.' 00:00:00', $weekEnd.' 23:59:59'])
-                    ->whereNull('duplicate_of')
-                    ->orderBy('timestamp', 'desc')
-                    ->limit(50)
-                    ->get()
-                : collect()),
+            'enableCustomPunchTime' => config('app.enable_custom_punch_time', false),
+            'weekSheets' => $tab === 'history'
+                ? $weekSheetsCallback()
+                : Inertia::lazy($weekSheetsCallback),
+            'recentTimeLogs' => $tab === 'history'
+                ? $recentTimeLogsCallback()
+                : Inertia::lazy($recentTimeLogsCallback),
         ]);
     }
 
@@ -77,9 +87,17 @@ class TimeLogController extends Controller
         $type = PunchType::from($request->input('type'));
         Gate::authorize('time-logs.punch', [$employee->branch_id]);
 
-        $today = now()->toDateString();
+        $customTimestamp = null;
+        if (config('app.enable_custom_punch_time') && $request->filled('timestamp')) {
+            $request->validate([
+                'timestamp' => ['required', 'date'],
+            ]);
+            $customTimestamp = Carbon::parse($request->input('timestamp'));
+        }
+
+        $punchDate = $customTimestamp?->toDateString() ?? now()->toDateString();
         $lockedSheet = AttendanceSheet::where('employee_id', $employee->id)
-            ->where('date', $today)
+            ->where('date', $punchDate)
             ->whereNotNull('locked_at')
             ->first();
 
@@ -94,8 +112,8 @@ class TimeLogController extends Controller
         $accuracyMeters = $request->input('accuracy_meters');
 
         try {
-            $log = DB::transaction(function () use ($service, $employee, $type, $latitude, $longitude, $accuracyMeters) {
-                return $service->punch($employee, $type, auth()->user(), $latitude, $longitude, $accuracyMeters);
+            $log = DB::transaction(function () use ($service, $employee, $type, $latitude, $longitude, $accuracyMeters, $customTimestamp) {
+                return $service->punch($employee, $type, auth()->user(), $latitude, $longitude, $accuracyMeters, $customTimestamp);
             });
 
             if ($log->duplicate_of) {

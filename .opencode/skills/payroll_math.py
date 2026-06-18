@@ -34,6 +34,7 @@ class LeaveType(str, Enum):
 @dataclass
 class SSSBracket:
     """A single SSS contribution bracket."""
+
     salary_min: float
     salary_max: float
     employee_percentage: float
@@ -43,6 +44,7 @@ class SSSBracket:
 @dataclass
 class DailyWageResult:
     """Complete daily wage computation result."""
+
     is_present: bool = False
     is_absent: bool = False
     is_holiday: bool = False
@@ -60,21 +62,23 @@ class DailyWageResult:
     fine_breakdown: Dict[str, float] = field(default_factory=dict)
 
 
-def compute_late_deduction(late_minutes: int, hourly_rate: float) -> float:
+def compute_late_deduction(
+    late_minutes: int,
+    hourly_rate: float,
+    per_minute: float = 5.0,
+    threshold_minutes: int = 20,
+) -> float:
     """
-    Compute late deduction using the 3-tier system.
+    Compute late deduction using a 2-tier config-driven system.
 
-    Tier 1 (0 min):        ���0
-    Tier 2 (1-19 min):     late_min x ���5
-    Tier 3 (20-59 min):    Flat ���100
-    Tier 4 (60+ min):      ���100 + floor(late_min / 60) x hourly_rate
-
-    Fractional hours past each full hour of lateness are NOT additionally
-    penalized. 90 min costs same as 60 min: floor(90/60) = 1.
+    Tier 1 (threshold): flat per_minute charge for each minute.
+    Tier 2 (beyond threshold): hourly_rate/60 charge for each extra minute.
 
     Args:
         late_minutes: Total minutes late (integer, non-negative).
         hourly_rate: The employee's hourly rate (daily_rate / 8).
+        per_minute: Flat peso charge per minute within threshold (default 5).
+        threshold_minutes: Minutes before switching to hourly-rate formula (default 20).
 
     Returns:
         The late deduction amount in PHP.
@@ -82,25 +86,24 @@ def compute_late_deduction(late_minutes: int, hourly_rate: float) -> float:
     Example:
         >>> compute_late_deduction(10, 63.75)
         50.0
-        >>> compute_late_deduction(45, 63.75)
-        100.0
-        >>> compute_late_deduction(90, 63.75)
-        163.75
-        >>> compute_late_deduction(0, 63.75)
-        0.0
+        >>> compute_late_deduction(25, 63.75)
+        105.31
+        >>> compute_late_deduction(10, 63.75, per_minute=7)
+        70.0
     """
     if late_minutes <= 0:
         return 0.0
 
-    if late_minutes <= 19:
-        return late_minutes * 5.0
+    if late_minutes <= threshold_minutes:
+        total = late_minutes * per_minute
+    else:
+        total = (threshold_minutes * per_minute) + (
+            (late_minutes - threshold_minutes) * (hourly_rate / 60.0)
+        )
 
-    if late_minutes <= 59:
-        return 100.0
+    total = round(total, 2)
 
-    # 60+ minutes: base 100 + hourly rate per full hour of lateness
-    full_hours_late = late_minutes // 60
-    return 100.0 + (full_hours_late * hourly_rate)
+    return total
 
 
 def compute_overtime_pay(
@@ -157,27 +160,22 @@ def compute_holiday_pay(
     daily_rate: float,
     holiday_type: HolidayType,
     is_worked: bool,
-    day_before_present: Optional[bool] = None,
 ) -> Tuple[float, float]:
     """
-    Compute holiday pay according to Philippine labor rules.
+    Compute holiday pay according to business rules.
 
     Regular Holiday:
-      - Worked: 200% of daily rate, regardless of day-before status.
-      - Unworked + day-before present/on-leave: 100%.
-      - Unworked + day-before absent: 0%.
+      - Worked: 200% of daily rate.
+      - Unworked: 0%.
 
     Special Non-Working Day:
       - Worked: 130%.
-      - Unworked: 0% (no work, no pay).
+      - Unworked: 0%.
 
     Args:
         daily_rate: The employee's daily rate.
         holiday_type: 'regular' or 'special'.
         is_worked: Whether the employee worked on the holiday.
-        day_before_present: For regular unworked holidays, whether the
-                            employee was present on the last working day
-                            before the holiday. None if not applicable.
 
     Returns:
         A tuple of (holiday_pay_amount, holiday_pay_percent).
@@ -185,9 +183,7 @@ def compute_holiday_pay(
     Example:
         >>> compute_holiday_pay(510.0, HolidayType.REGULAR, True)
         (1020.0, 200.0)
-        >>> compute_holiday_pay(510.0, HolidayType.REGULAR, False, True)
-        (510.0, 100.0)
-        >>> compute_holiday_pay(510.0, HolidayType.REGULAR, False, False)
+        >>> compute_holiday_pay(510.0, HolidayType.REGULAR, False)
         (0.0, 0.0)
         >>> compute_holiday_pay(510.0, HolidayType.SPECIAL, True)
         (663.0, 130.0)
@@ -196,10 +192,7 @@ def compute_holiday_pay(
         if is_worked:
             return daily_rate * 2.0, 200.0
         else:
-            if day_before_present:
-                return daily_rate, 100.0
-            else:
-                return 0.0, 0.0
+            return 0.0, 0.0
     elif holiday_type == HolidayType.SPECIAL:
         if is_worked:
             return daily_rate * 1.30, 130.0
@@ -357,7 +350,6 @@ def compute_daily_wage(
     is_holiday: bool = False,
     holiday_type: Optional[str] = None,
     holiday_worked: bool = False,
-    day_before_present: Optional[bool] = None,
     has_leave: bool = False,
     leave_type: Optional[str] = None,
     leave_duration: Optional[str] = None,
@@ -390,7 +382,6 @@ def compute_daily_wage(
         is_holiday: Whether this date is a holiday.
         holiday_type: 'regular' or 'special'.
         holiday_worked: Whether employee worked on the holiday.
-        day_before_present: For regular unworked holiday check.
         has_leave: Whether there's an approved leave.
         leave_type: Leave type string.
         leave_duration: 'full_day', 'half_day_am', 'half_day_pm'.
@@ -427,7 +418,6 @@ def compute_daily_wage(
             daily_rate=daily_rate,
             holiday_type=ht,
             is_worked=holiday_worked,
-            day_before_present=day_before_present,
         )
         result.is_holiday = True
         result.holiday_pay = hp_amount
@@ -478,7 +468,10 @@ def compute_daily_wage(
         if raw_duration >= 300:
             lunch_auto_window_start = 11 * 60
             lunch_auto_window_end = 14 * 60
-            if in_min <= lunch_auto_window_end and capped_out >= lunch_auto_window_start:
+            if (
+                in_min <= lunch_auto_window_end
+                and capped_out >= lunch_auto_window_start
+            ):
                 result.undertime_minutes += 60
 
     # Regular hours worked (morning + afternoon, minus lunch, capped)
@@ -552,7 +545,9 @@ def compute_daily_wage(
             result.fine_breakdown[fine_type] = amount
 
     # Gross pay
-    result.gross_pay = max(0.0, base_pay + result.overtime_pay + result.holiday_pay - result.fine_total)
+    result.gross_pay = max(
+        0.0, base_pay + result.overtime_pay + result.holiday_pay - result.fine_total
+    )
     result.is_present = regular_hours > 0
 
     return result

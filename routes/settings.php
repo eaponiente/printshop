@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Home\DashboardController;
 use App\Http\Controllers\Incentives\IncentiveController;
+use App\Http\Controllers\Payroll\Settings\PayrollSettingController;
 use App\Http\Controllers\PurchaseOrders\PurchaseOrderController;
 use App\Http\Controllers\Sales\ExpenseController;
 use App\Http\Controllers\Sales\SaleController;
@@ -178,6 +179,7 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('reports', [PayrollReportController::class, 'index'])->name('reports.index');
         Route::get('reports/print', [PayrollReportController::class, 'print'])->name('reports.print');
+        Route::get('reports/branch-payables', [PayrollReportController::class, 'branchPayables'])->name('reports.branch-payables');
 
         Route::get('sss-brackets', [SssBracketController::class, 'index'])->name('sss.brackets.index');
         Route::post('sss-brackets', [SssBracketController::class, 'store'])->name('sss.brackets.store');
@@ -197,6 +199,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('leave-requests/{leaveRequest}/approve', [LeaveRequestController::class, 'approve'])->name('leaves.approve');
         Route::post('leave-requests/{leaveRequest}/deny', [LeaveRequestController::class, 'deny'])->name('leaves.deny');
         Route::post('leave-requests/{leaveRequest}/cancel', [LeaveRequestController::class, 'cancel'])->name('leaves.cancel');
+        Route::post('leave-requests/reset', [LeaveRequestController::class, 'resetLeave'])->name('leaves.reset');
 
         Route::get('correction-requests', [CorrectionRequestController::class, 'index'])->name('corrections.index');
         Route::post('correction-requests', [CorrectionRequestController::class, 'store'])->name('corrections.store');
@@ -213,6 +216,10 @@ Route::middleware(['auth'])->group(function () {
         Route::post('sewed-items', [SewedItemController::class, 'store'])->name('sewed-items.store');
         Route::put('sewed-items/{sewedItem}', [SewedItemController::class, 'update'])->name('sewed-items.update');
         Route::delete('sewed-items/{sewedItem}', [SewedItemController::class, 'destroy'])->name('sewed-items.destroy');
+
+        // Payroll Settings
+        Route::get('settings', [PayrollSettingController::class, 'index'])->name('settings.index');
+        Route::put('settings', [PayrollSettingController::class, 'update'])->name('settings.update');
     });
 
     Route::prefix('api')->group(function () {

@@ -153,6 +153,16 @@ export default function EmployeeShow({ employee, daysOfWeek }: ShowProps) {
                                     employee.current_daily_rate,
                                 )}
                             />
+                            <InfoRow
+                                label="Default Paid Leaves"
+                                value={String(
+                                    employee.default_paid_leave_days ?? 5,
+                                )}
+                            />
+                            <InfoRow
+                                label="Leave Balance"
+                                value={String(employee.paid_leave_balance ?? 5)}
+                            />
                         </dl>
                     </div>
 

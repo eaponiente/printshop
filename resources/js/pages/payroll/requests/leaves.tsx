@@ -1,6 +1,6 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
-import { Check, Plus, X } from 'lucide-react';
+import { Check, Plus, RefreshCw, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/data-table';
@@ -17,7 +17,15 @@ import type { BreadcrumbItem } from '@/types';
 import type { PaginatedResponse } from '@/types/pagination';
 import LeaveRequestForm from './components/LeaveRequestForm';
 
-type Props = { requests: PaginatedResponse<any> };
+type Props = {
+    requests: PaginatedResponse<any>;
+    employeeSummary: {
+        default_paid_leave_days: number;
+        paid_leave_balance: number;
+        used_paid_leave_days: number;
+    } | null;
+    canResetLeaves: boolean;
+};
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -31,11 +39,33 @@ const statusBadge = (s: string) =>
         pending: 'bg-yellow-100 text-yellow-700',
     })[s] ?? 'bg-gray-100';
 
-export default function LeaveRequests({ requests }: Props) {
+export default function LeaveRequests({
+    requests,
+    employeeSummary,
+    canResetLeaves,
+}: Props) {
     const { auth } = usePage().props as any;
     const canApprove =
         auth?.user?.role === 'admin' || auth?.user?.role === 'superadmin';
     const [dialogOpen, setDialogOpen] = useState(false);
+
+    const handleReset = () => {
+        if (
+            !confirm(
+                'Reset all active employee leave balances to their defaults?',
+            )
+        )
+            return;
+        router.post(
+            '/payroll/leave-requests/reset',
+            {},
+            {
+                onSuccess: () => toast.success('Leave balances reset.'),
+                onError: (err: any) =>
+                    toast.error(err?.error || 'Failed to reset.'),
+            },
+        );
+    };
 
     const columns: ColumnDef<any>[] = [
         {
@@ -65,11 +95,11 @@ export default function LeaveRequests({ requests }: Props) {
             ),
         },
         {
-            accessorKey: 'duration',
-            header: 'Duration',
+            accessorKey: 'balance',
+            header: 'Remaining',
             cell: ({ row }: CellContext<any, any>) => (
-                <span className="text-xs capitalize">
-                    {row.original.duration?.replace(/_/g, ' ')}
+                <span className="font-medium">
+                    {row.original.employee?.paid_leave_balance ?? '—'}
                 </span>
             ),
         },
@@ -159,24 +189,67 @@ export default function LeaveRequests({ requests }: Props) {
         <PayrollLayout breadcrumbs={breadcrumbs}>
             <Head title="Leave Requests" />
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
+                {employeeSummary && (
+                    <div className="rounded-md border border-sidebar-border bg-sidebar p-4 text-sm">
+                        <div className="flex items-center gap-6">
+                            <div>
+                                <span className="text-muted-foreground">
+                                    Entitlement:{' '}
+                                </span>
+                                <span className="font-semibold">
+                                    {employeeSummary.default_paid_leave_days}
+                                </span>
+                            </div>
+                            <div>
+                                <span className="text-muted-foreground">
+                                    Used:{' '}
+                                </span>
+                                <span className="font-semibold text-red-600">
+                                    {employeeSummary.used_paid_leave_days}
+                                </span>
+                            </div>
+                            <div>
+                                <span className="text-muted-foreground">
+                                    Remaining:{' '}
+                                </span>
+                                <span className="font-semibold text-green-600">
+                                    {employeeSummary.paid_leave_balance}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div className="flex items-center justify-between">
                     <h1 className="text-xl font-semibold">Leave Requests</h1>
-                    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                        <DialogTrigger asChild>
-                            <Button size="sm">
-                                <Plus className="mr-1 h-4 w-4" />
-                                New Request
+                    <div className="flex items-center gap-2">
+                        {canResetLeaves && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleReset}
+                            >
+                                <RefreshCw className="mr-1 h-4 w-4" />
+                                Reset All Leave
                             </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Request Leave</DialogTitle>
-                            </DialogHeader>
-                            <LeaveRequestForm
-                                onClose={() => setDialogOpen(false)}
-                            />
-                        </DialogContent>
-                    </Dialog>
+                        )}
+                        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                            <DialogTrigger asChild>
+                                <Button size="sm">
+                                    <Plus className="mr-1 h-4 w-4" />
+                                    New Request
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Request Leave</DialogTitle>
+                                </DialogHeader>
+                                <LeaveRequestForm
+                                    onClose={() => setDialogOpen(false)}
+                                />
+                            </DialogContent>
+                        </Dialog>
+                    </div>
                 </div>
                 <div className="rounded-md border border-sidebar-border bg-sidebar">
                     <DataTable columns={columns} pagination={requests} />

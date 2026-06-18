@@ -71,6 +71,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('sewed-items.update', [SewedItemPolicy::class, 'update']);
         Gate::define('sewed-items.delete', [SewedItemPolicy::class, 'delete']);
 
+        Gate::policy(PayrollSetting::class, PayrollSettingPolicy::class);
+
         // Custom action gates for payroll periods (not auto-registered by Gate::policy)
         Gate::define('payroll-periods.generate', [PayrollPeriodPolicy::class, 'generate']);
         Gate::define('payroll-periods.approve', [PayrollPeriodPolicy::class, 'approve']);

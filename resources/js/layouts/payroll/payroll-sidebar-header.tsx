@@ -17,17 +17,15 @@ export function PayrollSidebarHeader({
                 <SidebarTrigger className="-ml-1" />
                 <Breadcrumbs breadcrumbs={breadcrumbs} />
             </div>
-            {auth.user.role !== 'staff' && (
-                <div className="ml-auto">
-                    <Link
-                        href="/dashboard"
-                        className="inline-flex items-center gap-2 rounded-md border border-sidebar-border/70 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                    >
-                        <Banknote className="size-4" />
-                        Sales
-                    </Link>
-                </div>
-            )}
+            <div className="ml-auto">
+                <Link
+                    href="/dashboard"
+                    className="inline-flex items-center gap-2 rounded-md border border-sidebar-border/70 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                >
+                    <Banknote className="size-4" />
+                    Sales
+                </Link>
+            </div>
         </header>
     );
 }

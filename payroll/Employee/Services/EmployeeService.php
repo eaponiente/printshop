@@ -18,6 +18,10 @@ class EmployeeService
 
         return DB::transaction(function () use ($data, $dailyRate) {
             $employee = Employee::create($data);
+            $employee->update([
+                'default_paid_leave_days' => $data['default_paid_leave_days'] ?? 5,
+                'paid_leave_balance' => $data['paid_leave_balance'] ?? 5,
+            ]);
 
             Salary::createForEmployee(
                 $employee,
@@ -136,6 +140,8 @@ class EmployeeService
                 'position' => 'regular',
                 'status' => 'active',
                 'current_daily_rate' => 0,
+                'default_paid_leave_days' => 5,
+                'paid_leave_balance' => 5,
                 'email' => null,
                 'phone' => null,
                 'address' => null,
@@ -186,6 +192,8 @@ class EmployeeService
                     'position' => 'regular',
                     'status' => 'active',
                     'current_daily_rate' => 510,
+                    'default_paid_leave_days' => 5,
+                    'paid_leave_balance' => 5,
                     'email' => null,
                     'phone' => null,
                     'address' => null,

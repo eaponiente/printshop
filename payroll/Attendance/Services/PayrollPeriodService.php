@@ -5,6 +5,7 @@ namespace Payroll\Attendance\Services;
 use App\Models\Branch;
 use App\Models\Payroll\AttendanceSheet;
 use App\Models\Payroll\CashAdvance;
+use App\Models\Payroll\CompanyConfig;
 use App\Models\Payroll\Employee;
 use App\Models\Payroll\Holiday;
 use App\Models\Payroll\PayrollPeriod;
@@ -91,8 +92,11 @@ class PayrollPeriodService
 
         $dailyRate = $employee->current_daily_rate ?? 0;
         $sssDeduction = $this->computeSSS($dailyRate, $employee);
+        $sssEmployer = $this->computeSSSEmployer($dailyRate, $employee);
         $philhealthDeduction = $this->computePhilHealth($dailyRate, $employee);
+        $philhealthEmployer = $this->computePhilHealthEmployer($dailyRate, $employee);
         $pagibigDeduction = $this->computePagIBIG($employee);
+        $pagibigEmployer = $this->computePagIBIGEmployer($employee);
         $caDeduction = $this->computeCADeduction($employee, $grossPay + $deminimisEarnings - $sssDeduction - $philhealthDeduction - $pagibigDeduction);
 
         $netPay = round($grossPay + $deminimisEarnings - $sssDeduction - $philhealthDeduction - $pagibigDeduction - $caDeduction, 2);
@@ -118,8 +122,11 @@ class PayrollPeriodService
             'gross_pay' => $grossPay,
             'deminimis_earnings' => $deminimisEarnings,
             'sss_deduction' => $sssDeduction,
+            'sss_employer' => $sssEmployer,
             'philhealth_deduction' => $philhealthDeduction,
+            'philhealth_employer' => $philhealthEmployer,
             'pagibig_deduction' => $pagibigDeduction,
+            'pagibig_employer' => $pagibigEmployer,
             'ca_deduction' => $caDeduction,
             'net_pay' => $netPay,
             'daily_rate' => $dailyRate,
@@ -244,6 +251,44 @@ class PayrollPeriodService
         }
 
         return count($this->sssBracketsCache);
+    }
+
+    protected function computeSSSEmployer(float $dailyRate, Employee $employee): float
+    {
+        if (! $employee->sss_number) {
+            return 0;
+        }
+
+        $monthlySalary = $dailyRate * 26;
+        $bracket = SssContributionBracket::findBracket($monthlySalary);
+
+        if (! $bracket) {
+            return 0;
+        }
+
+        return round($monthlySalary * (float) $bracket->employer_percentage / 100 / 4, 2);
+    }
+
+    protected function computePhilHealthEmployer(float $dailyRate, Employee $employee): float
+    {
+        if (! $employee->philhealth_number) {
+            return 0;
+        }
+
+        $monthlySalary = $dailyRate * 26;
+
+        return round($monthlySalary * 0.05 * 0.50 / 4, 2);
+    }
+
+    protected function computePagIBIGEmployer(Employee $employee): float
+    {
+        if (! $employee->pagibig_number) {
+            return 0;
+        }
+
+        $monthlyEmployerShare = (float) CompanyConfig::getValue('pagibig_monthly_employer_share', 100);
+
+        return round($monthlyEmployerShare / 4, 2);
     }
 
     protected function computePhilHealth(float $dailyRate, Employee $employee): float

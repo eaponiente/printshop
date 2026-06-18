@@ -57,6 +57,8 @@ export default function EmployeeEdit({
         position: employee.position,
         status: employee.status,
         daily_rate: Number(employee.current_daily_rate),
+        default_paid_leave_days: Number(employee.default_paid_leave_days ?? 5),
+        paid_leave_balance: Number(employee.paid_leave_balance ?? 5),
         sss_number: employee.sss_number ?? '',
         philhealth_number: employee.philhealth_number ?? '',
         pagibig_number: employee.pagibig_number ?? '',
@@ -291,6 +293,48 @@ export default function EmployeeEdit({
                                     }
                                 />
                                 <InputError message={errors.daily_rate} />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="default_paid_leave_days">
+                                    Default Paid Leave Days
+                                </Label>
+                                <Input
+                                    id="default_paid_leave_days"
+                                    type="number"
+                                    step="0.5"
+                                    min="0"
+                                    value={data.default_paid_leave_days}
+                                    onChange={(e) =>
+                                        setData(
+                                            'default_paid_leave_days',
+                                            Number(e.target.value),
+                                        )
+                                    }
+                                />
+                                <InputError
+                                    message={errors.default_paid_leave_days}
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="paid_leave_balance">
+                                    Current Leave Balance
+                                </Label>
+                                <Input
+                                    id="paid_leave_balance"
+                                    type="number"
+                                    step="0.5"
+                                    min="0"
+                                    value={data.paid_leave_balance}
+                                    onChange={(e) =>
+                                        setData(
+                                            'paid_leave_balance',
+                                            Number(e.target.value),
+                                        )
+                                    }
+                                />
+                                <InputError
+                                    message={errors.paid_leave_balance}
+                                />
                             </div>
                         </div>
                     </section>

@@ -19,9 +19,10 @@ class TimeLogService
         ?float $latitude = null,
         ?float $longitude = null,
         ?int $accuracyMeters = null,
+        ?Carbon $timestamp = null,
     ): TimeLog {
-        return DB::transaction(function () use ($employee, $type, $latitude, $longitude, $accuracyMeters) {
-            $now = now();
+        return DB::transaction(function () use ($employee, $type, $latitude, $longitude, $accuracyMeters, $timestamp) {
+            $now = $timestamp ?? now();
 
             $recentDuplicate = TimeLog::where('employee_id', $employee->id)
                 ->where('type', $type->value)

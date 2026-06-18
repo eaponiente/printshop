@@ -124,7 +124,7 @@ export default function CorrectionForm({ onClose }: Props) {
                     onClose();
                 },
                 onError: (err: any) => {
-                    toast.error(err.message ?? 'Failed to submit correction.');
+                    toast.error(err.error ?? 'Failed to submit correction.');
                 },
                 onFinish: () => {
                     setSubmitting(false);

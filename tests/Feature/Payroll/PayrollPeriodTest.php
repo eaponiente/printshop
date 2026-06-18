@@ -11,9 +11,13 @@ use App\Models\Payroll\PayrollPeriod;
 use App\Models\Payroll\PayrollPeriodItem;
 use App\Models\Payroll\Salary;
 use App\Models\Payroll\SssContributionBracket;
+use App\Models\Payroll\TimeLog;
 use App\Models\User;
+use Carbon\Carbon;
 use Payroll\Attendance\Enums\HolidayType;
 use Payroll\Attendance\Enums\PayrollPeriodStatus;
+use Payroll\Attendance\Enums\PunchSource;
+use Payroll\Attendance\Enums\PunchType;
 use Payroll\Attendance\Services\AttendanceService;
 use Payroll\Attendance\Services\PayrollPeriodService;
 
@@ -351,7 +355,7 @@ it('deducts cash advance up to net receivable', function () {
 
 // ──────────── Batch 4: Edge cases ────────────
 
-it('computes holiday pay for regular holiday when employee was present day before', function () {
+it('gives no holiday pay when employee does not work on regular holiday', function () {
     $emp = createEmployeeWithAttendance($this->branchA, 'Emp', 510, [], 4);
 
     Holiday::create([
@@ -371,12 +375,69 @@ it('computes holiday pay for regular holiday when employee was present day befor
         ->first();
 
     expect($sheet)->not->toBeNull();
-    expect($sheet->holiday_pay_percent)->toBe(100);
-    expect((float) $sheet->holiday_pay)->toBe(510.0);
+    expect($sheet->holiday_pay_percent)->toBe(0);
+    expect((float) $sheet->holiday_pay)->toBe(0.0);
 
     $item = PayrollPeriodItem::where('employee_id', $emp->id)->first();
-    expect($item->holiday_pay_days)->toBe(1);
-    expect((float) $item->holiday_pay)->toBe(510.0);
+    expect($item->holiday_pay_days)->toBe(0);
+    expect((float) $item->holiday_pay)->toBe(0.0);
+});
+
+it('gives double pay when employee works on regular holiday', function () {
+    $emp = Employee::create([
+        'first_name' => 'HolidayWorker',
+        'last_name' => 'Test',
+        'branch_id' => $this->branchA->id,
+        'hire_date' => '2026-01-05',
+        'position' => 'regular',
+        'status' => 'active',
+        'current_daily_rate' => 510,
+    ]);
+
+    EmployeeSchedule::create([
+        'employee_id' => $emp->id,
+        'start_time' => '08:00',
+        'end_time' => '17:00',
+        'rest_days' => [0, 6],
+        'effective_from' => '2026-05-25',
+        'is_active' => true,
+    ]);
+
+    Holiday::create([
+        'name' => 'Test Holiday',
+        'date' => '2026-05-29',
+        'type' => HolidayType::REGULAR,
+    ]);
+
+    TimeLog::create([
+        'employee_id' => $emp->id,
+        'timestamp' => Carbon::parse('2026-05-29 08:00'),
+        'type' => PunchType::IN,
+        'source' => PunchSource::SELF_SERVICE,
+    ]);
+    TimeLog::create([
+        'employee_id' => $emp->id,
+        'timestamp' => Carbon::parse('2026-05-29 17:00'),
+        'type' => PunchType::OUT,
+        'source' => PunchSource::SELF_SERVICE,
+    ]);
+
+    app(AttendanceService::class)->processDailyAttendance($emp, '2026-05-29');
+
+    $sheet = AttendanceSheet::where('employee_id', $emp->id)
+        ->where('date', '2026-05-29')
+        ->first();
+
+    expect($sheet)->not->toBeNull();
+    expect($sheet->is_present)->toBeTrue();
+    expect($sheet->holiday_type)->toBe('regular');
+    expect($sheet->holiday_pay_percent)->toBe(200);
+
+    $expectedHolidayPay = round(510 * (200 - 100) / 100, 2);
+    expect((float) $sheet->holiday_pay)->toBe($expectedHolidayPay);
+
+    $expectedDailyWage = round(510.0 - 0 - 0 - 0 + 0 + $expectedHolidayPay, 2);
+    expect((float) $sheet->daily_wage)->toBe($expectedDailyWage);
 });
 
 it('computes holiday pay as 0 when employee was absent day before', function () {

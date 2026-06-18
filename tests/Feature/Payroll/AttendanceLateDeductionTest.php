@@ -5,12 +5,16 @@ use App\Models\Payroll\AttendanceSheet;
 use App\Models\Payroll\Employee;
 use App\Models\Payroll\EmployeeSchedule;
 use App\Models\Payroll\TimeLog;
+use App\Services\Payroll\PayrollSettingService;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Payroll\Attendance\Enums\PunchSource;
 use Payroll\Attendance\Enums\PunchType;
 use Payroll\Attendance\Services\AttendanceService;
 
 beforeEach(function () {
+    Cache::flush();
+
     $this->branch = Branch::factory()->create(['name' => 'Test Branch']);
 
     $this->employee = Employee::create([
@@ -101,6 +105,31 @@ it('charges correctly for 65 minutes late', function () {
     expect((string) $sheet->late_deduction)->toBe((string) $expected);
 });
 
+it('subtracts late_deduction from daily_wage', function () {
+    $date = '2026-06-01';
+    punchInAt($this->employee, $date, '08:23');
+    TimeLog::create([
+        'employee_id' => $this->employee->id,
+        'timestamp' => Carbon::parse("{$date} 17:00"),
+        'type' => PunchType::OUT,
+        'source' => PunchSource::SELF_SERVICE,
+    ]);
+
+    $sheet = $this->service->processDailyAttendance($this->employee, $date);
+
+    $hourlyRate = 510 / 8;
+    $expectedLate = round((20 * 5) + (3 * ($hourlyRate / 60)), 2);
+
+    expect((int) $sheet->late_minutes)->toBe(23);
+    expect((string) $sheet->late_deduction)->toBe((string) $expectedLate);
+
+    $maxPaidMinutes = max(480 - 23, 240);
+    $basePay = round(($maxPaidMinutes / 60) * $hourlyRate, 2);
+    $expectedWage = round($basePay - $expectedLate, 2);
+
+    expect((string) $sheet->daily_wage)->toBe((string) $expectedWage);
+});
+
 it('recalculates sheets via artisan command', function () {
     $date = '2026-06-01';
     punchInAt($this->employee, $date, '08:25');
@@ -113,5 +142,32 @@ it('recalculates sheets via artisan command', function () {
 
     $hourlyRate = 510 / 8;
     $expected = round((20 * 5) + (5 * ($hourlyRate / 60)), 2);
+    expect((string) $sheet->late_deduction)->toBe((string) $expected);
+});
+
+it('uses custom per-minute deduction from settings', function () {
+    app(PayrollSettingService::class)->set('late_deduction_per_minute', '7');
+
+    $date = '2026-06-01';
+    punchInAt($this->employee, $date, '08:15');
+
+    $sheet = $this->service->processDailyAttendance($this->employee, $date);
+
+    expect((int) $sheet->late_minutes)->toBe(15);
+    expect((string) $sheet->late_deduction)->toBe('105.00');
+});
+
+it('uses custom threshold from settings', function () {
+    app(PayrollSettingService::class)->set('late_deduction_threshold_minutes', '10');
+
+    $date = '2026-06-01';
+    punchInAt($this->employee, $date, '08:25');
+
+    $sheet = $this->service->processDailyAttendance($this->employee, $date);
+
+    $hourlyRate = 510 / 8;
+    $expected = round((10 * 5) + (15 * ($hourlyRate / 60)), 2);
+
+    expect((int) $sheet->late_minutes)->toBe(25);
     expect((string) $sheet->late_deduction)->toBe((string) $expected);
 });
