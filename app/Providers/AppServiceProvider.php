@@ -28,6 +28,8 @@ use Payroll\Audit\Models\AuditLog;
 use Payroll\Audit\Policies\AuditLogPolicy;
 use Payroll\Employee\Policies\EmployeePolicy as PayrollEmployeePolicy;
 use Payroll\SewedItem\Policies\SewedItemPolicy;
+use App\Models\Payroll\PayrollSetting;
+use App\Policies\PayrollSettingPolicy;
 
 class AppServiceProvider extends ServiceProvider
 {

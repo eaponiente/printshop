@@ -66,6 +66,12 @@ class GenerateDemoPayrollData extends Command
 
     public function handle(): int
     {
+        if (app()->isProduction()) {
+            $this->error('This command cannot be run in production.');
+
+            return self::FAILURE;
+        }
+
         $this->components->info('⚙️  Generating demo payroll data...');
 
         DB::transaction(function () {

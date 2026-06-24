@@ -17,12 +17,7 @@ use App\Http\Controllers\Users\CustomerController;
 use App\Http\Controllers\Users\EndorsementController;
 use App\Http\Controllers\Users\UserController;
 use App\Models\Branch;
-use App\Models\Payroll\Employee;
-use App\Models\Payroll\Salary;
 use App\Models\User;
-use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
 use Payroll\Attendance\Controllers\AttendanceSheetController;
 use Payroll\Attendance\Controllers\CashAdvanceController;
@@ -41,43 +36,6 @@ use Payroll\Employee\Controllers\EmployeeController;
 use Payroll\Employee\Controllers\EmployeeScheduleController;
 use Payroll\SewedItem\Controllers\SewedItemController;
 
-Route::get('/add-user', function () {
-    Artisan::call('db:seed', ['--class' => 'BranchSeeder']);
-
-    $firstBranch = Branch::first();
-    $defaultBranchId = $firstBranch?->id ?? 1;
-
-    DB::transaction(function () use ($defaultBranchId) {
-        $superadmin = User::updateOrCreate(
-            ['username' => 'superadmin'],
-            [
-                'first_name' => 'Jacob',
-                'last_name' => 'Elemento',
-                'password' => Hash::make('password'),
-                'role' => 'superadmin',
-                'branch_id' => null,
-            ]
-        );
-
-        if (! $superadmin->employee_id || ! Employee::find($superadmin->employee_id)) {
-            $emp = Employee::firstOrCreate(
-                ['first_name' => $superadmin->first_name, 'last_name' => $superadmin->last_name, 'branch_id' => $defaultBranchId],
-                [
-                    'hire_date' => now()->toDateString(),
-                    'position' => 'regular',
-                    'status' => 'active',
-                    'current_daily_rate' => 1000,
-                ]
-            );
-
-            if (! Salary::where('employee_id', $emp->id)->exists()) {
-                Salary::createForEmployee($emp, 1000, now()->toDateString(), 'Initial salary');
-            }
-
-            $superadmin->update(['employee_id' => $emp->id]);
-        }
-    });
-});
 Route::middleware(['auth'])->group(function () {
     Route::redirect('settings', '/settings/profile');
 
