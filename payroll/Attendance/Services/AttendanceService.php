@@ -48,6 +48,8 @@ class AttendanceService
         $outPunch = $punches->firstWhere('type.value', 'out');
         $lunchOut = $punches->firstWhere('type.value', 'lunch_out');
         $lunchIn = $punches->firstWhere('type.value', 'lunch_in');
+        $otInPunch = $punches->firstWhere('type.value', 'overtime_in');
+        $otOutPunch = $punches->firstWhere('type.value', 'overtime_out');
 
         $hasAnyPunch = $punches->isNotEmpty();
 
@@ -157,21 +159,32 @@ class AttendanceService
 
                 if ($totalWorkMinutes > $otThreshold && ! $isRestDay) {
                     $otMins = $totalWorkMinutes - $otThreshold;
-                    $otRequest = OvertimeRequest::where('employee_id', $employee->id)
-                        ->where('date', $date)
-                        ->where('status', 'approved')
-                        ->first();
+                    $shiftType = 'regular_day';
 
-                    if ($otRequest) {
-                        $approvedMins = $otRequest->getApprovedMinutes();
+                    // OVERTIME_IN/OVERTIME_OUT punches are the primary authorization source.
+                    // Fall back to an approved OvertimeRequest when no OT punches exist.
+                    if ($otInPunch && $otOutPunch) {
+                        $approvedMins = abs(
+                            Carbon::parse($otInPunch->timestamp)->diffInMinutes(Carbon::parse($otOutPunch->timestamp))
+                        );
                         $otMins = min($otMins, $approvedMins);
                     } else {
-                        $otMins = 0;
+                        $otRequest = OvertimeRequest::where('employee_id', $employee->id)
+                            ->where('date', $date)
+                            ->where('status', 'approved')
+                            ->first();
+
+                        if ($otRequest) {
+                            $otMins = min($otMins, $otRequest->getApprovedMinutes());
+                            $shiftType = $otRequest->shift_type ?? 'regular_day';
+                        } else {
+                            $otMins = 0;
+                        }
                     }
 
                     if ($otMins >= 60) {
                         $overtimeMinutes = $otMins;
-                        $multiplier = $this->getOTMultiplier($otRequest?->shift_type ?? 'regular_day');
+                        $multiplier = $this->getOTMultiplier($shiftType);
                         $overtimeMultiplier = $multiplier;
                         $overtimePay = round(($otMins / 60) * $hourlyRate * $multiplier, 2);
                     }
