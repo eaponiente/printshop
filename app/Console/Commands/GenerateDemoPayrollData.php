@@ -593,8 +593,9 @@ class GenerateDemoPayrollData extends Command
     private function perfectPunches(Employee $emp, string $date): void
     {
         $this->createPunch($emp, $date, PunchType::IN, $this->randomTime($date, '08:00', -20, 0));
-        $this->createPunch($emp, $date, PunchType::LUNCH_OUT, $this->randomTime($date, '12:00', -5, 5));
-        $this->createPunch($emp, $date, PunchType::LUNCH_IN, $this->randomTime($date, '13:00', -5, 5));
+        // Lunch out at or after noon, lunch in at or before 13:00 → lunch ≤ 60 min, no deduction
+        $this->createPunch($emp, $date, PunchType::LUNCH_OUT, $this->randomTime($date, '12:00', 0, 5));
+        $this->createPunch($emp, $date, PunchType::LUNCH_IN, $this->randomTime($date, '13:00', -5, 0));
         $this->createPunch($emp, $date, PunchType::OUT, $this->randomTime($date, '17:00', 0, 15));
     }
 
@@ -610,13 +611,14 @@ class GenerateDemoPayrollData extends Command
             : $this->randomTime($date, '08:00', -20, 3);
 
         $this->createPunch($emp, $date, PunchType::IN, $inTime);
-        $this->createPunch($emp, $date, PunchType::LUNCH_OUT, $this->randomTime($date, '12:00', -5, 10));
-        $this->createPunch($emp, $date, PunchType::LUNCH_IN, $this->randomTime($date, '13:00', -8, 12));
+        // Lunch out 0–10 min after noon, lunch in 0–10 min before 1 pm → max 60 min lunch
+        $this->createPunch($emp, $date, PunchType::LUNCH_OUT, $this->randomTime($date, '12:00', 0, 10));
+        $this->createPunch($emp, $date, PunchType::LUNCH_IN, $this->randomTime($date, '13:00', -10, 0));
 
-        // 6% slight undertime (leave 5–20 min early)
+        // 6% genuine undertime (leave 5–20 min early); otherwise at/after 17:00
         $outTime = mt_rand(1, 100) <= 6
             ? $this->randomTime($date, '17:00', -20, -5)
-            : $this->randomTime($date, '17:00', -3, 15);
+            : $this->randomTime($date, '17:00', 0, 15);
 
         $this->createPunch($emp, $date, PunchType::OUT, $outTime);
     }
