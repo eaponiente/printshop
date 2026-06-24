@@ -31,4 +31,4 @@ yarn-error.log
 AGENTS.md
 /testing
 /database/database.sqlite
-.opencode
+.opencode/
