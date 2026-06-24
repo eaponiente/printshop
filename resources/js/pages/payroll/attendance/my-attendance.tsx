@@ -6,11 +6,23 @@ import {
     Lock,
     LogIn,
     LogOut,
+    PlusCircle,
+    MinusCircle,
     User,
     UtensilsCrossed,
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -204,6 +216,16 @@ function PunchTab({
     const [punching, setPunching] = useState(false);
     const [selectedDate, setSelectedDate] = useState(today);
     const [selectedTime, setSelectedTime] = useState(currentTime);
+    const [confirmPunchType, setConfirmPunchType] = useState<string | null>(
+        null,
+    );
+
+    const displayTime = enableCustomPunchTime
+        ? `${selectedDate} ${selectedTime}`
+        : new Date().toLocaleString('en-PH', {
+              dateStyle: 'long',
+              timeStyle: 'short',
+          });
 
     const resetToNow = () => {
         const fresh = new Date();
@@ -237,8 +259,13 @@ function PunchTab({
             });
         };
 
-        // Only capture geolocation for IN and OUT punches
-        if (type === 'in' || type === 'out') {
+        // Only capture geolocation for IN, OUT, and OVERTIME punches
+        if (
+            type === 'in' ||
+            type === 'out' ||
+            type === 'overtime_in' ||
+            type === 'overtime_out'
+        ) {
             if (!navigator.geolocation) {
                 sendPunch();
 
@@ -379,11 +406,11 @@ function PunchTab({
                 </div>
             )}
 
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 <Button
                     size="lg"
                     variant="outline"
-                    onClick={() => punch('in')}
+                    onClick={() => setConfirmPunchType('in')}
                     disabled={isLocked || punching}
                     className="h-14 flex-col gap-1"
                 >
@@ -394,36 +421,105 @@ function PunchTab({
                 <Button
                     size="lg"
                     variant="outline"
-                    onClick={() => punch('lunch_out')}
+                    onClick={() => setConfirmPunchType('lunch_out')}
                     disabled={isLocked || punching}
                     className="h-14 flex-col gap-1"
                 >
                     <Coffee className="h-4 w-4" />
-                    <span className="text-xs">Go to Lunch</span>
+                    <span className="text-xs">Start Break</span>
                 </Button>
 
                 <Button
                     size="lg"
                     variant="outline"
-                    onClick={() => punch('lunch_in')}
+                    onClick={() => setConfirmPunchType('lunch_in')}
                     disabled={isLocked || punching}
                     className="h-14 flex-col gap-1"
                 >
                     <UtensilsCrossed className="h-4 w-4" />
-                    <span className="text-xs">Back from Lunch</span>
+                    <span className="text-xs">End Break</span>
                 </Button>
 
                 <Button
                     size="lg"
                     variant="outline"
-                    onClick={() => punch('out')}
+                    onClick={() => setConfirmPunchType('out')}
                     disabled={isLocked || punching}
                     className="h-14 flex-col gap-1"
                 >
                     <LogOut className="h-4 w-4" />
                     <span className="text-xs">Punch Out</span>
                 </Button>
+
+                <Button
+                    size="lg"
+                    variant="outline"
+                    onClick={() => setConfirmPunchType('overtime_in')}
+                    disabled={isLocked || punching}
+                    className="h-14 flex-col gap-1"
+                >
+                    <PlusCircle className="h-4 w-4" />
+                    <span className="text-xs">Overtime In</span>
+                </Button>
+
+                <Button
+                    size="lg"
+                    variant="outline"
+                    onClick={() => setConfirmPunchType('overtime_out')}
+                    disabled={isLocked || punching}
+                    className="h-14 flex-col gap-1"
+                >
+                    <MinusCircle className="h-4 w-4" />
+                    <span className="text-xs">Overtime Out</span>
+                </Button>
             </div>
+
+            <AlertDialog
+                open={confirmPunchType !== null}
+                onOpenChange={(v) => !v && setConfirmPunchType(null)}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            Confirm{' '}
+                            {confirmPunchType
+                                ? typeLabel(confirmPunchType)
+                                : ''}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            You are about to record{' '}
+                            {confirmPunchType === 'in'
+                                ? 'your time in'
+                                : confirmPunchType === 'out'
+                                  ? 'your time out'
+                                  : confirmPunchType === 'lunch_out'
+                                    ? 'the start of your break'
+                                    : confirmPunchType === 'lunch_in'
+                                      ? 'the end of your break'
+                                      : confirmPunchType === 'overtime_in'
+                                        ? 'your overtime start'
+                                        : 'your overtime end'}{' '}
+                            at{' '}
+                            <span className="font-semibold text-foreground">
+                                {displayTime}
+                            </span>
+                            .
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                if (confirmPunchType) {
+                                    punch(confirmPunchType);
+                                }
+                            }}
+                        >
+                            Confirm
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             {punchState?.logs?.length > 0 && (
                 <div className="rounded-md border bg-sidebar p-3">
@@ -609,9 +705,11 @@ function HistoryTab({
 function typeLabel(type: string) {
     const map: Record<string, string> = {
         in: 'Punch In',
-        lunch_out: 'Break Out',
-        lunch_in: 'Break In',
+        lunch_out: 'Start Break',
+        lunch_in: 'End Break',
         out: 'Punch Out',
+        overtime_in: 'Overtime In',
+        overtime_out: 'Overtime Out',
     };
 
     return map[type] ?? type;

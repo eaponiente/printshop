@@ -6,6 +6,7 @@ use App\Enums\Sublimations\SublimationStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Payroll\SewedItem;
+use App\Models\Payroll\SewedItemPayslip;
 use App\Models\Sublimation;
 use App\Models\User;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -27,6 +28,7 @@ class SewedItemController extends Controller
         Gate::authorize('sewed-items.viewAny');
 
         $query = SewedItem::with([
+            'tags:id,name,color,price_per_piece',
             'sublimation:id,description,quantity,due_at,status,user_id',
             'sublimation.user:id,first_name,last_name',
             'sublimation.tags:id,name',
@@ -37,7 +39,12 @@ class SewedItemController extends Controller
         if ($user->isAdmin()) {
             $query->where('branch_id', $user->branch_id);
         } elseif ($user->isStaff()) {
-            $query->where('user_id', $user->id);
+            $employee = $user->employee;
+            if ($employee && $employee->can_edit_sewed_items) {
+                $query->where('branch_id', $user->branch_id);
+            } else {
+                $query->where('user_id', $user->id);
+            }
         }
 
         $filters = [
@@ -55,12 +62,16 @@ class SewedItemController extends Controller
             $query->where('sewed_date', '<=', $filters['date_to']);
         }
 
-        if ($filters['branch_id'] && ($user->isSuperAdmin() || $user->isAdmin())) {
+        if ($filters['branch_id'] && $user->isSuperAdmin()) {
             $query->where('branch_id', $filters['branch_id']);
         }
 
         if ($filters['user_id'] && $user->isSuperAdmin()) {
             $query->where('user_id', $filters['user_id']);
+        }
+
+        if (! $request->boolean('include_completed')) {
+            $query->whereNull('completed_at');
         }
 
         $sewedItems = $query->orderBy('sewed_date', 'desc')->paginate(20)->appends(array_filter($filters));
@@ -69,7 +80,11 @@ class SewedItemController extends Controller
         $staff = [];
 
         if ($user->isSuperAdmin() || $user->isAdmin()) {
-            $branches = Branch::orderBy('name')->get(['id', 'name']);
+            if ($user->isSuperAdmin()) {
+                $branches = Branch::orderBy('name')->get(['id', 'name']);
+            } else {
+                $branches = Branch::where('id', $user->branch_id)->get(['id', 'name']);
+            }
 
             $selectedBranchId = $filters['branch_id'] ?: ($user->isAdmin() ? $user->branch_id : null);
 
@@ -86,7 +101,9 @@ class SewedItemController extends Controller
 
         return Inertia::render('payroll/sewed-items/index', [
             'sewedItems' => $sewedItems,
-            'filters' => $filters,
+            'filters' => array_merge($filters, [
+                'include_completed' => $request->boolean('include_completed'),
+            ]),
             'branches' => $branches,
             'staff' => $staff,
         ]);
@@ -104,17 +121,35 @@ class SewedItemController extends Controller
             return back()->withErrors(['error' => 'A sewed item already exists for this sublimation.']);
         }
 
-        DB::transaction(function () use ($validated, $sublimation) {
-            SewedItem::create([
+        $totalQuantity = 0;
+        $totalAmount = 0;
+
+        foreach ($validated['tags'] as $tagItem) {
+            $qty = (int) $tagItem['quantity'];
+            $price = (float) $tagItem['price_per_piece'];
+
+            $totalQuantity += $qty;
+            $totalAmount += $qty * $price;
+        }
+
+        DB::transaction(function () use ($validated, $sublimation, $totalQuantity, $totalAmount) {
+            $sewedItem = SewedItem::create([
                 'sublimation_id' => $sublimation->id,
-                'quantity' => $validated['quantity'],
-                'unit_price' => $validated['unit_price'],
-                'amount' => $validated['quantity'] * $validated['unit_price'],
+                'quantity' => $totalQuantity,
+                'unit_price' => $totalQuantity > 0 ? $totalAmount / $totalQuantity : null,
+                'amount' => $totalAmount,
                 'branch_id' => $sublimation->branch_id,
                 'notes' => null,
                 'sewed_date' => now()->toDateString(),
                 'user_id' => auth()->id(),
             ]);
+
+            foreach ($validated['tags'] as $tagItem) {
+                $sewedItem->tags()->attach($tagItem['tag_id'], [
+                    'quantity' => $tagItem['quantity'],
+                    'price_per_piece' => $tagItem['price_per_piece'],
+                ]);
+            }
 
             $sublimation->status = SublimationStatus::SEWED;
             $sublimation->save();
@@ -129,12 +164,34 @@ class SewedItemController extends Controller
 
         $validated = $request->validated();
 
-        $sewedItem->update([
-            'quantity' => $validated['quantity'],
-            'unit_price' => $validated['unit_price'],
-            'amount' => $validated['quantity'] * $validated['unit_price'],
-            'notes' => $validated['notes'] ?? null,
-        ]);
+        $totalQuantity = 0;
+        $totalAmount = 0;
+
+        foreach ($validated['tags'] as $tagItem) {
+            $qty = (int) $tagItem['quantity'];
+            $price = (float) $tagItem['price_per_piece'];
+
+            $totalQuantity += $qty;
+            $totalAmount += $qty * $price;
+        }
+
+        DB::transaction(function () use ($sewedItem, $validated, $totalQuantity, $totalAmount) {
+            $sewedItem->update([
+                'quantity' => $totalQuantity,
+                'unit_price' => $totalQuantity > 0 ? $totalAmount / $totalQuantity : null,
+                'amount' => $totalAmount,
+                'notes' => $validated['notes'] ?? null,
+            ]);
+
+            $syncData = [];
+            foreach ($validated['tags'] as $tagItem) {
+                $syncData[$tagItem['tag_id']] = [
+                    'quantity' => $tagItem['quantity'],
+                    'price_per_piece' => $tagItem['price_per_piece'],
+                ];
+            }
+            $sewedItem->tags()->sync($syncData);
+        });
 
         return back()->with('success', 'Sewed item updated.');
     }
@@ -146,5 +203,69 @@ class SewedItemController extends Controller
         $sewedItem->delete();
 
         return back()->with('success', 'Sewed item deleted.');
+    }
+
+    public function generatePayslip(Request $request)
+    {
+        Gate::authorize('sewed-items.viewAny');
+
+        $validated = $request->validate([
+            'sewed_item_ids' => ['required', 'array', 'min:1'],
+            'sewed_item_ids.*' => ['required', 'integer', 'exists:sewed_items,id'],
+        ]);
+
+        $ids = $validated['sewed_item_ids'];
+
+        $sewedItems = SewedItem::with(['tags', 'sublimation'])
+            ->whereIn('id', $ids)
+            ->get();
+
+        $totalAmount = $sewedItems->sum('amount');
+
+        $payslip = SewedItemPayslip::create([
+            'generated_by' => auth()->id(),
+            'branch_id' => auth()->user()->branch_id,
+            'total_amount' => $totalAmount,
+            'sewed_item_ids' => $ids,
+        ]);
+
+        session()->flash('payslip_id', $payslip->id);
+
+        return redirect()->back()->with('success', 'Payslip generated successfully.');
+    }
+
+    public function approvePayslip(SewedItemPayslip $payslip)
+    {
+        Gate::authorize('sewed-items.viewAny');
+
+        if ($payslip->status !== 'pending') {
+            return back()->withErrors(['error' => 'Only pending payslips can be approved.']);
+        }
+
+        DB::transaction(function () use ($payslip) {
+            $payslip->update([
+                'status' => 'approved',
+                'approved_by' => auth()->id(),
+                'approved_at' => now(),
+            ]);
+
+            SewedItem::whereIn('id', $payslip->sewed_item_ids)
+                ->update(['completed_at' => now()]);
+        });
+
+        return redirect()->back()->with('success', 'Payslip approved. Items marked as completed.');
+    }
+
+    public function cancelPayslip(SewedItemPayslip $payslip)
+    {
+        Gate::authorize('sewed-items.viewAny');
+
+        if ($payslip->status !== 'pending') {
+            return back()->withErrors(['error' => 'Only pending payslips can be cancelled.']);
+        }
+
+        $payslip->update(['status' => 'cancelled']);
+
+        return redirect()->back()->with('success', 'Payslip cancelled.');
     }
 }

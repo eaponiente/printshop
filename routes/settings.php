@@ -213,6 +213,9 @@ Route::middleware(['auth'])->group(function () {
 
         // Sewed Items
         Route::get('sewed-items', [SewedItemController::class, 'index'])->name('sewed-items.index');
+        Route::post('sewed-items/payslip', [SewedItemController::class, 'generatePayslip'])->name('sewed-items.payslip');
+        Route::post('sewed-items/payslip/{payslip}/approve', [SewedItemController::class, 'approvePayslip'])->name('sewed-items.payslip.approve');
+        Route::post('sewed-items/payslip/{payslip}/cancel', [SewedItemController::class, 'cancelPayslip'])->name('sewed-items.payslip.cancel');
         Route::post('sewed-items', [SewedItemController::class, 'store'])->name('sewed-items.store');
         Route::put('sewed-items/{sewedItem}', [SewedItemController::class, 'update'])->name('sewed-items.update');
         Route::delete('sewed-items/{sewedItem}', [SewedItemController::class, 'destroy'])->name('sewed-items.destroy');

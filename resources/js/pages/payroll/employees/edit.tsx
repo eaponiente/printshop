@@ -2,6 +2,7 @@ import { Head, useForm } from '@inertiajs/react';
 import { toast } from 'sonner';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -59,6 +60,7 @@ export default function EmployeeEdit({
         daily_rate: Number(employee.current_daily_rate),
         default_paid_leave_days: Number(employee.default_paid_leave_days ?? 5),
         paid_leave_balance: Number(employee.paid_leave_balance ?? 5),
+        can_edit_sewed_items: !!employee.can_edit_sewed_items,
         sss_number: employee.sss_number ?? '',
         philhealth_number: employee.philhealth_number ?? '',
         pagibig_number: employee.pagibig_number ?? '',
@@ -400,6 +402,28 @@ export default function EmployeeEdit({
                                 <InputError message={errors.tin_number} />
                             </div>
                         </div>
+                    </section>
+
+                    {/* --- Permissions --- */}
+                    <section className="space-y-4 border-t pt-6">
+                        <SectionHeader title="Permissions" />
+                        <div className="flex items-center gap-2">
+                            <Checkbox
+                                id="can_edit_sewed_items"
+                                checked={data.can_edit_sewed_items}
+                                onCheckedChange={(checked) =>
+                                    setData(
+                                        'can_edit_sewed_items',
+                                        checked === true,
+                                    )
+                                }
+                            />
+                            <Label htmlFor="can_edit_sewed_items">
+                                Can edit sewed items (allows this staff to edit
+                                all sewed items in their branch)
+                            </Label>
+                        </div>
+                        <InputError message={errors.can_edit_sewed_items} />
                     </section>
 
                     {/* --- Notes --- */}

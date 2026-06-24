@@ -7,6 +7,13 @@ use App\Models\User;
 
 class SewedItemPolicy
 {
+    private function staffCanEditInBranch(User $user): bool
+    {
+        $employee = $user->employee;
+
+        return $employee !== null && $employee->can_edit_sewed_items;
+    }
+
     public function viewAny(User $user): bool
     {
         return $user->isSuperAdmin() || $user->isAdmin() || $user->isStaff();
@@ -22,8 +29,14 @@ class SewedItemPolicy
             return true;
         }
 
-        if ($user->isStaff() && (int) $sewedItem->user_id === $user->id) {
-            return true;
+        if ($user->isStaff()) {
+            if ((int) $sewedItem->user_id === $user->id) {
+                return true;
+            }
+
+            if ($this->staffCanEditInBranch($user) && (int) $sewedItem->branch_id === (int) $user->branch_id) {
+                return true;
+            }
         }
 
         return false;
@@ -44,8 +57,14 @@ class SewedItemPolicy
             return true;
         }
 
-        if ($user->isStaff() && (int) $sewedItem->user_id === $user->id) {
-            return true;
+        if ($user->isStaff()) {
+            if ((int) $sewedItem->user_id === $user->id) {
+                return true;
+            }
+
+            if ($this->staffCanEditInBranch($user) && (int) $sewedItem->branch_id === (int) $user->branch_id) {
+                return true;
+            }
         }
 
         return false;

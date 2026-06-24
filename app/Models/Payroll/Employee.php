@@ -33,6 +33,7 @@ class Employee extends Model
             'current_daily_rate' => 'decimal:2',
             'default_paid_leave_days' => 'decimal:1',
             'paid_leave_balance' => 'decimal:1',
+            'can_edit_sewed_items' => 'boolean',
         ];
     }
 

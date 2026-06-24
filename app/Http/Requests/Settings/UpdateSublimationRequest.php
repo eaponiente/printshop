@@ -24,6 +24,7 @@ class UpdateSublimationRequest extends FormRequest
             'production_authorized' => 'required|boolean',
             'tag_ids' => ['required', 'array'],
             'tag_ids.*' => ['exists:tags,id'],
+            'user_id' => ['nullable', 'exists:users,id'],
         ];
     }
 }

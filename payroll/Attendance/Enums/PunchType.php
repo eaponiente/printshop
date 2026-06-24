@@ -8,6 +8,8 @@ enum PunchType: string
     case LUNCH_OUT = 'lunch_out';
     case LUNCH_IN = 'lunch_in';
     case OUT = 'out';
+    case OVERTIME_IN = 'overtime_in';
+    case OVERTIME_OUT = 'overtime_out';
 
     public function label(): string
     {
@@ -16,6 +18,8 @@ enum PunchType: string
             self::LUNCH_OUT => 'Lunch Out',
             self::LUNCH_IN => 'Lunch In',
             self::OUT => 'Punch Out',
+            self::OVERTIME_IN => 'Overtime In',
+            self::OVERTIME_OUT => 'Overtime Out',
         };
     }
 }

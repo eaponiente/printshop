@@ -15,8 +15,10 @@ class StoreSewedItemRequest extends FormRequest
     {
         return [
             'sublimation_id' => ['required', 'integer', 'exists:sublimations,id'],
-            'quantity' => ['required', 'integer', 'min:1'],
-            'unit_price' => ['required', 'numeric', 'min:0'],
+            'tags' => ['required', 'array', 'min:1'],
+            'tags.*.tag_id' => ['required', 'integer', 'exists:tags,id'],
+            'tags.*.quantity' => ['required', 'integer', 'min:1'],
+            'tags.*.price_per_piece' => ['required', 'numeric', 'min:0'],
         ];
     }
 }

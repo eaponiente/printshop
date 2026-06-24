@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
                 SssBracketSeeder::class,
                 // AttendanceDemoSeeder::class,
                 // EmployeeScenarioSeeder::class,
+                DemoSeeder::class,
             ]);
         } else {
             $this->call([

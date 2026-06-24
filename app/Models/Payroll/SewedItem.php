@@ -4,9 +4,11 @@ namespace App\Models\Payroll;
 
 use App\Models\Branch;
 use App\Models\Sublimation;
+use App\Models\Tag;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class SewedItem extends Model
 {
@@ -19,6 +21,7 @@ class SewedItem extends Model
             'unit_price' => 'decimal:2',
             'amount' => 'decimal:2',
             'sewed_date' => 'date:Y-m-d',
+            'completed_at' => 'datetime',
         ];
     }
 
@@ -35,5 +38,12 @@ class SewedItem extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function tags(): BelongsToMany
+    {
+        return $this->belongsToMany(Tag::class, 'sewed_item_tag')
+            ->withPivot('quantity', 'price_per_piece')
+            ->withTimestamps();
     }
 }

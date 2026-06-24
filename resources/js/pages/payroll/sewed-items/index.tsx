@@ -1,8 +1,10 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { route } from 'ziggy-js';
-import { Pencil, Search, X } from 'lucide-react';
+import { FileText, Pencil, Search, X } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import {
     Popover,
@@ -17,6 +19,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import PayrollLayout from '@/layouts/payroll/payroll-layout';
+import EditSewedItemDialog from '@/pages/payroll/sewed-items/components/edit-sewed-item-dialog';
+import PayslipDialog from '@/pages/payroll/sewed-items/components/payslip-dialog';
 import type { BreadcrumbItem } from '@/types';
 import { formatCurrency } from '@/utils/formatters';
 import { toManilaTime } from '@/utils/dateHelper';
@@ -26,13 +30,22 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Sewed Items', href: '/payroll/sewed-items' },
 ];
 
+type TagPivot = {
+    id: number;
+    name: string;
+    color: string;
+    price_per_piece?: string;
+    pivot: { quantity: number; price_per_piece?: string | null };
+};
+
 type SewedItem = {
     id: number;
     quantity: number;
-    unit_price: number;
     amount: number;
     notes: string | null;
     sewed_date: string;
+    completed_at: string | null;
+    tags: TagPivot[];
     sublimation: {
         id: number;
         description: string;
@@ -51,6 +64,7 @@ type Filters = {
     date_to?: string;
     branch_id?: string;
     user_id?: string;
+    include_completed?: boolean;
 };
 
 type Props = {
@@ -71,53 +85,76 @@ export default function SewedItemsIndex({
     staff,
 }: Props) {
     const { auth } = usePage().props as any;
+    const flash = (usePage().props as any).flash;
     const isSuperAdmin = auth?.user?.role === 'superadmin';
     const isAdmin = auth?.user?.role === 'admin';
     const canFilter = isSuperAdmin || isAdmin;
+
+    const canEditSewedItems = !!auth?.user?.employee?.can_edit_sewed_items;
+
+    const userCanEdit = (item: SewedItem) => {
+        if (isSuperAdmin) return !item.completed_at;
+        if (isAdmin || canEditSewedItems)
+            return (
+                !item.completed_at && item.branch?.id === auth?.user?.branch_id
+            );
+        return !item.completed_at && item.user?.id === auth?.user?.id;
+    };
 
     const [dateFrom, setDateFrom] = useState(filters.date_from ?? '');
     const [dateTo, setDateTo] = useState(filters.date_to ?? '');
     const [branchId, setBranchId] = useState(filters.branch_id ?? '');
     const [userId, setUserId] = useState(filters.user_id ?? '');
-    const [editingId, setEditingId] = useState<number | null>(null);
-    const [editQuantity, setEditQuantity] = useState('');
-    const [editUnitPrice, setEditUnitPrice] = useState('');
-    const [editNotes, setEditNotes] = useState('');
-    const [notesError, setNotesError] = useState('');
+    const [includeCompleted, setIncludeCompleted] = useState(
+        filters.include_completed ?? false,
+    );
+    const [editDialogOpen, setEditDialogOpen] = useState(false);
+    const [selectedItem, setSelectedItem] = useState<SewedItem | null>(null);
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+    const [payslipDialogOpen, setPayslipDialogOpen] = useState(false);
+    const [payslipItems, setPayslipItems] = useState<SewedItem[]>([]);
 
-    const startEdit = (item: SewedItem) => {
-        setEditingId(item.id);
-        setEditQuantity(String(item.quantity));
-        setEditUnitPrice(String(item.unit_price));
-        setEditNotes(item.notes ?? '');
-        setNotesError('');
+    const toggleSelect = (id: number) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+            return next;
+        });
     };
 
-    const cancelEdit = () => {
-        setEditingId(null);
-        setNotesError('');
-    };
-
-    const submitEdit = (id: number) => {
-        if (!editNotes.trim()) {
-            setNotesError('Notes is required.');
-            return;
+    const toggleSelectAll = () => {
+        const selectable = sewedItems.data.filter((i) => !i.completed_at);
+        if (selectedIds.size === selectable.length) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(selectable.map((i) => i.id)));
         }
+    };
 
-        router.put(
-            `/payroll/sewed-items/${id}`,
+    const generatePayslip = () => {
+        const items = sewedItems.data.filter((i) => selectedIds.has(i.id));
+        const ids = items.map((i) => i.id);
+
+        router.post(
+            '/payroll/sewed-items/payslip',
+            { sewed_item_ids: ids },
             {
-                quantity: editQuantity,
-                unit_price: editUnitPrice,
-                notes: editNotes,
-            },
-            {
-                onSuccess: () => setEditingId(null),
-                onError: (err) => {
-                    if (err.notes) setNotesError(err.notes);
+                onSuccess: () => {
+                    setPayslipItems(items);
+                    setPayslipDialogOpen(true);
                 },
+                onError: () => toast.error('Failed to generate payslip.'),
             },
         );
+    };
+
+    const openEditDialog = (item: SewedItem) => {
+        setSelectedItem(item);
+        setEditDialogOpen(true);
     };
 
     const applyFilters = () => {
@@ -126,6 +163,7 @@ export default function SewedItemsIndex({
         if (dateTo) params.date_to = dateTo;
         if (canFilter && branchId) params.branch_id = branchId;
         if (isSuperAdmin && userId) params.user_id = userId;
+        if (includeCompleted) params.include_completed = '1';
 
         router.get('/payroll/sewed-items', params, {
             preserveState: true,
@@ -138,6 +176,7 @@ export default function SewedItemsIndex({
         setDateTo('');
         setBranchId('');
         setUserId('');
+        setIncludeCompleted(false);
         router.get(
             '/payroll/sewed-items',
             {},
@@ -223,6 +262,21 @@ export default function SewedItemsIndex({
                             </Select>
                         </div>
                     )}
+                    <div className="flex h-8 items-center space-x-2 px-2">
+                        <Checkbox
+                            id="include_completed"
+                            checked={includeCompleted}
+                            onCheckedChange={(checked) => {
+                                setIncludeCompleted(checked === true);
+                            }}
+                        />
+                        <label
+                            htmlFor="include_completed"
+                            className="cursor-pointer text-sm leading-none font-medium text-muted-foreground transition-colors select-none hover:text-foreground"
+                        >
+                            Include Completed
+                        </label>
+                    </div>
                     <Button size="sm" onClick={applyFilters} className="h-8">
                         <Search className="mr-1 h-3.5 w-3.5" />
                         Filter
@@ -238,18 +292,41 @@ export default function SewedItemsIndex({
                     </Button>
                 </div>
 
+                {selectedIds.size > 0 && (
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">
+                            {selectedIds.size} selected
+                        </span>
+                        <Button size="sm" onClick={generatePayslip}>
+                            <FileText className="mr-1.5 h-4 w-4" />
+                            Generate Payslip
+                        </Button>
+                    </div>
+                )}
+
                 <div className="overflow-x-auto rounded-md border bg-sidebar">
                     <table className="min-w-full table-fixed text-sm">
                         <thead>
                             <tr className="border-b bg-muted/50">
+                                <th className="w-10 px-3 py-2">
+                                    <Checkbox
+                                        checked={
+                                            sewedItems.data.filter(
+                                                (i) => !i.completed_at,
+                                            ).length > 0 &&
+                                            selectedIds.size ===
+                                                sewedItems.data.filter(
+                                                    (i) => !i.completed_at,
+                                                ).length
+                                        }
+                                        onCheckedChange={toggleSelectAll}
+                                    />
+                                </th>
                                 <th className="w-[160px] px-3 py-2 text-left font-medium">
                                     Sublimation
                                 </th>
-                                <th className="w-[100px] px-3 py-2 text-right font-medium">
-                                    Quantity
-                                </th>
-                                <th className="w-[120px] px-3 py-2 text-right font-medium">
-                                    Unit Price
+                                <th className="px-3 py-2 text-left font-medium">
+                                    Categories
                                 </th>
                                 <th className="w-[120px] px-3 py-2 text-right font-medium">
                                     Amount
@@ -273,7 +350,22 @@ export default function SewedItemsIndex({
                         </thead>
                         <tbody>
                             {sewedItems.data.map((item) => (
-                                <tr key={item.id} className="border-b">
+                                <tr
+                                    key={item.id}
+                                    className={`border-b ${item.completed_at ? 'line-through opacity-60' : ''}`}
+                                >
+                                    <td className="w-10 px-3 py-2">
+                                        {!item.completed_at && (
+                                            <Checkbox
+                                                checked={selectedIds.has(
+                                                    item.id,
+                                                )}
+                                                onCheckedChange={() =>
+                                                    toggleSelect(item.id)
+                                                }
+                                            />
+                                        )}
+                                    </td>
                                     <td className="px-3 py-2">
                                         <Popover>
                                             <PopoverTrigger className="cursor-pointer text-left hover:text-primary hover:underline">
@@ -281,7 +373,7 @@ export default function SewedItemsIndex({
                                                     ?.description ?? '—'}
                                             </PopoverTrigger>
                                             <PopoverContent
-                                                className="w-56 p-3"
+                                                className="w-64 p-3"
                                                 align="start"
                                                 sideOffset={4}
                                             >
@@ -290,21 +382,6 @@ export default function SewedItemsIndex({
                                                         Sublimation Details
                                                     </h4>
                                                     <div className="space-y-1.5 text-sm">
-                                                        <div className="flex justify-between gap-2">
-                                                            <span className="shrink-0 text-muted-foreground">
-                                                                Category
-                                                            </span>
-                                                            <span className="truncate text-right">
-                                                                {item.sublimation?.tags
-                                                                    ?.map(
-                                                                        (t) =>
-                                                                            t.name,
-                                                                    )
-                                                                    .join(
-                                                                        ', ',
-                                                                    ) || '—'}
-                                                            </span>
-                                                        </div>
                                                         <div className="flex justify-between gap-2">
                                                             <span className="shrink-0 text-muted-foreground">
                                                                 Description
@@ -361,6 +438,39 @@ export default function SewedItemsIndex({
                                                                 }
                                                             </span>
                                                         </div>
+                                                        <div className="border-t pt-1.5">
+                                                            <p className="mb-1.5 text-xs text-muted-foreground">
+                                                                Sewed Breakdown
+                                                            </p>
+                                                            {(
+                                                                item.tags ?? []
+                                                            ).map((tag) => (
+                                                                <div
+                                                                    key={tag.id}
+                                                                    className="flex items-center justify-between text-xs"
+                                                                >
+                                                                    <span className="flex items-center gap-1">
+                                                                        <span
+                                                                            className="inline-block h-2.5 w-2.5 rounded-full"
+                                                                            style={{
+                                                                                backgroundColor:
+                                                                                    tag.color,
+                                                                            }}
+                                                                        />
+                                                                        {
+                                                                            tag.name
+                                                                        }
+                                                                    </span>
+                                                                    <span className="font-mono">
+                                                                        {
+                                                                            tag
+                                                                                .pivot
+                                                                                .quantity
+                                                                        }
+                                                                    </span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
                                                     </div>
                                                     <div className="border-t pt-1.5">
                                                         <Link
@@ -378,49 +488,27 @@ export default function SewedItemsIndex({
                                             </PopoverContent>
                                         </Popover>
                                     </td>
-                                    <td className="px-3 py-2 text-right font-mono">
-                                        {editingId === item.id ? (
-                                            <Input
-                                                type="number"
-                                                min="1"
-                                                value={editQuantity}
-                                                onChange={(e) =>
-                                                    setEditQuantity(
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                className="h-7 w-full text-right"
-                                            />
-                                        ) : (
-                                            item.quantity
-                                        )}
+                                    <td className="px-3 py-2">
+                                        <div className="flex flex-wrap gap-1">
+                                            {(item.tags ?? []).map((tag) => (
+                                                <span
+                                                    key={tag.id}
+                                                    className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-sm"
+                                                    style={{
+                                                        backgroundColor:
+                                                            tag.color + '20',
+                                                    }}
+                                                >
+                                                    {tag.name}
+                                                    <span className="font-medium">
+                                                        ({tag.pivot.quantity})
+                                                    </span>
+                                                </span>
+                                            ))}
+                                        </div>
                                     </td>
                                     <td className="px-3 py-2 text-right font-mono">
-                                        {editingId === item.id ? (
-                                            <Input
-                                                type="number"
-                                                min="0"
-                                                step="0.01"
-                                                value={editUnitPrice}
-                                                onChange={(e) =>
-                                                    setEditUnitPrice(
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                className="h-7 w-full text-right"
-                                            />
-                                        ) : (
-                                            formatCurrency(item.unit_price)
-                                        )}
-                                    </td>
-                                    <td className="truncate px-3 py-2 text-right font-mono">
-                                        {editingId === item.id
-                                            ? formatCurrency(
-                                                  Number(editQuantity) *
-                                                      Number(editUnitPrice) ||
-                                                      0,
-                                              )
-                                            : formatCurrency(item.amount)}
+                                        {formatCurrency(item.amount)}
                                     </td>
                                     <td className="px-3 py-2 text-muted-foreground">
                                         {item.sewed_date}
@@ -433,53 +521,16 @@ export default function SewedItemsIndex({
                                         {item.user?.last_name}
                                     </td>
                                     <td className="truncate px-3 py-2 text-muted-foreground">
-                                        {editingId === item.id ? (
-                                            <div>
-                                                <Input
-                                                    value={editNotes}
-                                                    onChange={(e) => {
-                                                        setEditNotes(
-                                                            e.target.value,
-                                                        );
-                                                        if (notesError)
-                                                            setNotesError('');
-                                                    }}
-                                                    className="h-7 w-full"
-                                                />
-                                                {notesError && (
-                                                    <p className="mt-1 text-xs text-red-500">
-                                                        {notesError}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            item.notes || '—'
-                                        )}
+                                        {item.notes || '—'}
                                     </td>
                                     <td className="px-3 py-2 text-center">
-                                        {editingId === item.id ? (
-                                            <div className="flex justify-center gap-1">
-                                                <Button
-                                                    size="sm"
-                                                    onClick={() =>
-                                                        submitEdit(item.id)
-                                                    }
-                                                >
-                                                    Save
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={cancelEdit}
-                                                >
-                                                    Cancel
-                                                </Button>
-                                            </div>
-                                        ) : (
+                                        {userCanEdit(item) && (
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                onClick={() => startEdit(item)}
+                                                onClick={() =>
+                                                    openEditDialog(item)
+                                                }
                                             >
                                                 <Pencil className="h-4 w-4" />
                                             </Button>
@@ -526,6 +577,22 @@ export default function SewedItemsIndex({
                     </div>
                 )}
             </div>
+
+            {editDialogOpen && selectedItem && (
+                <EditSewedItemDialog
+                    open={editDialogOpen}
+                    setOpen={setEditDialogOpen}
+                    item={selectedItem}
+                />
+            )}
+
+            <PayslipDialog
+                open={payslipDialogOpen}
+                setOpen={setPayslipDialogOpen}
+                items={payslipItems}
+                generatedBy={auth?.user?.fullname ?? '—'}
+                payslipId={flash?.payslip_id ?? null}
+            />
         </PayrollLayout>
     );
 }

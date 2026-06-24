@@ -15,7 +15,6 @@ import {
     Settings,
     Shield,
     Table,
-    Timer,
     UserRound,
 } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
@@ -107,12 +106,6 @@ export function PayrollSidebar() {
     const canManageAttendance = isSuperAdmin || isAdmin;
 
     const requestsNav: NavItem[] = [
-        {
-            title: 'Overtime Requests',
-            href: '/payroll/overtime-requests',
-            icon: Timer,
-            badge: pending_requests?.overtime,
-        },
         {
             title: 'Leave Requests',
             href: '/payroll/leave-requests',

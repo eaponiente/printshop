@@ -32,6 +32,7 @@ export type Employee = {
     current_daily_rate: number;
     default_paid_leave_days: number;
     paid_leave_balance: number;
+    can_edit_sewed_items: boolean;
     sss_number: string | null;
     philhealth_number: string | null;
     pagibig_number: string | null;

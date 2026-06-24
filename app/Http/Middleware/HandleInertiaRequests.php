@@ -44,7 +44,7 @@ class HandleInertiaRequests extends Middleware
             'name' => config('app.name'),
             'auth' => [
                 'user' => $request->user()
-                    ? $request->user()->load('branch')
+                    ? $request->user()->load('branch', 'employee')
                     : null,
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
@@ -52,6 +52,7 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'new_customer' => $request->session()->get('new_customer'),
                 'message' => $request->session()->get('message'),
+                'payslip_id' => $request->session()->get('payslip_id'),
             ],
         ];
     }

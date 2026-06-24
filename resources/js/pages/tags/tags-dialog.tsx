@@ -37,6 +37,7 @@ export default function TagDialog({ open, setOpen, tag }: BranchDialogProps) {
     const { data, setData, post, put, processing, errors, reset } = useForm({
         name: tag?.name ?? '',
         color: tag?.color ?? randomColor(),
+        price_per_piece: tag?.price_per_piece ?? '',
     });
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -108,12 +109,30 @@ export default function TagDialog({ open, setOpen, tag }: BranchDialogProps) {
                             </div>
                             <InputError message={errors.color} />
                         </div>
+
+                        <h3 className="mt-2 text-sm font-semibold">Sewing</h3>
+
+                        <div className="grid gap-3">
+                            <Label htmlFor="price_per_piece">
+                                Price per piece
+                            </Label>
+                            <Input
+                                id="price_per_piece"
+                                type="text"
+                                value={data.price_per_piece}
+                                onChange={(e) =>
+                                    setData('price_per_piece', e.target.value)
+                                }
+                                tabIndex={4}
+                            />
+                            <InputError message={errors.price_per_piece} />
+                        </div>
                     </div>
 
                     <Button
                         type="submit"
                         className="w-full"
-                        tabIndex={4}
+                        tabIndex={5}
                         disabled={processing}
                     >
                         {processing && <Spinner className="mr-2" />}

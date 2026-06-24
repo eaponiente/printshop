@@ -36,6 +36,7 @@ class UpdateEmployeeRequest extends FormRequest
             'tin_number' => ['nullable', 'string', 'max:20'],
             'default_paid_leave_days' => ['nullable', 'numeric', 'min:0'],
             'paid_leave_balance' => ['nullable', 'numeric', 'min:0'],
+            'can_edit_sewed_items' => ['boolean'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ];
     }

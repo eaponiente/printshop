@@ -28,6 +28,12 @@ class UpdateTagRequest extends FormRequest
                 'string',
                 'max:7',
             ],
+            'price_per_piece' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:999999.99',
+            ],
         ];
     }
 }
