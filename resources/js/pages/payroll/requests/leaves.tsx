@@ -54,8 +54,10 @@ export default function LeaveRequests({
             !confirm(
                 'Reset all active employee leave balances to their defaults?',
             )
-        )
-            return;
+        ) {
+return;
+}
+
         router.post(
             '/payroll/leave-requests/reset',
             {},

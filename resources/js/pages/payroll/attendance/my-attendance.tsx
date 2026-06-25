@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { DataTable } from '@/components/data-table';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -26,10 +27,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { DataTable } from '@/components/data-table';
 import PayrollLayout from '@/layouts/payroll/payroll-layout';
-import type { PaginatedResponse } from '@/types/pagination';
 import type { BreadcrumbItem } from '@/types';
+import type { PaginatedResponse } from '@/types/pagination';
 import { toDateInput } from '@/utils/dateHelper';
 import { formatCurrency, formatTime } from '@/utils/formatters';
 
@@ -194,9 +194,11 @@ const attendanceColumns: ColumnDef<AttendanceSheetRow, any>[] = [
                     </span>
                 );
             }
+
             if (row.original.is_rest_day) {
                 return <span className="text-xs text-blue-500">Rest</span>;
             }
+
             return <span className="text-xs text-red-500">Absent</span>;
         },
     },
@@ -368,8 +370,12 @@ function PunchTab({
     const disabledReason = (
         kind: 'in' | 'out' | 'lunch_out' | 'lunch_in' | 'overtime_in' | 'overtime_out',
     ): string | null => {
-        if (!punchState) return null;
+        if (!punchState) {
+return null;
+}
+
         const lastLabel = punchState.last_punch?.label;
+
         switch (kind) {
             case 'in':
                 return punchState.can_punch_in ? null : 'Already punched in for today.';
@@ -753,9 +759,11 @@ function groupTimeLogsByDate(logs: TimeLogRow[]): [string, TimeLogRow[]][] {
     for (const log of logs) {
         const d = new Date(log.timestamp);
         const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
         if (!groups.has(date)) {
             groups.set(date, []);
         }
+
         groups.get(date)!.push(log);
     }
 

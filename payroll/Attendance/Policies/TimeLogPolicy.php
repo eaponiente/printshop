@@ -42,4 +42,9 @@ class TimeLogPolicy
 
         return (int) $user->branch_id === $employeeBranchId;
     }
+
+    public function useCustomTimestamp(User $user): bool
+    {
+        return $user->isSuperAdmin();
+    }
 }

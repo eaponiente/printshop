@@ -18,7 +18,9 @@ export default function OvertimeRequestForm({ onClose }: Props) {
     const [submitting, setSubmitting] = useState(false);
 
     const computedMinutes = (() => {
-        if (!startTime || !endTime) return 0;
+        if (!startTime || !endTime) {
+return 0;
+}
 
         const [sh, sm] = startTime.split(':').map(Number);
         const [eh, em] = endTime.split(':').map(Number);
@@ -34,7 +36,10 @@ export default function OvertimeRequestForm({ onClose }: Props) {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!canSubmit) return;
+
+        if (!canSubmit) {
+return;
+}
 
         setSubmitting(true);
 

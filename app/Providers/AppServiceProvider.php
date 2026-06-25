@@ -6,7 +6,9 @@ use App\Models\Expense;
 use App\Models\Payroll\Employee;
 use App\Models\Payroll\Holiday;
 use App\Models\Payroll\PayrollPeriod;
+use App\Models\Payroll\PayrollSetting;
 use App\Policies\ExpensePolicy;
+use App\Policies\PayrollSettingPolicy;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -28,8 +30,6 @@ use Payroll\Audit\Models\AuditLog;
 use Payroll\Audit\Policies\AuditLogPolicy;
 use Payroll\Employee\Policies\EmployeePolicy as PayrollEmployeePolicy;
 use Payroll\SewedItem\Policies\SewedItemPolicy;
-use App\Models\Payroll\PayrollSetting;
-use App\Policies\PayrollSettingPolicy;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -90,6 +90,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('time-logs.punch', [TimeLogPolicy::class, 'punch']);
         Gate::define('time-logs.manual', [TimeLogPolicy::class, 'manualLog']);
         Gate::define('time-logs.viewAny', [TimeLogPolicy::class, 'viewAny']);
+        Gate::define('time-logs.useCustomTimestamp', [TimeLogPolicy::class, 'useCustomTimestamp']);
 
         Gate::define('overtime-requests.submit', [OvertimeRequestPolicy::class, 'submit']);
         Gate::define('overtime-requests.approve', [OvertimeRequestPolicy::class, 'approve']);

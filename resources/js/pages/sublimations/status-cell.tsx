@@ -10,8 +10,8 @@ import {
     SelectItem,
     SelectTrigger,
 } from '@/components/ui/select';
-import { formatStatus } from '@/utils/formatters';
 import SewedItemDialog from '@/pages/sublimations/components/sewed-item-dialog';
+import { formatStatus } from '@/utils/formatters';
 
 interface StatusCellProps {
     item: any;
@@ -82,6 +82,7 @@ export const StatusCell = ({ item, statuses }: StatusCellProps) => {
 
         if (newStatus === 'sewed' && !item.sewed_item) {
             setShowSewedDialog(true);
+
             return;
         }
 

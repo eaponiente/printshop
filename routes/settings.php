@@ -16,8 +16,6 @@ use App\Http\Controllers\Users\BranchController;
 use App\Http\Controllers\Users\CustomerController;
 use App\Http\Controllers\Users\EndorsementController;
 use App\Http\Controllers\Users\UserController;
-use App\Models\Branch;
-use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Payroll\Attendance\Controllers\AttendanceSheetController;
 use Payroll\Attendance\Controllers\CashAdvanceController;
@@ -107,7 +105,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit.index');
 
         Route::get('attendance', [TimeLogController::class, 'index'])->name('attendance.index');
-        Route::post('attendance/punch', [TimeLogController::class, 'punch'])->name('attendance.punch');
+        Route::post('attendance/punch', [TimeLogController::class, 'punch'])
+            ->middleware('throttle:30,1')
+            ->name('attendance.punch');
         Route::post('attendance/manual', [TimeLogController::class, 'manual'])->name('attendance.manual');
         Route::put('employee/profile', [EmployeeController::class, 'updateSelf'])->name('employee.profile.update');
 

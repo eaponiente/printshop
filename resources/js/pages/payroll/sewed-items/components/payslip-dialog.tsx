@@ -1,4 +1,5 @@
 import { router } from '@inertiajs/react';
+import { Check, Printer, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -7,7 +8,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Check, Printer, X } from 'lucide-react';
 
 interface TagEntry {
     id: number;

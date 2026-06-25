@@ -70,7 +70,10 @@ export default function CorrectionForm({ onClose }: Props) {
     };
 
     const removeEntry = (key: number) => {
-        if (items.length <= 1) return;
+        if (items.length <= 1) {
+return;
+}
+
         setItems(items.filter((e) => e.key !== key));
     };
 
@@ -83,11 +86,13 @@ export default function CorrectionForm({ onClose }: Props) {
 
         if (!date || !reason || items.length === 0) {
             toast.error('Please fill in all required fields.');
+
             return;
         }
 
         if (!items.every((e) => e.requested_time)) {
             toast.error('Please fill in the time for each adjustment entry.');
+
             return;
         }
 
@@ -98,6 +103,7 @@ export default function CorrectionForm({ onClose }: Props) {
             toast.error(
                 'You can only have one IN and one OUT per correction request.',
             );
+
             return;
         }
 

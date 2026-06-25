@@ -2,8 +2,8 @@ import { Head, router, usePage } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
 import { CalendarDays, MapPin, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/data-table';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -56,16 +56,34 @@ type Props = {
 };
 
 const proximityBadge = (p: string | null) => {
-    if (p === 'within') return 'text-green-600';
-    if (p === 'outside') return 'text-amber-600';
+    if (p === 'within') {
+return 'text-green-600';
+}
+
+    if (p === 'outside') {
+return 'text-amber-600';
+}
+
     return 'text-muted-foreground';
 };
 
 const proximityLabel = (p: string | null) => {
-    if (p === 'within') return 'Within radius';
-    if (p === 'outside') return 'Outside radius';
-    if (p === 'no_location') return 'No location';
-    if (p === 'no_branch_coords') return 'No branch coords';
+    if (p === 'within') {
+return 'Within radius';
+}
+
+    if (p === 'outside') {
+return 'Outside radius';
+}
+
+    if (p === 'no_location') {
+return 'No location';
+}
+
+    if (p === 'no_branch_coords') {
+return 'No branch coords';
+}
+
     return '—';
 };
 
@@ -93,7 +111,10 @@ export default function AttendanceGeo({
     }, []);
 
     const handleSearch = () => {
-        if (!branchId) return;
+        if (!branchId) {
+return;
+}
+
         setHasSearched(true);
         router.get(
             '/payroll/attendance-geo',
@@ -108,6 +129,7 @@ export default function AttendanceGeo({
             header: 'Date',
             cell: ({ row }: CellContext<GeoTimeLog, any>) => {
                 const d = new Date(row.original.timestamp);
+
                 return (
                     <span className="font-mono text-xs">
                         {d.toLocaleDateString('en-PH', {
@@ -143,6 +165,7 @@ export default function AttendanceGeo({
             header: 'Type',
             cell: ({ row }: CellContext<GeoTimeLog, any>) => {
                 const t = row.original.type;
+
                 return (
                     <span
                         className={`inline-block rounded-full border px-2 py-0.5 text-[10px] font-medium ${t === 'in' ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-purple-200 bg-purple-50 text-purple-700'}`}
@@ -174,11 +197,13 @@ export default function AttendanceGeo({
             cell: ({ row }: CellContext<GeoTimeLog, any>) => {
                 const d = row.original.distance;
                 const p = row.original.proximity;
+
                 if (d === null) {
                     return (
                         <span className="text-xs text-muted-foreground">—</span>
                     );
                 }
+
                 return (
                     <span
                         className={`font-mono text-xs font-medium ${proximityBadge(p)}`}
@@ -194,6 +219,7 @@ export default function AttendanceGeo({
             header: 'Status',
             cell: ({ row }: CellContext<GeoTimeLog, any>) => {
                 const p = row.original.proximity;
+
                 return (
                     <span
                         className={`inline-block rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize ${proximityBadge(p)} ${p === 'within' ? 'border-green-200 bg-green-50' : p === 'outside' ? 'border-amber-200 bg-amber-50' : 'border-gray-200 bg-gray-50'}`}

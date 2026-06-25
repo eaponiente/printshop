@@ -94,14 +94,19 @@ export default function BranchPayables({
     }
 
     const handleView = () => {
-        if (!dateFrom || !dateTo) return;
+        if (!dateFrom || !dateTo) {
+return;
+}
+
         const params: Record<string, string> = {
             date_from: dateFrom,
             date_to: dateTo,
         };
+
         if (branchId) {
             params.branch_id = branchId;
         }
+
         router.get('/payroll/reports/branch-payables', params, {
             preserveState: true,
             replace: true,

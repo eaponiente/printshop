@@ -52,7 +52,10 @@ export default function ReportsIndex({ branches, periods }: Props) {
     const canPrint = branchId && periodId;
 
     const handlePrint = () => {
-        if (!canPrint) return;
+        if (!canPrint) {
+return;
+}
+
         const url = route('payroll.reports.print', {
             branch_id: branchId,
             period_id: periodId,

@@ -1,8 +1,8 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { route } from 'ziggy-js';
 import { FileText, Pencil, Search, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { route } from 'ziggy-js';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -22,8 +22,8 @@ import PayrollLayout from '@/layouts/payroll/payroll-layout';
 import EditSewedItemDialog from '@/pages/payroll/sewed-items/components/edit-sewed-item-dialog';
 import PayslipDialog from '@/pages/payroll/sewed-items/components/payslip-dialog';
 import type { BreadcrumbItem } from '@/types';
-import { formatCurrency } from '@/utils/formatters';
 import { toManilaTime } from '@/utils/dateHelper';
+import { formatCurrency } from '@/utils/formatters';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -93,11 +93,16 @@ export default function SewedItemsIndex({
     const canEditSewedItems = !!auth?.user?.employee?.can_edit_sewed_items;
 
     const userCanEdit = (item: SewedItem) => {
-        if (isSuperAdmin) return !item.completed_at;
-        if (isAdmin || canEditSewedItems)
-            return (
+        if (isSuperAdmin) {
+return !item.completed_at;
+}
+
+        if (isAdmin || canEditSewedItems) {
+return (
                 !item.completed_at && item.branch?.id === auth?.user?.branch_id
             );
+}
+
         return !item.completed_at && item.user?.id === auth?.user?.id;
     };
 
@@ -117,17 +122,20 @@ export default function SewedItemsIndex({
     const toggleSelect = (id: number) => {
         setSelectedIds((prev) => {
             const next = new Set(prev);
+
             if (next.has(id)) {
                 next.delete(id);
             } else {
                 next.add(id);
             }
+
             return next;
         });
     };
 
     const toggleSelectAll = () => {
         const selectable = sewedItems.data.filter((i) => !i.completed_at);
+
         if (selectedIds.size === selectable.length) {
             setSelectedIds(new Set());
         } else {
@@ -159,11 +167,26 @@ export default function SewedItemsIndex({
 
     const applyFilters = () => {
         const params: Record<string, string> = {};
-        if (dateFrom) params.date_from = dateFrom;
-        if (dateTo) params.date_to = dateTo;
-        if (canFilter && branchId) params.branch_id = branchId;
-        if (isSuperAdmin && userId) params.user_id = userId;
-        if (includeCompleted) params.include_completed = '1';
+
+        if (dateFrom) {
+params.date_from = dateFrom;
+}
+
+        if (dateTo) {
+params.date_to = dateTo;
+}
+
+        if (canFilter && branchId) {
+params.branch_id = branchId;
+}
+
+        if (isSuperAdmin && userId) {
+params.user_id = userId;
+}
+
+        if (includeCompleted) {
+params.include_completed = '1';
+}
 
         router.get('/payroll/sewed-items', params, {
             preserveState: true,

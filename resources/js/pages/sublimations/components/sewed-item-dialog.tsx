@@ -44,6 +44,7 @@ export default function SewedItemDialog({
     const totalAmount = tags.reduce((sum, tag) => {
         const qty = Number(quantities[tag.id]) || 0;
         const price = Number(prices[tag.id]) || 0;
+
         return sum + qty * price;
     }, 0);
 
@@ -60,6 +61,7 @@ export default function SewedItemDialog({
 
         if (tagItems.length === 0) {
             toast.error('Enter at least one quantity');
+
             return;
         }
 

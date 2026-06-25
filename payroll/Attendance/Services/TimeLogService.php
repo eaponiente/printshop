@@ -2,11 +2,13 @@
 
 namespace Payroll\Attendance\Services;
 
+use App\Models\Payroll\AttendanceSheet;
 use App\Models\Payroll\Employee;
 use App\Models\Payroll\TimeLog;
 use App\Models\User;
 use Carbon\Carbon;
 use DB;
+use Illuminate\Validation\ValidationException;
 use Payroll\Attendance\Enums\PunchSource;
 use Payroll\Attendance\Enums\PunchType;
 
@@ -23,6 +25,19 @@ class TimeLogService
     ): TimeLog {
         return DB::transaction(function () use ($employee, $type, $latitude, $longitude, $accuracyMeters, $timestamp) {
             $now = $timestamp ?? now();
+            $punchDate = $now->toDateString();
+
+            $lockedSheet = AttendanceSheet::where('employee_id', $employee->id)
+                ->where('date', $punchDate)
+                ->whereNotNull('locked_at')
+                ->lockForUpdate()
+                ->first();
+
+            if ($lockedSheet) {
+                throw ValidationException::withMessages([
+                    'error' => 'Attendance sheet for this date is locked in a payroll period.',
+                ]);
+            }
 
             $recentDuplicate = TimeLog::where('employee_id', $employee->id)
                 ->where('type', $type->value)
@@ -55,7 +70,7 @@ class TimeLogService
                 ...$geoData,
             ]);
 
-            app(AttendanceService::class)->processDailyAttendance($employee, $now->toDateString());
+            app(AttendanceService::class)->processDailyAttendance($employee, $punchDate);
 
             return $log;
         });
@@ -135,7 +150,7 @@ class TimeLogService
             'note' => null,
         ];
 
-        if (! in_array($type->value, ['in', 'out'], true)) {
+        if (! in_array($type->value, ['in', 'out', 'overtime_in', 'overtime_out'], true)) {
             return $base;
         }
 

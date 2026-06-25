@@ -34,18 +34,28 @@ class GenerateDemoPayrollData extends Command
     protected $description = 'Generate demo payroll data with 55 employees, 2 weeks of attendance, and draft payroll periods.';
 
     private array $branches = [];
+
     private array $employees = [];
+
     private array $dates = [];
+
     private AttendanceService $attendance;
+
     private PayrollPeriodService $payrollPeriod;
+
     private ?int $approverId = null;
 
     // Per-employee scenario plans, keyed by employee ID
     private array $employeePatterns = [];
+
     private array $empOTDates = [];        // empId => [date => 'HH:MM:SS' out time]
+
     private array $empFullDayLeaves = [];  // empId => [date => [type, isPaid, reason]]
+
     private array $empHalfDayDates = [];   // empId => [date => 'am']
+
     private array $empRestDayWork = [];    // empId => [date, ...]
+
     private array $empFines = [];          // empId => [[date, type, amount, note], ...]
 
     private const DEMO_BRANCHES = ['Babak', 'Tibungco', 'Malita', 'Peñaplata'];
@@ -351,13 +361,13 @@ class GenerateDemoPayrollData extends Command
             $hasSaturdayRest = in_array(6, $schedule?->rest_days ?? []);
 
             match ($pattern) {
-                'overtime'       => $this->planOT($empId, $weekdays, $schedEnd, 3),
+                'overtime' => $this->planOT($empId, $weekdays, $schedEnd, 3),
                 'overtime_heavy' => $this->planOT($empId, $weekdays, $schedEnd, 5),
-                'half_day'       => $this->planHalfDayEmployee($empId, $weekdays),
-                'leave_heavy'    => $this->planLeaves($empId, $weekdays, 3, 4),
-                'fined'          => $this->planFine($empId, $weekdays, 2, 3),
-                'rest_day_worker'=> $this->planRestDayWork($empId, $saturdays, $hasSaturdayRest),
-                default          => null,
+                'half_day' => $this->planHalfDayEmployee($empId, $weekdays),
+                'leave_heavy' => $this->planLeaves($empId, $weekdays, 3, 4),
+                'fined' => $this->planFine($empId, $weekdays, 2, 3),
+                'rest_day_worker' => $this->planRestDayWork($empId, $saturdays, $hasSaturdayRest),
+                default => null,
             };
 
             // Sprinkle extras across all employees
@@ -515,12 +525,14 @@ class GenerateDemoPayrollData extends Command
 
                 if ($date === $holidayDate) {
                     $this->createHolidayTimeLogs($emp, $date, $pattern);
+
                     continue;
                 }
 
                 // Rest-day work (Sat for Sun+Sat-off employees): clean full day
                 if (in_array($date, $restDayWorkDates)) {
                     $this->perfectPunches($emp, $date);
+
                     continue;
                 }
 
@@ -528,6 +540,7 @@ class GenerateDemoPayrollData extends Command
                 if (isset($this->empHalfDayDates[$empId][$date])) {
                     $this->createPunch($emp, $date, PunchType::IN, $this->randomTime($date, '08:00', -10, 5));
                     $this->createPunch($emp, $date, PunchType::OUT, $this->randomTime($date, '12:00', -5, 10));
+
                     continue;
                 }
 
@@ -545,6 +558,7 @@ class GenerateDemoPayrollData extends Command
                     $this->createPunch($emp, $date, PunchType::OUT, $otOutTime);
                     $this->createPunch($emp, $date, PunchType::OVERTIME_IN, $schedEnd);
                     $this->createPunch($emp, $date, PunchType::OVERTIME_OUT, $otOutTime);
+
                     continue;
                 }
 
@@ -559,22 +573,22 @@ class GenerateDemoPayrollData extends Command
         $dow = Carbon::parse($date)->dayOfWeek;
         // Higher absence on Mondays and Saturdays
         $absentChance = match ($dow) {
-            Carbon::MONDAY   => 15,
+            Carbon::MONDAY => 15,
             Carbon::SATURDAY => 20,
-            default          => 8,
+            default => 8,
         };
 
         match ($pattern) {
-            'perfect'                    => $this->perfectPunches($emp, $date),
+            'perfect' => $this->perfectPunches($emp, $date),
             'mostly_on_time',
             'overtime', 'overtime_heavy',
             'leave_heavy', 'fined',
-            'rest_day_worker'            => $this->mostlyOnTimePunches($emp, $date, $absentChance),
-            'chronic_late'               => $this->chronicLatePunches($emp, $date, $absentChance),
-            'erratic'                    => $this->erraticPunches($emp, $date),
-            'high_absent'                => $this->highAbsentPunches($emp, $date),
-            'half_day'                   => $this->mostlyOnTimePunches($emp, $date, $absentChance),
-            default                      => $this->mostlyOnTimePunches($emp, $date, $absentChance),
+            'rest_day_worker' => $this->mostlyOnTimePunches($emp, $date, $absentChance),
+            'chronic_late' => $this->chronicLatePunches($emp, $date, $absentChance),
+            'erratic' => $this->erraticPunches($emp, $date),
+            'high_absent' => $this->highAbsentPunches($emp, $date),
+            'half_day' => $this->mostlyOnTimePunches($emp, $date, $absentChance),
+            default => $this->mostlyOnTimePunches($emp, $date, $absentChance),
         };
     }
 
@@ -634,7 +648,7 @@ class GenerateDemoPayrollData extends Command
             $roll <= 20 => $this->randomTime($date, '08:00', 5, 20),    // Slightly late 5–20 min
             $roll <= 40 => $this->randomTime($date, '08:00', 21, 45),   // Moderately late 21–45 min
             $roll <= 55 => $this->randomTime($date, '08:00', 60, 120),  // Heavily late 1–2 h
-            default     => $this->randomTime($date, '08:00', -15, 3),   // On time
+            default => $this->randomTime($date, '08:00', -15, 3),   // On time
         };
 
         $this->createPunch($emp, $date, PunchType::IN, $inTime);

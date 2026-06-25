@@ -1,7 +1,6 @@
 import { router } from '@inertiajs/react';
 import { Clock, Plus, Trash2, Pencil } from 'lucide-react';
 import { useState } from 'react';
-import { formatTime } from '@/utils/formatters';
 import { toast } from 'sonner';
 import {
     AlertDialog,
@@ -23,6 +22,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { formatTime } from '@/utils/formatters';
 
 type Schedule = {
     id: number;

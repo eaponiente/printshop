@@ -3,17 +3,17 @@
 namespace Payroll\Attendance\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Payroll\Attendance\PunchRequest;
 use App\Models\Payroll\AttendanceSheet;
 use App\Models\Payroll\Employee;
 use App\Models\Payroll\TimeLog;
 use Carbon\Carbon;
-use DB;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
-use Payroll\Attendance\Enums\PunchType;
 use Payroll\Attendance\Services\TimeLogService;
 
 class TimeLogController extends Controller
@@ -64,7 +64,7 @@ class TimeLogController extends Controller
         ]);
     }
 
-    public function punch(Request $request, TimeLogService $service)
+    public function punch(PunchRequest $request, TimeLogService $service)
     {
         $employee = $this->findEmployeeForUser();
 
@@ -72,46 +72,46 @@ class TimeLogController extends Controller
             return back()->withErrors(['error' => 'No employee record linked to your account.']);
         }
 
-        $type = PunchType::from($request->input('type'));
         Gate::authorize('time-logs.punch', [$employee->branch_id]);
 
+        $type = $request->punchType();
+
         $customTimestamp = null;
-        if (config('app.enable_custom_punch_time') && $request->filled('timestamp')) {
-            $request->validate([
-                'timestamp' => ['required', 'date'],
-            ]);
-            $customTimestamp = Carbon::parse($request->input('timestamp'));
+        if (
+            config('app.enable_custom_punch_time')
+            && $request->filled('timestamp')
+            && Gate::allows('time-logs.useCustomTimestamp')
+        ) {
+            $customTimestamp = Carbon::createFromFormat('Y-m-d H:i:s', $request->input('timestamp'));
         }
-
-        $punchDate = $customTimestamp?->toDateString() ?? now()->toDateString();
-        $lockedSheet = AttendanceSheet::where('employee_id', $employee->id)
-            ->where('date', $punchDate)
-            ->whereNotNull('locked_at')
-            ->first();
-
-        if ($lockedSheet) {
-            throw ValidationException::withMessages([
-                'error' => 'Attendance sheet for this date is locked in a payroll period.',
-            ]);
-        }
-
-        $latitude = $request->input('latitude');
-        $longitude = $request->input('longitude');
-        $accuracyMeters = $request->input('accuracy_meters');
 
         try {
-            $log = DB::transaction(function () use ($service, $employee, $type, $latitude, $longitude, $accuracyMeters, $customTimestamp) {
-                return $service->punch($employee, $type, auth()->user(), $latitude, $longitude, $accuracyMeters, $customTimestamp);
-            });
+            $log = $service->punch(
+                $employee,
+                $type,
+                $request->user(),
+                $request->input('latitude'),
+                $request->input('longitude'),
+                $request->input('accuracy_meters'),
+                $customTimestamp,
+            );
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            Log::error('Punch failed', [
+                'employee_id' => $employee->id,
+                'type' => $type->value,
+                'error' => $e->getMessage(),
+            ]);
 
-            if ($log->duplicate_of) {
-                return back()->with('warning', 'Duplicate punch detected. Your earlier punch was kept.');
-            }
-
-            return back()->with('success', $type->label().' recorded at '.$log->timestamp->format('h:i A').'.');
-        } catch (\Exception $e) {
             return back()->withErrors(['error' => 'Failed to record punch. Please try again.']);
         }
+
+        if ($log->duplicate_of) {
+            return back()->with('warning', 'Duplicate punch detected. Your earlier punch was kept.');
+        }
+
+        return back()->with('success', $type->label().' recorded at '.$log->timestamp->format('h:i A').'.');
     }
 
     public function manual(Request $request, TimeLogService $service)

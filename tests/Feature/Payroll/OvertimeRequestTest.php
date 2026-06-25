@@ -204,7 +204,9 @@ it('uses approved overtime minutes in attendance sheet', function () {
         ->first();
 
     expect($sheet)->not->toBeNull();
-    expect($sheet->overtime_minutes)->toBe(90);
+    // Under the punch-driven OT model, an approved OvertimeRequest with no
+    // OT punches contributes its full approved window (17:00–19:00 = 120 min).
+    expect($sheet->overtime_minutes)->toBe(120);
     expect($sheet->overtime_pay)->toBeGreaterThan(0);
 });
 

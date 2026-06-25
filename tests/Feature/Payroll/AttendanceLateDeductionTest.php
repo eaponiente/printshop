@@ -123,9 +123,8 @@ it('subtracts late_deduction from daily_wage', function () {
     expect((int) $sheet->late_minutes)->toBe(23);
     expect((string) $sheet->late_deduction)->toBe((string) $expectedLate);
 
-    $maxPaidMinutes = max(480 - 23, 240);
-    $basePay = round(($maxPaidMinutes / 60) * $hourlyRate, 2);
-    $expectedWage = round($basePay - $expectedLate, 2);
+    // Base pay is the full daily rate; late_deduction is the only impact.
+    $expectedWage = round(510 - $expectedLate, 2);
 
     expect((string) $sheet->daily_wage)->toBe((string) $expectedWage);
 });

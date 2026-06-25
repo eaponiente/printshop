@@ -27,7 +27,10 @@ export default function LeaveRequestForm({ onClose }: Props) {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!canSubmit) return;
+
+        if (!canSubmit) {
+return;
+}
 
         setSubmitting(true);
 
