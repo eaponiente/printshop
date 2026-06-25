@@ -1,9 +1,8 @@
 import { Head, router, useForm } from '@inertiajs/react';
+import type { CellContext, ColumnDef } from '@tanstack/react-table';
 import {
-    CalendarDays,
     Clock,
     Coffee,
-    Lock,
     LogIn,
     LogOut,
     PlusCircle,
@@ -27,7 +26,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { DataTable } from '@/components/data-table';
 import PayrollLayout from '@/layouts/payroll/payroll-layout';
+import type { PaginatedResponse } from '@/types/pagination';
 import type { BreadcrumbItem } from '@/types';
 import { toDateInput } from '@/utils/dateHelper';
 import { formatCurrency, formatTime } from '@/utils/formatters';
@@ -38,8 +39,28 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'My Attendance', href: '/payroll/attendance' },
 ];
 
+type TimeLogRow = {
+    id: number;
+    type: string;
+    timestamp: string;
+    source: string;
+};
+
+type AttendanceSheetRow = {
+    id: number;
+    date: string;
+    is_present: boolean;
+    is_rest_day: boolean;
+    hours_worked: number;
+    late_minutes: number;
+    undertime_minutes: number;
+    overtime_minutes: number;
+    holiday_pay_percent: number | null;
+    daily_wage: number;
+    locked_at: string | null;
+};
+
 type Props = {
-    tab: string;
     punchState: any | null;
     employee: {
         id: number;
@@ -71,47 +92,14 @@ type Props = {
         effective_from: string;
         effective_to: string | null;
     } | null;
-    weekSheets: any[];
-    recentTimeLogs: any[];
-    weekStart: string;
-    weekEnd: string;
     enableCustomPunchTime: boolean;
-};
-
-type Tab = 'punch' | 'history' | 'profile';
-
-const TAB_PROPS: Partial<Record<Tab, string[]>> = {
-    history: ['weekSheets', 'recentTimeLogs', 'tab'],
+    attendanceSheets: PaginatedResponse<AttendanceSheetRow> | null;
+    recentTimeLogs: TimeLogRow[];
 };
 
 export default function MyAttendance(props: Props) {
     const { punchState, employee } = props;
-    const [tab, setTabState] = useState<Tab>((props.tab as Tab) ?? 'punch');
-    const [loadedTabs, setLoadedTabs] = useState<Set<Tab>>(
-        new Set([
-            'punch',
-            'profile',
-            ...(props.tab === 'history' ? ['history' as Tab] : []),
-        ]),
-    );
-
-    const switchTab = (key: Tab) => {
-        setTabState(key);
-        const needed = TAB_PROPS[key];
-
-        if (needed && !loadedTabs.has(key)) {
-            setLoadedTabs((prev) => new Set(prev).add(key));
-            router.reload({
-                only: needed,
-                data: { tab: key },
-                onSuccess: () => {
-                    window.history.replaceState(null, '', `?tab=${key}`);
-                },
-            });
-        } else {
-            window.history.replaceState(null, '', `?tab=${key}`);
-        }
-    };
+    const [tab, setTab] = useState<'punch' | 'profile'>('punch');
 
     if (!employee) {
         return (
@@ -138,46 +126,41 @@ export default function MyAttendance(props: Props) {
                 </div>
 
                 <div className="flex gap-1 overflow-x-auto rounded-md border bg-sidebar p-1">
-                    {(
-                        [
-                            ['punch', 'Punch', Clock],
-                            ['history', 'History', CalendarDays],
-                            ['profile', 'Profile', User],
-                        ] as [Tab, string, any][]
-                    ).map(([key, label, Icon]) => (
-                        <button
-                            key={key}
-                            onClick={() => switchTab(key)}
-                            className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
-                                tab === key
-                                    ? 'bg-accent text-accent-foreground shadow-sm'
-                                    : 'text-muted-foreground hover:text-foreground'
-                            }`}
-                        >
-                            <Icon className="h-3.5 w-3.5" />
-                            {label}
-                        </button>
-                    ))}
+                    <button
+                        onClick={() => setTab('punch')}
+                        className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+                            tab === 'punch'
+                                ? 'bg-accent text-accent-foreground shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                    >
+                        <Clock className="h-3.5 w-3.5" />
+                        Punch
+                    </button>
+                    <button
+                        onClick={() => setTab('profile')}
+                        className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+                            tab === 'profile'
+                                ? 'bg-accent text-accent-foreground shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                    >
+                        <User className="h-3.5 w-3.5" />
+                        Profile
+                    </button>
                 </div>
 
                 {tab === 'punch' && (
                     <PunchTab
                         punchState={punchState}
-                        weekSheets={props.weekSheets}
+                        attendanceSheets={props.attendanceSheets}
+                        recentTimeLogs={props.recentTimeLogs}
                         enableCustomPunchTime={props.enableCustomPunchTime}
                     />
                 )}
-                {tab === 'history' && (
-                    <HistoryTab
-                        weekSheets={props.weekSheets}
-                        timeLogs={props.recentTimeLogs}
-                        weekStart={props.weekStart}
-                        weekEnd={props.weekEnd}
-                    />
-                )}
-                {tab === 'profile' && props.employee && (
+                {tab === 'profile' && (
                     <ProfileTab
-                        employee={props.employee}
+                        employee={props.employee!}
                         activeSchedule={props.activeSchedule}
                     />
                 )}
@@ -186,21 +169,121 @@ export default function MyAttendance(props: Props) {
     );
 }
 
+const attendanceColumns: ColumnDef<AttendanceSheetRow, any>[] = [
+    {
+        accessorKey: 'date',
+        header: 'Date',
+        cell: ({ row }: CellContext<AttendanceSheetRow, any>) => (
+            <span className="font-mono text-xs whitespace-nowrap">
+                {new Date(row.original.date).toLocaleDateString('en-PH', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric',
+                })}
+            </span>
+        ),
+    },
+    {
+        accessorKey: 'status',
+        header: 'Status',
+        cell: ({ row }: CellContext<AttendanceSheetRow, any>) => {
+            if (row.original.is_present) {
+                return (
+                    <span className="text-xs font-medium text-green-600">
+                        Present
+                    </span>
+                );
+            }
+            if (row.original.is_rest_day) {
+                return <span className="text-xs text-blue-500">Rest</span>;
+            }
+            return <span className="text-xs text-red-500">Absent</span>;
+        },
+    },
+    {
+        accessorKey: 'hours_worked',
+        header: 'Hours',
+        cell: ({ row }: CellContext<AttendanceSheetRow, any>) => (
+            <span className="font-mono text-xs">
+                {row.original.hours_worked}
+            </span>
+        ),
+    },
+    {
+        accessorKey: 'late_minutes',
+        header: 'Late',
+        cell: ({ row }: CellContext<AttendanceSheetRow, any>) => (
+            <span className="text-xs">
+                {row.original.late_minutes > 0
+                    ? `${row.original.late_minutes}m`
+                    : '—'}
+            </span>
+        ),
+    },
+    {
+        accessorKey: 'undertime_minutes',
+        header: 'UT',
+        cell: ({ row }: CellContext<AttendanceSheetRow, any>) => (
+            <span className="text-xs">
+                {row.original.undertime_minutes > 0
+                    ? `${row.original.undertime_minutes}m`
+                    : '—'}
+            </span>
+        ),
+    },
+    {
+        accessorKey: 'overtime_minutes',
+        header: 'OT',
+        cell: ({ row }: CellContext<AttendanceSheetRow, any>) => (
+            <span className="text-xs">
+                {row.original.overtime_minutes > 0
+                    ? `${row.original.overtime_minutes}m`
+                    : '—'}
+            </span>
+        ),
+    },
+    {
+        accessorKey: 'holiday_pay_percent',
+        header: 'Holiday',
+        cell: ({ row }: CellContext<AttendanceSheetRow, any>) => (
+            <span className="text-xs">
+                {row.original.holiday_pay_percent
+                    ? `${row.original.holiday_pay_percent}%`
+                    : '—'}
+            </span>
+        ),
+    },
+    {
+        accessorKey: 'daily_wage',
+        header: 'Wage',
+        cell: ({ row }: CellContext<AttendanceSheetRow, any>) => (
+            <span className="font-mono text-xs font-medium whitespace-nowrap">
+                {formatCurrency(row.original.daily_wage)}
+            </span>
+        ),
+    },
+];
+
 function PunchTab({
     punchState,
-    weekSheets,
+    attendanceSheets,
+    recentTimeLogs,
     enableCustomPunchTime,
 }: {
     punchState: any;
-    weekSheets: any[];
+    attendanceSheets: PaginatedResponse<AttendanceSheetRow> | null;
+    recentTimeLogs: TimeLogRow[];
     enableCustomPunchTime: boolean;
 }) {
     const today = new Date().toISOString().substring(0, 10);
     const now = new Date();
     const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-    const todaySheet = weekSheets?.find((s: any) => s.date === today);
-    const isLocked = todaySheet?.locked_at != null;
+    const [selectedDate, setSelectedDate] = useState(today);
+    const [selectedTime, setSelectedTime] = useState(currentTime);
+    const [confirmPunchType, setConfirmPunchType] = useState<string | null>(
+        null,
+    );
 
     const firstInLog = punchState?.logs?.find(
         (l: any) =>
@@ -212,13 +295,6 @@ function PunchTab({
             (l: any) =>
                 (typeof l.type === 'string' ? l.type : l.type?.value) === 'out',
         );
-
-    const [punching, setPunching] = useState(false);
-    const [selectedDate, setSelectedDate] = useState(today);
-    const [selectedTime, setSelectedTime] = useState(currentTime);
-    const [confirmPunchType, setConfirmPunchType] = useState<string | null>(
-        null,
-    );
 
     const displayTime = enableCustomPunchTime
         ? `${selectedDate} ${selectedTime}`
@@ -237,7 +313,6 @@ function PunchTab({
 
     const punch = (type: string) => {
         const label = typeLabel(type);
-        setPunching(true);
         const payload: Record<string, string | number | null> = {
             type,
         };
@@ -250,16 +325,13 @@ function PunchTab({
             router.post('/payroll/attendance/punch', payload, {
                 onSuccess: () => {
                     toast.success(`${label} recorded.`);
-                    router.reload();
                 },
                 onError: (err: any) => {
-                    setPunching(false);
                     toast.error(err.message ?? 'Failed to record punch.');
                 },
             });
         };
 
-        // Only capture geolocation for IN, OUT, and OVERTIME punches
         if (
             type === 'in' ||
             type === 'out' ||
@@ -282,7 +354,6 @@ function PunchTab({
                     sendPunch();
                 },
                 () => {
-                    // Permission denied or error — still allow the punch
                     sendPunch();
                 },
                 { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
@@ -292,414 +363,403 @@ function PunchTab({
         }
     };
 
+    const groupedLogs = groupTimeLogsByDate(recentTimeLogs);
+
+    const disabledReason = (
+        kind: 'in' | 'out' | 'lunch_out' | 'lunch_in' | 'overtime_in' | 'overtime_out',
+    ): string | null => {
+        if (!punchState) return null;
+        const lastLabel = punchState.last_punch?.label;
+        switch (kind) {
+            case 'in':
+                return punchState.can_punch_in ? null : 'Already punched in for today.';
+            case 'out':
+                return punchState.can_punch_out
+                    ? null
+                    : punchState.is_complete
+                      ? 'Already punched out for today.'
+                      : lastLabel === 'Start Break'
+                        ? 'End your break before punching out.'
+                        : 'Punch in first.';
+            case 'lunch_out':
+                return punchState.can_punch_lunch_out
+                    ? null
+                    : !punchState.last_punch
+                      ? 'Punch in first.'
+                      : 'Break already started or shift complete.';
+            case 'lunch_in':
+                return punchState.can_punch_lunch_in
+                    ? null
+                    : 'Start a break before ending it.';
+            case 'overtime_in':
+                return punchState.can_punch_overtime_in
+                    ? null
+                    : punchState.is_complete
+                      ? 'Overtime already started.'
+                      : 'Punch out before starting overtime.';
+            case 'overtime_out':
+                return punchState.can_punch_overtime_out
+                    ? null
+                    : 'Punch overtime in first.';
+        }
+    };
+
     return (
-        <div className="mx-auto max-w-sm space-y-4">
-            {punchState?.last_punch && (
-                <div className="rounded-md border bg-sidebar p-3 text-sm">
-                    Last punch:{' '}
-                    <span className="font-medium">
-                        {punchState.last_punch.label}
-                    </span>{' '}
-                    at{' '}
-                    <span className="font-medium">
-                        {new Date(
-                            punchState.last_punch.timestamp,
-                        ).toLocaleTimeString('en-PH', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                        })}
-                    </span>
-                </div>
-            )}
-
-            {(firstInLog || lastOutLog) && (
-                <div className="flex items-center justify-center gap-3 rounded-md border bg-sidebar px-4 py-2 text-sm">
-                    <span className="text-muted-foreground">In</span>
-                    <span className="font-mono font-medium">
-                        {firstInLog
-                            ? new Date(firstInLog.timestamp).toLocaleTimeString(
-                                  'en-PH',
-                                  {
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                  },
-                              )
-                            : '—'}
-                    </span>
-                    <span className="text-border">|</span>
-                    <span className="text-muted-foreground">Out</span>
-                    <span className="font-mono font-medium">
-                        {lastOutLog
-                            ? new Date(lastOutLog.timestamp).toLocaleTimeString(
-                                  'en-PH',
-                                  {
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                  },
-                              )
-                            : '—'}
-                    </span>
-                </div>
-            )}
-
-            {punchState?.is_complete && (
-                <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-700">
-                    All punches complete for today.
-                </div>
-            )}
-
-            {isLocked && (
-                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-700">
-                    <div className="flex items-center gap-2">
-                        <Lock className="h-4 w-4" />
-                        Attendance is locked (payroll generated). Punching is
-                        disabled.
-                    </div>
-                </div>
-            )}
-
-            {enableCustomPunchTime && (
-                <div className="space-y-2 rounded-md border bg-sidebar p-3">
-                    <div className="flex items-center justify-between">
-                        <h3 className="text-xs font-semibold text-muted-foreground uppercase">
-                            Set Punch Time
-                        </h3>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 px-2 text-xs text-muted-foreground"
-                            onClick={resetToNow}
-                            type="button"
-                        >
-                            <Clock className="mr-1 h-3 w-3" />
-                            Now
-                        </Button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-1">
-                            <Label className="text-[10px] text-muted-foreground uppercase">
-                                Date
-                            </Label>
-                            <Input
-                                type="date"
-                                value={selectedDate}
-                                onChange={(e) =>
-                                    setSelectedDate(e.target.value)
-                                }
-                                className="h-8 text-xs"
-                            />
+        <div className="mx-auto w-full max-w-5xl space-y-6">
+            <div className="grid gap-6 lg:grid-cols-5">
+                <div className="space-y-2 lg:col-span-2">
+                    <h3 className="text-sm font-semibold">Recent Time Logs</h3>
+                    {groupedLogs.length > 0 ? (
+                        <div className="max-h-[480px] space-y-3 overflow-y-auto rounded-md border bg-sidebar p-3">
+                            {groupedLogs.map(([date, logs]) => (
+                                <div key={date}>
+                                    <div className="mb-1 text-[11px] font-semibold text-muted-foreground uppercase">
+                                        {new Date(date).toLocaleDateString(
+                                            'en-PH',
+                                            {
+                                                weekday: 'short',
+                                                month: 'short',
+                                                day: 'numeric',
+                                            },
+                                        )}
+                                    </div>
+                                    <ul className="space-y-0.5">
+                                        {logs.map((log) => (
+                                            <li
+                                                key={log.id}
+                                                className="flex items-center justify-between rounded px-1.5 py-0.5 text-xs"
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <span
+                                                        className={`inline-block h-1.5 w-1.5 rounded-full ${
+                                                            log.type === 'in'
+                                                                ? 'bg-blue-500'
+                                                                : log.type ===
+                                                                    'out'
+                                                                  ? 'bg-orange-500'
+                                                                  : log.type ===
+                                                                      'lunch_out'
+                                                                    ? 'bg-yellow-500'
+                                                                    : log.type ===
+                                                                        'lunch_in'
+                                                                      ? 'bg-purple-500'
+                                                                      : 'bg-gray-400'
+                                                        }`}
+                                                    />
+                                                    <span className="text-muted-foreground">
+                                                        {typeLabel(log.type)}
+                                                    </span>
+                                                </div>
+                                                <span className="font-mono text-[11px]">
+                                                    {new Date(
+                                                        log.timestamp,
+                                                    ).toLocaleTimeString(
+                                                        'en-PH',
+                                                        {
+                                                            hour: '2-digit',
+                                                            minute: '2-digit',
+                                                        },
+                                                    )}
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ))}
                         </div>
-                        <div className="space-y-1">
-                            <Label className="text-[10px] text-muted-foreground uppercase">
-                                Time
-                            </Label>
-                            <Input
-                                type="time"
-                                value={selectedTime}
-                                onChange={(e) =>
-                                    setSelectedTime(e.target.value)
-                                }
-                                className="h-8 text-xs"
-                            />
+                    ) : (
+                        <div className="rounded-md border bg-sidebar p-4 text-center text-sm text-muted-foreground">
+                            No time logs in the last 10 days.
+                        </div>
+                    )}
+                </div>
+
+                <div className="space-y-4 lg:col-span-3">
+                    {punchState?.last_punch && (
+                        <div className="rounded-md border bg-sidebar p-3 text-sm">
+                            Last punch:{' '}
+                            <span className="font-medium">
+                                {punchState.last_punch.label}
+                            </span>{' '}
+                            at{' '}
+                            <span className="font-medium">
+                                {new Date(
+                                    punchState.last_punch.timestamp,
+                                ).toLocaleTimeString('en-PH', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                })}
+                            </span>
+                        </div>
+                    )}
+
+                    {(firstInLog || lastOutLog) && (
+                        <div className="flex items-center justify-center gap-3 rounded-md border bg-sidebar px-4 py-2 text-sm">
+                            <span className="text-muted-foreground">In</span>
+                            <span className="font-mono font-medium">
+                                {firstInLog
+                                    ? new Date(
+                                          firstInLog.timestamp,
+                                      ).toLocaleTimeString('en-PH', {
+                                          hour: '2-digit',
+                                          minute: '2-digit',
+                                      })
+                                    : '—'}
+                            </span>
+                            <span className="text-border">|</span>
+                            <span className="text-muted-foreground">Out</span>
+                            <span className="font-mono font-medium">
+                                {lastOutLog
+                                    ? new Date(
+                                          lastOutLog.timestamp,
+                                      ).toLocaleTimeString('en-PH', {
+                                          hour: '2-digit',
+                                          minute: '2-digit',
+                                      })
+                                    : '—'}
+                            </span>
+                        </div>
+                    )}
+
+                    {punchState?.is_complete && (
+                        <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-700">
+                            All punches complete for today.
+                        </div>
+                    )}
+
+                    {enableCustomPunchTime && (
+                        <div className="space-y-2 rounded-md border bg-sidebar p-3">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-xs font-semibold text-muted-foreground uppercase">
+                                    Set Punch Time
+                                </h3>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 px-2 text-xs text-muted-foreground"
+                                    onClick={resetToNow}
+                                    type="button"
+                                >
+                                    <Clock className="mr-1 h-3 w-3" />
+                                    Now
+                                </Button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] text-muted-foreground uppercase">
+                                        Date
+                                    </Label>
+                                    <Input
+                                        type="date"
+                                        value={selectedDate}
+                                        onChange={(e) =>
+                                            setSelectedDate(e.target.value)
+                                        }
+                                        className="h-8 text-xs"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] text-muted-foreground uppercase">
+                                        Time
+                                    </Label>
+                                    <Input
+                                        type="time"
+                                        value={selectedTime}
+                                        onChange={(e) =>
+                                            setSelectedTime(e.target.value)
+                                        }
+                                        className="h-8 text-xs"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex flex-col gap-2">
+                        <div className="grid grid-cols-2 gap-2">
+                            <Button
+                                size="lg"
+                                onClick={() => setConfirmPunchType('in')}
+                                disabled={disabledReason('in') !== null}
+                                title={disabledReason('in') ?? undefined}
+                                className="h-14 flex-col gap-1 border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
+                            >
+                                <LogIn className="h-4 w-4" />
+                                <span className="text-xs">Punch In</span>
+                            </Button>
+
+                            <Button
+                                size="lg"
+                                onClick={() => setConfirmPunchType('out')}
+                                disabled={disabledReason('out') !== null}
+                                title={disabledReason('out') ?? undefined}
+                                className="h-14 flex-col gap-1 border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
+                            >
+                                <LogOut className="h-4 w-4" />
+                                <span className="text-xs">Punch Out</span>
+                            </Button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                            <Button
+                                size="lg"
+                                variant="outline"
+                                onClick={() => setConfirmPunchType('lunch_out')}
+                                disabled={disabledReason('lunch_out') !== null}
+                                title={disabledReason('lunch_out') ?? undefined}
+                                className="h-14 flex-col gap-1"
+                            >
+                                <Coffee className="h-4 w-4" />
+                                <span className="text-xs">Start Break</span>
+                            </Button>
+
+                            <Button
+                                size="lg"
+                                variant="outline"
+                                onClick={() => setConfirmPunchType('lunch_in')}
+                                disabled={disabledReason('lunch_in') !== null}
+                                title={disabledReason('lunch_in') ?? undefined}
+                                className="h-14 flex-col gap-1"
+                            >
+                                <UtensilsCrossed className="h-4 w-4" />
+                                <span className="text-xs">End Break</span>
+                            </Button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                            <Button
+                                size="lg"
+                                onClick={() => setConfirmPunchType('overtime_in')}
+                                disabled={disabledReason('overtime_in') !== null}
+                                title={disabledReason('overtime_in') ?? undefined}
+                                className="h-14 flex-col gap-1 border border-rose-600 bg-rose-600 text-white hover:bg-rose-700"
+                            >
+                                <PlusCircle className="h-4 w-4" />
+                                <span className="text-xs">Overtime In</span>
+                            </Button>
+
+                            <Button
+                                size="lg"
+                                onClick={() => setConfirmPunchType('overtime_out')}
+                                disabled={disabledReason('overtime_out') !== null}
+                                title={disabledReason('overtime_out') ?? undefined}
+                                className="h-14 flex-col gap-1 border border-rose-600 bg-rose-600 text-white hover:bg-rose-700"
+                            >
+                                <MinusCircle className="h-4 w-4" />
+                                <span className="text-xs">Overtime Out</span>
+                            </Button>
                         </div>
                     </div>
+
+                    <AlertDialog
+                        open={confirmPunchType !== null}
+                        onOpenChange={(v) => !v && setConfirmPunchType(null)}
+                    >
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>
+                                    Confirm{' '}
+                                    {confirmPunchType
+                                        ? typeLabel(confirmPunchType)
+                                        : ''}
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    You are about to record{' '}
+                                    {confirmPunchType === 'in'
+                                        ? 'your time in'
+                                        : confirmPunchType === 'out'
+                                          ? 'your time out'
+                                          : confirmPunchType === 'lunch_out'
+                                            ? 'the start of your break'
+                                            : confirmPunchType === 'lunch_in'
+                                              ? 'the end of your break'
+                                              : confirmPunchType ===
+                                                  'overtime_in'
+                                                ? 'your overtime start'
+                                                : 'your overtime end'}{' '}
+                                    at{' '}
+                                    <span className="font-semibold text-foreground">
+                                        {displayTime}
+                                    </span>
+                                    .
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                    onClick={() => {
+                                        if (confirmPunchType) {
+                                            punch(confirmPunchType);
+                                        }
+                                    }}
+                                >
+                                    Confirm
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+
+                    {punchState?.logs?.length > 0 && (
+                        <div className="rounded-md border bg-sidebar p-3">
+                            <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
+                                Today's Punches
+                            </h3>
+                            <ul className="space-y-1">
+                                {punchState.logs.map((log: any) => (
+                                    <li
+                                        key={log.id}
+                                        className="flex justify-between text-sm"
+                                    >
+                                        <span className="text-muted-foreground">
+                                            {typeLabel(log.type)}
+                                        </span>
+                                        <span className="font-mono text-xs">
+                                            {new Date(
+                                                log.timestamp,
+                                            ).toLocaleTimeString('en-PH', {
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                                second: '2-digit',
+                                            })}
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
                 </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                <Button
-                    size="lg"
-                    variant="outline"
-                    onClick={() => setConfirmPunchType('in')}
-                    disabled={isLocked || punching}
-                    className="h-14 flex-col gap-1"
-                >
-                    <LogIn className="h-4 w-4" />
-                    <span className="text-xs">Punch In</span>
-                </Button>
-
-                <Button
-                    size="lg"
-                    variant="outline"
-                    onClick={() => setConfirmPunchType('lunch_out')}
-                    disabled={isLocked || punching}
-                    className="h-14 flex-col gap-1"
-                >
-                    <Coffee className="h-4 w-4" />
-                    <span className="text-xs">Start Break</span>
-                </Button>
-
-                <Button
-                    size="lg"
-                    variant="outline"
-                    onClick={() => setConfirmPunchType('lunch_in')}
-                    disabled={isLocked || punching}
-                    className="h-14 flex-col gap-1"
-                >
-                    <UtensilsCrossed className="h-4 w-4" />
-                    <span className="text-xs">End Break</span>
-                </Button>
-
-                <Button
-                    size="lg"
-                    variant="outline"
-                    onClick={() => setConfirmPunchType('out')}
-                    disabled={isLocked || punching}
-                    className="h-14 flex-col gap-1"
-                >
-                    <LogOut className="h-4 w-4" />
-                    <span className="text-xs">Punch Out</span>
-                </Button>
-
-                <Button
-                    size="lg"
-                    variant="outline"
-                    onClick={() => setConfirmPunchType('overtime_in')}
-                    disabled={isLocked || punching}
-                    className="h-14 flex-col gap-1"
-                >
-                    <PlusCircle className="h-4 w-4" />
-                    <span className="text-xs">Overtime In</span>
-                </Button>
-
-                <Button
-                    size="lg"
-                    variant="outline"
-                    onClick={() => setConfirmPunchType('overtime_out')}
-                    disabled={isLocked || punching}
-                    className="h-14 flex-col gap-1"
-                >
-                    <MinusCircle className="h-4 w-4" />
-                    <span className="text-xs">Overtime Out</span>
-                </Button>
             </div>
 
-            <AlertDialog
-                open={confirmPunchType !== null}
-                onOpenChange={(v) => !v && setConfirmPunchType(null)}
-            >
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>
-                            Confirm{' '}
-                            {confirmPunchType
-                                ? typeLabel(confirmPunchType)
-                                : ''}
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                            You are about to record{' '}
-                            {confirmPunchType === 'in'
-                                ? 'your time in'
-                                : confirmPunchType === 'out'
-                                  ? 'your time out'
-                                  : confirmPunchType === 'lunch_out'
-                                    ? 'the start of your break'
-                                    : confirmPunchType === 'lunch_in'
-                                      ? 'the end of your break'
-                                      : confirmPunchType === 'overtime_in'
-                                        ? 'your overtime start'
-                                        : 'your overtime end'}{' '}
-                            at{' '}
-                            <span className="font-semibold text-foreground">
-                                {displayTime}
-                            </span>
-                            .
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={() => {
-                                if (confirmPunchType) {
-                                    punch(confirmPunchType);
-                                }
-                            }}
-                        >
-                            Confirm
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-
-            {punchState?.logs?.length > 0 && (
-                <div className="rounded-md border bg-sidebar p-3">
-                    <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
-                        Today's Punches
-                    </h3>
-                    <ul className="space-y-1">
-                        {punchState.logs.map((log: any) => (
-                            <li
-                                key={log.id}
-                                className="flex justify-between text-sm"
-                            >
-                                <span className="text-muted-foreground">
-                                    {typeLabel(log.type)}
-                                </span>
-                                <span className="font-mono text-xs">
-                                    {new Date(log.timestamp).toLocaleTimeString(
-                                        'en-PH',
-                                        {
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                            second: '2-digit',
-                                        },
-                                    )}
-                                </span>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            )}
+            <div className="space-y-2">
+                <h3 className="text-sm font-semibold">Attendance History</h3>
+                {attendanceSheets?.data && attendanceSheets.data.length > 0 ? (
+                    <DataTable
+                        columns={attendanceColumns}
+                        pagination={attendanceSheets}
+                    />
+                ) : (
+                    <p className="text-sm text-muted-foreground">
+                        No attendance records found.
+                    </p>
+                )}
+            </div>
         </div>
     );
 }
 
-function HistoryTab({
-    weekSheets,
-    timeLogs,
-    weekStart,
-    weekEnd,
-}: {
-    weekSheets: any[];
-    timeLogs: any[];
-    weekStart: string;
-    weekEnd: string;
-}) {
-    return (
-        <div className="space-y-6">
-            <div className="space-y-2">
-                <h3 className="text-sm font-semibold">
-                    This Week ({weekStart} – {weekEnd})
-                </h3>
-                {weekSheets?.length > 0 ? (
-                    <div className="overflow-x-auto rounded-md border">
-                        <table className="min-w-full text-sm">
-                            <thead>
-                                <tr className="border-b bg-muted/50">
-                                    <th className="px-3 py-2 text-left">
-                                        Date
-                                    </th>
-                                    <th className="px-3 py-2 text-center">
-                                        Status
-                                    </th>
-                                    <th className="px-3 py-2 text-center">
-                                        Hours
-                                    </th>
-                                    <th className="px-3 py-2 text-center">
-                                        Late
-                                    </th>
-                                    <th className="px-3 py-2 text-center">
-                                        UT
-                                    </th>
-                                    <th className="px-3 py-2 text-center">
-                                        OT
-                                    </th>
-                                    <th className="px-3 py-2 text-center">
-                                        Holiday
-                                    </th>
-                                    <th className="px-3 py-2 text-right">
-                                        Wage
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {weekSheets.map((s: any) => (
-                                    <tr key={s.date} className="border-b">
-                                        <td className="px-3 py-2 font-mono text-xs">
-                                            {new Date(
-                                                s.date,
-                                            ).toLocaleDateString('en-PH', {
-                                                weekday: 'short',
-                                                month: 'short',
-                                                day: 'numeric',
-                                            })}
-                                        </td>
-                                        <td className="px-3 py-2 text-center">
-                                            {s.is_present ? (
-                                                <span className="text-xs font-medium text-green-600">
-                                                    Present
-                                                </span>
-                                            ) : s.is_rest_day ? (
-                                                <span className="text-xs text-blue-500">
-                                                    Rest
-                                                </span>
-                                            ) : (
-                                                <span className="text-xs text-red-500">
-                                                    Absent
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="px-3 py-2 text-center font-mono text-xs">
-                                            {s.hours_worked}
-                                        </td>
-                                        <td className="px-3 py-2 text-center text-xs">
-                                            {s.late_minutes > 0
-                                                ? `${s.late_minutes}m`
-                                                : '—'}
-                                        </td>
-                                        <td className="px-3 py-2 text-center text-xs">
-                                            {s.undertime_minutes > 0
-                                                ? `${s.undertime_minutes}m`
-                                                : '—'}
-                                        </td>
-                                        <td className="px-3 py-2 text-center text-xs">
-                                            {s.overtime_minutes > 0
-                                                ? `${s.overtime_minutes}m`
-                                                : '—'}
-                                        </td>
-                                        <td className="px-3 py-2 text-center text-xs">
-                                            {s.holiday_pay_percent
-                                                ? `${s.holiday_pay_percent}%`
-                                                : '—'}
-                                        </td>
-                                        <td className="px-3 py-2 text-right font-mono text-xs font-medium">
-                                            {formatCurrency(s.daily_wage)}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                ) : (
-                    <p className="text-sm text-muted-foreground">
-                        No attendance records this week.
-                    </p>
-                )}
-            </div>
+function groupTimeLogsByDate(logs: TimeLogRow[]): [string, TimeLogRow[]][] {
+    const groups = new Map<string, TimeLogRow[]>();
 
-            {timeLogs?.length > 0 && (
-                <div className="space-y-2">
-                    <h3 className="text-sm font-semibold">Recent Time Logs</h3>
-                    <div className="space-y-1">
-                        {timeLogs.map((log: any) => (
-                            <div
-                                key={log.id}
-                                className="flex items-center justify-between rounded border bg-sidebar px-3 py-2 text-sm"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <span className="font-mono text-xs">
-                                        {log.timestamp?.substring(0, 10)}
-                                    </span>
-                                    <span className="text-xs capitalize">
-                                        {typeLabel(log.type)}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground uppercase">
-                                        {log.source}
-                                    </span>
-                                </div>
-                                <span className="font-mono text-xs">
-                                    {new Date(log.timestamp).toLocaleTimeString(
-                                        'en-PH',
-                                        { hour: '2-digit', minute: '2-digit' },
-                                    )}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-        </div>
-    );
+    for (const log of logs) {
+        const d = new Date(log.timestamp);
+        const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        if (!groups.has(date)) {
+            groups.set(date, []);
+        }
+        groups.get(date)!.push(log);
+    }
+
+    return [...groups.entries()].sort((a, b) => b[0].localeCompare(a[0]));
 }
 
 function typeLabel(type: string) {

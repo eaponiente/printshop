@@ -39,40 +39,28 @@ class TimeLogController extends Controller
             ? $service->punchSequenceForDate($employee, now()->toDateString())
             : null;
 
-        $tab = $request->input('tab', 'punch');
-        $weekStart = Carbon::now()->startOfWeek(Carbon::MONDAY)->toDateString();
-        $weekEnd = Carbon::now()->endOfWeek(Carbon::SUNDAY)->toDateString();
-
-        $weekSheetsCallback = fn () => $employee
+        $attendanceSheets = $employee
             ? AttendanceSheet::where('employee_id', $employee->id)
-                ->whereBetween('date', [$weekStart, $weekEnd])
-                ->orderBy('date')
-                ->get()
-            : collect();
+                ->where('date', '>=', Carbon::now()->subMonths(2)->startOfMonth()->toDateString())
+                ->orderBy('date', 'desc')
+                ->paginate(30)
+            : null;
 
-        $recentTimeLogsCallback = fn () => $employee
+        $recentTimeLogs = $employee
             ? TimeLog::where('employee_id', $employee->id)
-                ->whereBetween('timestamp', [$weekStart.' 00:00:00', $weekEnd.' 23:59:59'])
+                ->where('timestamp', '>=', Carbon::now()->subDays(10)->startOfDay())
                 ->whereNull('duplicate_of')
                 ->orderBy('timestamp', 'desc')
-                ->limit(50)
                 ->get()
             : collect();
 
         return Inertia::render('payroll/attendance/my-attendance', [
-            'tab' => $tab,
             'punchState' => $punchState,
             'employee' => $employee,
             'activeSchedule' => $employee?->activeSchedule(),
-            'weekStart' => $weekStart,
-            'weekEnd' => $weekEnd,
             'enableCustomPunchTime' => config('app.enable_custom_punch_time', false),
-            'weekSheets' => $tab === 'history'
-                ? $weekSheetsCallback()
-                : Inertia::lazy($weekSheetsCallback),
-            'recentTimeLogs' => $tab === 'history'
-                ? $recentTimeLogsCallback()
-                : Inertia::lazy($recentTimeLogsCallback),
+            'attendanceSheets' => $attendanceSheets,
+            'recentTimeLogs' => $recentTimeLogs,
         ]);
     }
 

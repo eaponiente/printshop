@@ -53,7 +53,7 @@ class AttendanceService
 
         $hasAnyPunch = $punches->isNotEmpty();
 
-        $unpaidTailMinutes = $schedule?->unpaid_tail_minutes ?? 30;
+        $configuredTail = $schedule?->unpaid_tail_minutes ?? 30;
 
         // Determine schedule times
         $defaultStart = '08:00';
@@ -63,6 +63,12 @@ class AttendanceService
 
         $scheduleStart = Carbon::parse("{$date} {$schedStartTime}");
         $scheduleEnd = Carbon::parse("{$date} {$schedEndTime}");
+
+        // Unpaid tail only applies to schedules whose paid work would exceed 8h.
+        // Excess over 480 paid minutes (assuming a 60-min lunch) caps the tail.
+        $scheduledPaidMinutes = abs($scheduleStart->diffInMinutes($scheduleEnd)) - 60;
+        $excessOver8h = max(0, $scheduledPaidMinutes - 480);
+        $unpaidTailMinutes = min($configuredTail, $excessOver8h);
         $paidEndTime = $scheduleEnd->copy()->subMinutes($unpaidTailMinutes);
 
         if ($hasAnyPunch) {
@@ -143,58 +149,48 @@ class AttendanceService
                     $hoursWorked = max(0, round($rawMinutes / 60, 2));
                 }
 
-                // Overtime — threshold at full shift duration (480 + unpaid tail)
-                $totalWorkMinutes = 0;
-                if ($outPunch) {
-                    $totalWorkMinutes = abs($inTime->diffInMinutes($outPunch->timestamp));
-                    if ($lunchOut && $lunchIn) {
-                        $lunchTaken = abs($lunchOut->timestamp->diffInMinutes($lunchIn->timestamp));
-                        $totalWorkMinutes -= min($lunchTaken, 60);
-                    } else {
-                        $totalWorkMinutes -= 60;
+                // Overtime — directly from OVERTIME_IN/OVERTIME_OUT punches (primary),
+                // or an approved OvertimeRequest as fallback.
+                $otMins = 0;
+                $shiftType = 'regular_day';
+
+                if ($otInPunch && $otOutPunch) {
+                    $otMins = abs(
+                        Carbon::parse($otInPunch->timestamp)->diffInMinutes(Carbon::parse($otOutPunch->timestamp))
+                    );
+                } else {
+                    $otRequest = OvertimeRequest::where('employee_id', $employee->id)
+                        ->where('date', $date)
+                        ->where('status', 'approved')
+                        ->first();
+
+                    if ($otRequest) {
+                        $otMins = $otRequest->getApprovedMinutes();
+                        $shiftType = $otRequest->shift_type ?? 'regular_day';
                     }
                 }
 
-                $otThreshold = 480 + $unpaidTailMinutes;
-
-                if ($totalWorkMinutes > $otThreshold && ! $isRestDay) {
-                    $otMins = $totalWorkMinutes - $otThreshold;
-                    $shiftType = 'regular_day';
-
-                    // OVERTIME_IN/OVERTIME_OUT punches are the primary authorization source.
-                    // Fall back to an approved OvertimeRequest when no OT punches exist.
-                    if ($otInPunch && $otOutPunch) {
-                        $approvedMins = abs(
-                            Carbon::parse($otInPunch->timestamp)->diffInMinutes(Carbon::parse($otOutPunch->timestamp))
-                        );
-                        $otMins = min($otMins, $approvedMins);
-                    } else {
-                        $otRequest = OvertimeRequest::where('employee_id', $employee->id)
-                            ->where('date', $date)
-                            ->where('status', 'approved')
-                            ->first();
-
-                        if ($otRequest) {
-                            $otMins = min($otMins, $otRequest->getApprovedMinutes());
-                            $shiftType = $otRequest->shift_type ?? 'regular_day';
-                        } else {
-                            $otMins = 0;
-                        }
-                    }
-
-                    if ($otMins >= 60) {
-                        $overtimeMinutes = $otMins;
-                        $multiplier = $this->getOTMultiplier($shiftType);
-                        $overtimeMultiplier = $multiplier;
-                        $overtimePay = round(($otMins / 60) * $hourlyRate * $multiplier, 2);
-                    }
-                } elseif ($isRestDay && $totalWorkMinutes > 0) {
-                    // Working on rest day
-                    $multiplier = $this->getOTMultiplier('rest_day');
-                    $overtimeMinutes = $totalWorkMinutes;
+                if (! $isRestDay && $otMins > 0) {
+                    $overtimeMinutes = $otMins;
+                    $multiplier = $this->getOTMultiplier($shiftType);
                     $overtimeMultiplier = $multiplier;
-                    $hoursWorked = round($totalWorkMinutes / 60, 2);
-                    $overtimePay = 0;
+                    $overtimePay = round(($otMins / 60) * $hourlyRate * $multiplier, 2);
+                } elseif ($isRestDay && $outPunch) {
+                    // Working on rest day — count the in-to-out span (minus lunch) as OT-rate hours
+                    $restDayMinutes = abs($inTime->diffInMinutes($outPunch->timestamp));
+                    if ($lunchOut && $lunchIn) {
+                        $lunchTaken = abs($lunchOut->timestamp->diffInMinutes($lunchIn->timestamp));
+                        $restDayMinutes -= min($lunchTaken, 60);
+                    } else {
+                        $restDayMinutes -= 60;
+                    }
+                    if ($restDayMinutes > 0) {
+                        $multiplier = $this->getOTMultiplier('rest_day');
+                        $overtimeMinutes = $restDayMinutes;
+                        $overtimeMultiplier = $multiplier;
+                        $hoursWorked = round($restDayMinutes / 60, 2);
+                        $overtimePay = 0;
+                    }
                 }
             }
         } elseif (! $hasAnyPunch && ! $isRestDay) {
@@ -279,29 +275,10 @@ class AttendanceService
                 $dailyWage = 0;
             }
         } else {
-            $netWorkMinutes = round($hoursWorked * 60);
-
-            if (! $isRestDay) {
-                $hasApprovedOT = OvertimeRequest::where('employee_id', $employee->id)
-                    ->where('date', $date)
-                    ->where('status', 'approved')
-                    ->exists();
-
-                if ($hasApprovedOT) {
-                    $regularPaidMinutes = $netWorkMinutes;
-                } else {
-                    $maxPaidMinutes = max(480 - $lateMinutes, 240);
-                    $regularPaidMinutes = min($netWorkMinutes, $maxPaidMinutes);
-                }
-            } else {
-                $regularPaidMinutes = $netWorkMinutes;
-            }
-
-            $basePaidHours = $regularPaidMinutes / 60;
-
-            $basePay = $isPresent ? round($basePaidHours * $hourlyRate, 2) : 0;
             if ($isRestDay && $isPresent) {
                 $basePay = round($hoursWorked * $hourlyRate * 1.30, 2);
+            } else {
+                $basePay = $isPresent ? $dailyRate : 0;
             }
             $dailyWage = round($basePay - $lateDeduction - $undertimeDeduction - $fineDeduction + $overtimePay + $holidayPay, 2);
             if ($dailyWage < 0) {

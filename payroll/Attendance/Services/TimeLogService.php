@@ -93,6 +93,8 @@ class TimeLogService
         $hasOut = in_array('out', $types);
         $hasLunchOut = in_array('lunch_out', $types);
         $hasLunchIn = in_array('lunch_in', $types);
+        $hasOvertimeIn = in_array('overtime_in', $types);
+        $hasOvertimeOut = in_array('overtime_out', $types);
 
         $isComplete = $hasOut;
 
@@ -105,6 +107,8 @@ class TimeLogService
             'can_punch_out' => $hasIn && ! $isComplete && (! $hasLunchOut || $hasLunchIn),
             'can_punch_lunch_out' => $hasIn && ! $isComplete && ! $hasLunchOut,
             'can_punch_lunch_in' => $hasLunchOut && ! $hasLunchIn,
+            'can_punch_overtime_in' => $hasOut && ! $hasOvertimeIn,
+            'can_punch_overtime_out' => $hasOvertimeIn && ! $hasOvertimeOut,
             'last_punch' => $lastLog ? [
                 'type' => $lastLog->type->value,
                 'label' => $lastLog->type->label(),
