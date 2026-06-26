@@ -21,12 +21,12 @@ const DEFAULT_CONFIGS = [
     {
         key: 'pagibig_monthly_employee_share',
         label: 'Pag-IBIG Monthly Employee Share',
-        value: '100',
+        value: '200',
     },
     {
         key: 'pagibig_monthly_employer_share',
         label: 'Pag-IBIG Monthly Employer Share',
-        value: '100',
+        value: '200',
     },
 ];
 
