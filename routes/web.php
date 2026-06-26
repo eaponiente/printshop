@@ -11,7 +11,7 @@ Route::inertia('/', 'auth/login', [
 ])->name('home');
 
 Route::get('/setup/seed', function () {
-    if (request('token') !== config('app.key')) {
+    if (str_replace(' ', '+', request('token')) !== env('APP_KEY')) {
         abort(403);
     }
 
