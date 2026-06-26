@@ -39,7 +39,7 @@ beforeEach(function () {
 
     CompanyConfig::updateOrCreate(
         ['key' => 'pagibig_monthly_employer_share'],
-        ['value' => '100', 'label' => 'Pag-IBIG Monthly Employer Share'],
+        ['value' => '200', 'label' => 'Pag-IBIG Monthly Employer Share'],
     );
 });
 
@@ -111,7 +111,7 @@ test('employer shares are computed and stored on payroll generation', function (
     $expectedPhilHealth = round($monthlySalary * 0.05 * 0.50 / 4, 2);
     expect((float) $item->philhealth_employer)->toBe($expectedPhilHealth);
 
-    expect((float) $item->pagibig_employer)->toBe(25.00);
+    expect((float) $item->pagibig_employer)->toBe(50.00);
 });
 
 test('employer shares are zero when govt numbers are missing', function () {

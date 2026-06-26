@@ -305,7 +305,7 @@ it('computes Pag-IBIG only when employee has pagibig_number', function () {
     $itemWith = PayrollPeriodItem::where('employee_id', $with->id)->first();
     $itemWithout = PayrollPeriodItem::where('employee_id', $without->id)->first();
 
-    expect((float) $itemWith->pagibig_deduction)->toEqual(25.0);
+    expect((float) $itemWith->pagibig_deduction)->toEqual(50.0);
     expect((float) $itemWithout->pagibig_deduction)->toEqual(0.0);
 });
 

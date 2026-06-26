@@ -330,7 +330,7 @@ class PayrollPeriodService
             return 0;
         }
 
-        $monthlyEmployerShare = (float) CompanyConfig::getValue('pagibig_monthly_employer_share', 100);
+        $monthlyEmployerShare = (float) CompanyConfig::getValue('pagibig_monthly_employer_share', 200);
 
         return round($monthlyEmployerShare / 4, 2);
     }
@@ -352,7 +352,9 @@ class PayrollPeriodService
             return 0;
         }
 
-        return round(100 / 4, 2);
+        $monthlyEmployeeShare = (float) CompanyConfig::getValue('pagibig_monthly_employee_share', 200);
+
+        return round($monthlyEmployeeShare / 4, 2);
     }
 
     protected function computeCADeduction(Employee $employee, float $netReceivable): float
