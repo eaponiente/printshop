@@ -48,35 +48,34 @@ function punchInAt(Employee $employee, string $date, string $time): void
     ]);
 }
 
-it('applies 5php per minute for first 20 minutes late', function () {
+it('applies 10php per minute for first 20 minutes late', function () {
     $date = '2026-06-01';
     punchInAt($this->employee, $date, '08:15');
 
     $sheet = $this->service->processDailyAttendance($this->employee, $date);
 
     expect((int) $sheet->late_minutes)->toBe(15);
-    expect($sheet->late_deduction)->toBe('75.00');
+    expect($sheet->late_deduction)->toBe('150.00'); // 15 × ₱10
 });
 
-it('charges 100php at exactly 20 minutes late', function () {
+it('charges 200php at exactly 20 minutes late', function () {
     $date = '2026-06-01';
     punchInAt($this->employee, $date, '08:20');
 
     $sheet = $this->service->processDailyAttendance($this->employee, $date);
 
     expect((int) $sheet->late_minutes)->toBe(20);
-    expect($sheet->late_deduction)->toBe('100.00');
+    expect($sheet->late_deduction)->toBe('200.00'); // 20 × ₱10
 });
 
-it('charges 5php/min for first 20min plus hourly_rate/60 after 20min', function () {
+it('charges 10php/min for first 20min plus hourly_rate/60 after 20min', function () {
     $date = '2026-06-01';
     punchInAt($this->employee, $date, '08:25');
 
     $sheet = $this->service->processDailyAttendance($this->employee, $date);
 
     $hourlyRate = 510 / 8;
-
-    $expected = round((20 * 5) + (5 * ($hourlyRate / 60)), 2);
+    $expected = round((20 * 10) + (5 * ($hourlyRate / 60)), 2);
 
     expect((int) $sheet->late_minutes)->toBe(25);
     expect((string) $sheet->late_deduction)->toBe((string) $expected);
@@ -99,7 +98,7 @@ it('charges correctly for 65 minutes late', function () {
     $sheet = $this->service->processDailyAttendance($this->employee, $date);
 
     $hourlyRate = 510 / 8;
-    $expected = round((20 * 5) + (45 * ($hourlyRate / 60)), 2);
+    $expected = round((20 * 10) + (45 * ($hourlyRate / 60)), 2);
 
     expect((int) $sheet->late_minutes)->toBe(65);
     expect((string) $sheet->late_deduction)->toBe((string) $expected);
@@ -118,14 +117,12 @@ it('subtracts late_deduction from daily_wage', function () {
     $sheet = $this->service->processDailyAttendance($this->employee, $date);
 
     $hourlyRate = 510 / 8;
-    $expectedLate = round((20 * 5) + (3 * ($hourlyRate / 60)), 2);
+    $expectedLate = round((20 * 10) + (3 * ($hourlyRate / 60)), 2);
 
     expect((int) $sheet->late_minutes)->toBe(23);
     expect((string) $sheet->late_deduction)->toBe((string) $expectedLate);
 
-    // Base pay is the full daily rate; late_deduction is the only impact.
     $expectedWage = round(510 - $expectedLate, 2);
-
     expect((string) $sheet->daily_wage)->toBe((string) $expectedWage);
 });
 
@@ -140,7 +137,7 @@ it('recalculates sheets via artisan command', function () {
         ->first();
 
     $hourlyRate = 510 / 8;
-    $expected = round((20 * 5) + (5 * ($hourlyRate / 60)), 2);
+    $expected = round((20 * 10) + (5 * ($hourlyRate / 60)), 2);
     expect((string) $sheet->late_deduction)->toBe((string) $expected);
 });
 
@@ -153,7 +150,7 @@ it('uses custom per-minute deduction from settings', function () {
     $sheet = $this->service->processDailyAttendance($this->employee, $date);
 
     expect((int) $sheet->late_minutes)->toBe(15);
-    expect((string) $sheet->late_deduction)->toBe('105.00');
+    expect((string) $sheet->late_deduction)->toBe('105.00'); // 15 × ₱7
 });
 
 it('uses custom threshold from settings', function () {
@@ -165,7 +162,7 @@ it('uses custom threshold from settings', function () {
     $sheet = $this->service->processDailyAttendance($this->employee, $date);
 
     $hourlyRate = 510 / 8;
-    $expected = round((10 * 5) + (15 * ($hourlyRate / 60)), 2);
+    $expected = round((10 * 10) + (15 * ($hourlyRate / 60)), 2);
 
     expect((int) $sheet->late_minutes)->toBe(25);
     expect((string) $sheet->late_deduction)->toBe((string) $expected);

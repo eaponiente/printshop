@@ -91,8 +91,9 @@ class PayrollPeriodController extends Controller
         return Inertia::render('payroll/payroll/period-show', [
             'period' => $period,
             'items' => $items,
-            'isSuperAdmin' => auth()->user()->isSuperAdmin(),
+            'canApprove' => Gate::check('payroll-periods.approve', [$period->branch_id]),
             'canDelete' => ! auth()->user()->isStaff(),
+            'isSuperAdmin' => auth()->user()->isSuperAdmin(),
         ]);
     }
 

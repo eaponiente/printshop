@@ -20,7 +20,7 @@ return new class extends Migration
         DB::table('payroll_settings')->insert([
             [
                 'key' => 'late_deduction_per_minute',
-                'value' => '5',
+                'value' => '10',
                 'type' => 'numeric',
                 'description' => 'Flat peso amount charged for each minute of lateness within the threshold.',
                 'created_at' => now(),

@@ -2,11 +2,9 @@
 
 use App\Models\Branch;
 use App\Models\Payroll\AttendanceSheet;
-use App\Models\Payroll\Benefit;
 use App\Models\Payroll\CompanyConfig;
 use App\Models\Payroll\Employee;
 use App\Models\Payroll\EmployeeSchedule;
-use App\Models\Payroll\PayrollPeriodItem;
 use App\Models\Payroll\Salary;
 use App\Models\Payroll\SssContributionBracket;
 use App\Models\User;
@@ -107,15 +105,12 @@ test('employer shares are computed and stored on payroll generation', function (
 
     $monthlySalary = 510 * 26;
 
-    // SSS employer = monthlySalary * bracket.employer_percentage / 100 / 4
     $expectedSss = round($monthlySalary * 10 / 100 / 4, 2);
     expect((float) $item->sss_employer)->toBe($expectedSss);
 
-    // PhilHealth employer = same as employee deduction
     $expectedPhilHealth = round($monthlySalary * 0.05 * 0.50 / 4, 2);
     expect((float) $item->philhealth_employer)->toBe($expectedPhilHealth);
 
-    // Pag-IBIG employer = config value / 4 = 100 / 4 = 25
     expect((float) $item->pagibig_employer)->toBe(25.00);
 });
 
@@ -136,7 +131,7 @@ test('employer shares are zero when govt numbers are missing', function () {
     expect((float) $item->pagibig_employer)->toBe(0.00);
 });
 
-test('superadmin can view branch payables report', function () {
+test('superadmin can view branch payables report with selected periods', function () {
     createEmployeeWithAttendanceForPayables($this->branchA, 'John', 510);
 
     $service = app(PayrollPeriodService::class);
@@ -145,189 +140,119 @@ test('superadmin can view branch payables report', function () {
 
     $response = $this->actingAs($this->superadmin)
         ->get(route('payroll.reports.branch-payables', [
-            'date_from' => '2026-05-01',
-            'date_to' => '2026-06-30',
+            'period_ids' => [$period->id],
         ]));
 
     $response->assertOk();
 
     $results = $response->viewData('page')['props']['results'];
-    expect($results)->toHaveCount(2);
+    expect($results)->toHaveCount(1);
 
-    $branchAResult = collect($results)->firstWhere('branch', 'Branch A');
-    expect($branchAResult)->not->toBeNull();
-    expect($branchAResult['sss_employer'])->toBeGreaterThan(0);
-    expect($branchAResult['philhealth_employer'])->toBeGreaterThan(0);
-    expect($branchAResult['pagibig_employer'])->toBeGreaterThan(0);
-    expect($branchAResult['total_benefits'])->toBeGreaterThan(0);
+    $row = $results[0];
+    expect($row['branch'])->toBe('Branch A');
+    expect($row['sss_employee'])->toBeGreaterThan(0);
+    expect($row['sss_employer'])->toBeGreaterThan(0);
+    expect($row['sss_total'])->toBe(round($row['sss_employee'] + $row['sss_employer'], 2));
+    expect($row['philhealth_employee'])->toBeGreaterThan(0);
+    expect($row['philhealth_employer'])->toBeGreaterThan(0);
+    expect($row['pagibig_employee'])->toBeGreaterThan(0);
+    expect($row['pagibig_employer'])->toBeGreaterThan(0);
 
     $grandTotal = $response->viewData('page')['props']['grand_total'];
-    expect($grandTotal['total_benefits'])->toBeGreaterThan(0);
+    expect($grandTotal)->not->toBeNull();
+    expect($grandTotal['sss_total'])->toBeGreaterThan(0);
 });
 
-test('admin cannot view branch payables report', function () {
+test('admin can view branch payables report for their own branch', function () {
+    createEmployeeWithAttendanceForPayables($this->branchA, 'John', 510);
+
+    $service = app(PayrollPeriodService::class);
+    $period = $service->generate($this->branchA, '2026-05-25', '2026-05-29');
+    $service->approve($period, $this->superadmin->id);
+
     $response = $this->actingAs($this->admin)
         ->get(route('payroll.reports.branch-payables', [
-            'date_from' => '2026-05-01',
-            'date_to' => '2026-06-30',
+            'period_ids' => [$period->id],
         ]));
 
-    $response->assertForbidden();
+    $response->assertOk();
+
+    $results = $response->viewData('page')['props']['results'];
+    expect($results)->toHaveCount(1);
+    expect($results[0]['branch'])->toBe('Branch A');
+});
+
+test('admin cannot access another branchs period even when id is injected', function () {
+    createEmployeeWithAttendanceForPayables($this->branchB, 'Jane', 510);
+
+    $service = app(PayrollPeriodService::class);
+    $periodB = $service->generate($this->branchB, '2026-05-25', '2026-05-29');
+    $service->approve($periodB, $this->superadmin->id);
+
+    // Admin belongs to branchA — passing branchB period ID should return no results
+    $response = $this->actingAs($this->admin)
+        ->get(route('payroll.reports.branch-payables', [
+            'period_ids' => [$periodB->id],
+        ]));
+
+    $response->assertOk();
+    $results = $response->viewData('page')['props']['results'];
+    expect($results)->toHaveCount(0);
 });
 
 test('staff cannot view branch payables report', function () {
     $response = $this->actingAs($this->staff)
-        ->get(route('payroll.reports.branch-payables', [
-            'date_from' => '2026-05-01',
-            'date_to' => '2026-06-30',
-        ]));
+        ->get(route('payroll.reports.branch-payables'));
 
     $response->assertForbidden();
 });
 
-test('date range filters payroll periods correctly', function () {
+test('no period_ids returns empty results with period picker data', function () {
     createEmployeeWithAttendanceForPayables($this->branchA, 'John', 510);
 
     $service = app(PayrollPeriodService::class);
     $period = $service->generate($this->branchA, '2026-05-25', '2026-05-29');
     $service->approve($period, $this->superadmin->id);
 
-    // Date range outside the period should return zeros
-    $response = $this->actingAs($this->superadmin)
-        ->get(route('payroll.reports.branch-payables', [
-            'date_from' => '2026-07-01',
-            'date_to' => '2026-07-31',
-        ]));
-
-    $response->assertOk();
-
-    $results = $response->viewData('page')['props']['results'];
-    $totalBenefits = collect($results)->sum('total_benefits');
-    expect($totalBenefits)->toBe(0);
-
-    $grandTotal = $response->viewData('page')['props']['grand_total'];
-    expect($grandTotal['total_benefits'])->toEqual(0);
-});
-
-test('branch filter restricts results to selected branch', function () {
-    createEmployeeWithAttendanceForPayables($this->branchA, 'John', 510);
-    createEmployeeWithAttendanceForPayables($this->branchB, 'Jane', 510);
-
-    $service = app(PayrollPeriodService::class);
-
-    $periodA = $service->generate($this->branchA, '2026-05-25', '2026-05-29');
-    $service->approve($periodA, $this->superadmin->id);
-
-    $periodB = $service->generate($this->branchB, '2026-05-25', '2026-05-29');
-    $service->approve($periodB, $this->superadmin->id);
-
-    $response = $this->actingAs($this->superadmin)
-        ->get(route('payroll.reports.branch-payables', [
-            'date_from' => '2026-05-01',
-            'date_to' => '2026-06-30',
-            'branch_id' => $this->branchA->id,
-        ]));
-
-    $response->assertOk();
-
-    $results = $response->viewData('page')['props']['results'];
-    $branchAResult = collect($results)->firstWhere('branch', 'Branch A');
-    $branchBResult = collect($results)->firstWhere('branch', 'Branch B');
-
-    expect($branchAResult['total_benefits'])->toBeGreaterThan(0);
-    expect($branchBResult['total_benefits'])->toBe(0);
-
-    // Should only show Branch A with values, others are zero
-    expect($results)->toHaveCount(2);
-});
-
-test('deminimis is included in branch payables totals', function () {
-    $employee = createEmployeeWithAttendanceForPayables($this->branchA, 'John', 510);
-
-    $benefit = Benefit::create([
-        'name' => 'Rice Allowance',
-        'type' => 'perk',
-        'monthly_amount' => 2000,
-        'is_active' => true,
-    ]);
-
-    $employee->benefits()->attach($benefit->id, [
-        'is_active' => true,
-        'effective_date' => '2026-01-01',
-    ]);
-
-    $service = app(PayrollPeriodService::class);
-    $period = $service->generate($this->branchA, '2026-05-25', '2026-05-29');
-    $service->approve($period, $this->superadmin->id);
-
-    $response = $this->actingAs($this->superadmin)
-        ->get(route('payroll.reports.branch-payables', [
-            'date_from' => '2026-05-01',
-            'date_to' => '2026-06-30',
-        ]));
-
-    $response->assertOk();
-
-    $results = $response->viewData('page')['props']['results'];
-    $branchAResult = collect($results)->firstWhere('branch', 'Branch A');
-
-    // 2000 / 4 = 500 deminimis
-    expect($branchAResult['deminimis'])->toBe(500.00);
-    expect($branchAResult['total_benefits'])->toBe(
-        $branchAResult['sss_employer'] +
-        $branchAResult['philhealth_employer'] +
-        $branchAResult['pagibig_employer'] +
-        500.00,
-    );
-});
-
-test('grand totals are correct across multiple branches', function () {
-    createEmployeeWithAttendanceForPayables($this->branchA, 'John', 510);
-    createEmployeeWithAttendanceForPayables($this->branchB, 'Jane', 510);
-
-    $service = app(PayrollPeriodService::class);
-
-    $periodA = $service->generate($this->branchA, '2026-05-25', '2026-05-29');
-    $service->approve($periodA, $this->superadmin->id);
-
-    $periodB = $service->generate($this->branchB, '2026-05-25', '2026-05-29');
-    $service->approve($periodB, $this->superadmin->id);
-
-    $response = $this->actingAs($this->superadmin)
-        ->get(route('payroll.reports.branch-payables', [
-            'date_from' => '2026-05-01',
-            'date_to' => '2026-06-30',
-        ]));
-
-    $response->assertOk();
-
-    $results = $response->viewData('page')['props']['results'];
-    $grandTotal = $response->viewData('page')['props']['grand_total'];
-
-    $sumSss = collect($results)->sum('sss_employer');
-    $sumPhilHealth = collect($results)->sum('philhealth_employer');
-    $sumPagibig = collect($results)->sum('pagibig_employer');
-    $sumDeminimis = collect($results)->sum('deminimis');
-    $sumTotal = collect($results)->sum('total_benefits');
-
-    expect($grandTotal['sss_employer'])->toBe(round($sumSss, 2));
-    expect($grandTotal['philhealth_employer'])->toBe(round($sumPhilHealth, 2));
-    expect($grandTotal['pagibig_employer'])->toBe(round($sumPagibig, 2));
-    expect($grandTotal['deminimis'])->toBe(round($sumDeminimis, 2));
-    expect($grandTotal['total_benefits'])->toBe(round($sumTotal, 2));
-
-    // Both branches have same employee, so total should be 2x single
-    $itemA = PayrollPeriodItem::where('payroll_period_id', $periodA->id)->first();
-    $itemB = PayrollPeriodItem::where('payroll_period_id', $periodB->id)->first();
-    $expectedTotal = (float) ($itemA->sss_employer + $itemA->philhealth_employer + $itemA->pagibig_employer + $itemA->deminimis_earnings)
-        + (float) ($itemB->sss_employer + $itemB->philhealth_employer + $itemB->pagibig_employer + $itemB->deminimis_earnings);
-
-    expect($grandTotal['total_benefits'])->toBe(round($expectedTotal, 2));
-});
-
-test('validation requires date_from and date_to', function () {
     $response = $this->actingAs($this->superadmin)
         ->get(route('payroll.reports.branch-payables'));
 
-    $response->assertSessionHasErrors(['date_from', 'date_to']);
+    $response->assertOk();
+
+    $props = $response->viewData('page')['props'];
+    expect($props['results'])->toBeArray()->toHaveCount(0);
+    expect($props['grand_total'])->toBeNull();
+    expect($props['periods'])->toHaveCount(1);
+});
+
+test('grand totals are correct across multiple periods', function () {
+    createEmployeeWithAttendanceForPayables($this->branchA, 'John', 510);
+    createEmployeeWithAttendanceForPayables($this->branchB, 'Jane', 510);
+
+    $service = app(PayrollPeriodService::class);
+
+    $periodA = $service->generate($this->branchA, '2026-05-25', '2026-05-29');
+    $service->approve($periodA, $this->superadmin->id);
+
+    $periodB = $service->generate($this->branchB, '2026-05-25', '2026-05-29');
+    $service->approve($periodB, $this->superadmin->id);
+
+    $response = $this->actingAs($this->superadmin)
+        ->get(route('payroll.reports.branch-payables', [
+            'period_ids' => [$periodA->id, $periodB->id],
+        ]));
+
+    $response->assertOk();
+
+    $props = $response->viewData('page')['props'];
+    $results = $props['results'];
+    $grandTotal = $props['grand_total'];
+
+    expect($results)->toHaveCount(2);
+
+    expect($grandTotal['sss_employee'])->toBe(round(collect($results)->sum('sss_employee'), 2));
+    expect($grandTotal['sss_employer'])->toBe(round(collect($results)->sum('sss_employer'), 2));
+    expect($grandTotal['sss_total'])->toBe(round(collect($results)->sum('sss_total'), 2));
+    expect($grandTotal['philhealth_total'])->toBe(round(collect($results)->sum('philhealth_total'), 2));
+    expect($grandTotal['pagibig_total'])->toBe(round(collect($results)->sum('pagibig_total'), 2));
 });

@@ -8,15 +8,16 @@ class BranchPayablesRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return auth()->user()->isSuperAdmin();
+        $user = auth()->user();
+
+        return $user->isAdmin() || $user->isSuperAdmin();
     }
 
     public function rules(): array
     {
         return [
-            'date_from' => ['required', 'date', 'date_format:Y-m-d'],
-            'date_to' => ['required', 'date', 'date_format:Y-m-d', 'after_or_equal:date_from'],
-            'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
+            'period_ids'   => ['nullable', 'array'],
+            'period_ids.*' => ['integer', 'exists:payroll_periods,id'],
         ];
     }
 }

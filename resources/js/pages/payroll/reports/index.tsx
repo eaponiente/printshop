@@ -41,6 +41,7 @@ type Props = {
 export default function ReportsIndex({ branches, periods }: Props) {
     const { auth } = usePage().props as any;
     const isSuperAdmin = auth?.user?.role === 'superadmin';
+    const isAdmin = auth?.user?.role === 'admin';
 
     const [branchId, setBranchId] = useState<string>('');
     const [periodId, setPeriodId] = useState<string>('');
@@ -162,7 +163,7 @@ return;
                     </CardContent>
                 </Card>
 
-                {isSuperAdmin && (
+                {(isSuperAdmin || isAdmin) && (
                     <Card>
                         <CardHeader>
                             <CardTitle>Branch Payables</CardTitle>

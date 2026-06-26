@@ -49,7 +49,7 @@ it('allows superadmin to update settings and creates audit log', function () {
     AuditLog::query()->delete();
 
     $setting = PayrollSetting::where('key', 'late_deduction_per_minute')->first();
-    expect($setting->value)->toBe('5');
+    expect($setting->value)->toBe('10');
 
     $response = $this->actingAs($this->superadmin)
         ->put('/payroll/settings', [
@@ -84,7 +84,7 @@ it('does not create audit log for unchanged values', function () {
 
     $response = $this->actingAs($this->superadmin)
         ->put('/payroll/settings', [
-            'late_deduction_per_minute' => '5',
+            'late_deduction_per_minute' => '10',
             'late_deduction_threshold_minutes' => '20',
         ]);
 

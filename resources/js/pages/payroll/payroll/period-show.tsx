@@ -66,15 +66,17 @@ type Props = {
         approved_at: string | null;
     };
     items: PaginatedResponse<PeriodItem>;
-    isSuperAdmin: boolean;
+    canApprove: boolean;
     canDelete: boolean;
+    isSuperAdmin: boolean;
 };
 
 export default function PayrollPeriodShow({
     period,
     items,
-    isSuperAdmin,
+    canApprove,
     canDelete,
+    isSuperAdmin,
 }: Props) {
     const columns: ColumnDef<PeriodItem>[] = [
         {
@@ -168,7 +170,7 @@ export default function PayrollPeriodShow({
                         </h1>
                     </div>
                     <div className="flex items-center gap-2">
-                        {isSuperAdmin && period.status === 'draft' && (
+                        {canApprove && period.status === 'draft' && (
                             <Button
                                 variant="default"
                                 size="sm"

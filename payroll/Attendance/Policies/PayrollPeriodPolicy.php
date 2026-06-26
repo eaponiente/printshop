@@ -40,7 +40,11 @@ class PayrollPeriodPolicy
 
     public function approve(User $user, int $branchId): bool
     {
-        return $user->isSuperAdmin();
+        if ($user->isStaff()) {
+            return false;
+        }
+
+        return $this->canAccessBranch($user, $branchId);
     }
 
     public function void(User $user): bool

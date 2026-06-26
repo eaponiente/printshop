@@ -635,7 +635,7 @@ it('allows superadmin to approve a draft period', function () {
     expect($period->approved_at)->not->toBeNull();
 });
 
-it('blocks admin from approving a period', function () {
+it('allows admin to approve a period in their own branch', function () {
     createEmployeeWithAttendance($this->branchA, 'Emp');
 
     $this->actingAs($this->adminA)
@@ -645,8 +645,34 @@ it('blocks admin from approving a period', function () {
         ]);
 
     $period = PayrollPeriod::first();
+    expect($period->status)->toBe(PayrollPeriodStatus::DRAFT);
 
     $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.approve', $period))
+        ->assertRedirect();
+
+    $period->refresh();
+    expect($period->status)->toBe(PayrollPeriodStatus::APPROVED);
+    expect($period->approved_by)->toBe($this->adminA->id);
+});
+
+it('blocks admin from approving a period in another branch', function () {
+    createEmployeeWithAttendance($this->branchA, 'Emp');
+
+    $adminB = User::factory()->create([
+        'role' => 'admin',
+        'branch_id' => $this->branchB->id,
+    ]);
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.generate'), [
+            'period_start' => '2026-05-25',
+            'period_end' => '2026-05-30',
+        ]);
+
+    $period = PayrollPeriod::first();
+
+    $this->actingAs($adminB)
         ->post(route('payroll.periods.approve', $period))
         ->assertForbidden();
 

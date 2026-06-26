@@ -14,7 +14,7 @@ return [
     |
     */
 
-    'late_deduction_per_minute' => env('PAYROLL_LATE_DEDUCTION_PER_MINUTE', 5),
+    'late_deduction_per_minute' => env('PAYROLL_LATE_DEDUCTION_PER_MINUTE', 10),
 
     /*
     |--------------------------------------------------------------------------

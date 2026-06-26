@@ -122,58 +122,109 @@ class PayrollReportController extends Controller
 
     public function branchPayables(BranchPayablesRequest $request)
     {
+        $user = auth()->user();
         $validated = $request->validated();
 
-        $branchId = isset($validated['branch_id']) ? (int) $validated['branch_id'] : null;
+        $branches = $user->isSuperAdmin()
+            ? Branch::orderBy('name')->get(['id', 'name'])
+            : Branch::accessibleBy($user)->get(['id', 'name']);
 
-        $branches = Branch::orderBy('name')->get(['id', 'name']);
+        $branchIds = $branches->pluck('id');
 
-        $itemsQuery = PayrollPeriodItem::query()
-            ->join('payroll_periods', 'payroll_period_items.payroll_period_id', '=', 'payroll_periods.id')
-            ->whereBetween('payroll_periods.period_start', [$validated['date_from'], $validated['date_to']])
-            ->whereIn('payroll_periods.status', [PayrollPeriodStatus::APPROVED->value, PayrollPeriodStatus::PAID->value]);
+        $periods = PayrollPeriod::query()
+            ->whereIn('status', [PayrollPeriodStatus::APPROVED->value, PayrollPeriodStatus::PAID->value])
+            ->whereIn('branch_id', $branchIds)
+            ->with('branch:id,name')
+            ->orderBy('period_start', 'desc')
+            ->get(['id', 'branch_id', 'period_start', 'period_end', 'status']);
 
-        if ($branchId) {
-            $itemsQuery->where('payroll_periods.branch_id', $branchId);
+        $submittedIds = $validated['period_ids'] ?? [];
+
+        if (empty($submittedIds)) {
+            return Inertia::render('payroll/reports/branch-payables', [
+                'periods' => $periods,
+                'results' => [],
+                'grand_total' => null,
+                'filters' => $validated,
+            ]);
         }
 
-        $aggregated = $itemsQuery
+        $allowedIds = $periods->pluck('id')->all();
+        $selectedIds = array_values(array_intersect($submittedIds, $allowedIds));
+
+        $aggregated = PayrollPeriodItem::query()
+            ->join('payroll_periods', 'payroll_period_items.payroll_period_id', '=', 'payroll_periods.id')
+            ->whereIn('payroll_period_items.payroll_period_id', $selectedIds)
             ->select(
+                'payroll_periods.id as period_id',
                 'payroll_periods.branch_id',
-                DB::raw('SUM(payroll_period_items.sss_employer) as total_sss_employer'),
-                DB::raw('SUM(payroll_period_items.philhealth_employer) as total_philhealth_employer'),
-                DB::raw('SUM(payroll_period_items.pagibig_employer) as total_pagibig_employer'),
-                DB::raw('SUM(payroll_period_items.deminimis_earnings) as total_deminimis'),
+                'payroll_periods.period_start',
+                'payroll_periods.period_end',
+                'payroll_periods.status',
+                DB::raw('SUM(payroll_period_items.sss_deduction)        as total_sss_employee'),
+                DB::raw('SUM(payroll_period_items.sss_employer)         as total_sss_employer'),
+                DB::raw('SUM(payroll_period_items.philhealth_deduction) as total_philhealth_employee'),
+                DB::raw('SUM(payroll_period_items.philhealth_employer)  as total_philhealth_employer'),
+                DB::raw('SUM(payroll_period_items.pagibig_deduction)    as total_pagibig_employee'),
+                DB::raw('SUM(payroll_period_items.pagibig_employer)     as total_pagibig_employer'),
             )
-            ->groupBy('payroll_periods.branch_id')
+            ->groupBy(
+                'payroll_periods.id',
+                'payroll_periods.branch_id',
+                'payroll_periods.period_start',
+                'payroll_periods.period_end',
+                'payroll_periods.status',
+            )
             ->get();
 
-        $results = $branches->map(function (Branch $branch) use ($aggregated) {
-            $row = $aggregated->firstWhere('branch_id', $branch->id);
+        $branchMap = $branches->keyBy('id');
+
+        $results = $aggregated->map(function ($row) use ($branchMap) {
+            $sssEmployee = (float) $row->total_sss_employee;
+            $sssEmployer = (float) $row->total_sss_employer;
+            $phicEmployee = (float) $row->total_philhealth_employee;
+            $phicEmployer = (float) $row->total_philhealth_employer;
+            $hdmfEmployee = (float) $row->total_pagibig_employee;
+            $hdmfEmployer = (float) $row->total_pagibig_employer;
 
             return [
-                'branch' => $branch->name,
-                'branch_id' => $branch->id,
-                'sss_employer' => $row ? (float) $row->total_sss_employer : 0,
-                'philhealth_employer' => $row ? (float) $row->total_philhealth_employer : 0,
-                'pagibig_employer' => $row ? (float) $row->total_pagibig_employer : 0,
-                'deminimis' => $row ? (float) $row->total_deminimis : 0,
-                'total_benefits' => $row
-                    ? (float) ($row->total_sss_employer + $row->total_philhealth_employer + $row->total_pagibig_employer + $row->total_deminimis)
-                    : 0,
+                'period_id' => $row->period_id,
+                'branch' => $branchMap[$row->branch_id]?->name ?? '—',
+                'period_start' => $row->period_start instanceof \Carbon\Carbon
+                    ? $row->period_start->format('Y-m-d')
+                    : (string) $row->period_start,
+                'period_end' => $row->period_end instanceof \Carbon\Carbon
+                    ? $row->period_end->format('Y-m-d')
+                    : (string) $row->period_end,
+                'status' => $row->status instanceof PayrollPeriodStatus
+                    ? $row->status->value
+                    : (string) $row->status,
+                'sss_employee' => $sssEmployee,
+                'sss_employer' => $sssEmployer,
+                'sss_total' => round($sssEmployee + $sssEmployer, 2),
+                'philhealth_employee' => $phicEmployee,
+                'philhealth_employer' => $phicEmployer,
+                'philhealth_total' => round($phicEmployee + $phicEmployer, 2),
+                'pagibig_employee' => $hdmfEmployee,
+                'pagibig_employer' => $hdmfEmployer,
+                'pagibig_total' => round($hdmfEmployee + $hdmfEmployer, 2),
             ];
         })->values();
 
         $grandTotal = [
+            'sss_employee' => round($results->sum('sss_employee'), 2),
             'sss_employer' => round($results->sum('sss_employer'), 2),
+            'sss_total' => round($results->sum('sss_total'), 2),
+            'philhealth_employee' => round($results->sum('philhealth_employee'), 2),
             'philhealth_employer' => round($results->sum('philhealth_employer'), 2),
+            'philhealth_total' => round($results->sum('philhealth_total'), 2),
+            'pagibig_employee' => round($results->sum('pagibig_employee'), 2),
             'pagibig_employer' => round($results->sum('pagibig_employer'), 2),
-            'deminimis' => round($results->sum('deminimis'), 2),
-            'total_benefits' => round($results->sum('total_benefits'), 2),
+            'pagibig_total' => round($results->sum('pagibig_total'), 2),
         ];
 
         return Inertia::render('payroll/reports/branch-payables', [
-            'branches' => $branches,
+            'periods' => $periods,
             'results' => $results,
             'grand_total' => $grandTotal,
             'filters' => $validated,

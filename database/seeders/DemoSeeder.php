@@ -6,7 +6,7 @@ use App\Models\Branch;
 use App\Models\Customer;
 use App\Models\Payroll\CashAdvance;
 use App\Models\Payroll\Employee;
-use App\Models\Payroll\EmployeeSchedule;
+use App\Models\Payroll\Fine;
 use App\Models\Payroll\LeaveRequest;
 use App\Models\Payroll\Salary;
 use App\Models\Payroll\TimeLog;
@@ -18,20 +18,41 @@ use Illuminate\Database\Seeder;
 use Payroll\Attendance\Enums\PunchSource;
 use Payroll\Attendance\Enums\PunchType;
 use Payroll\Attendance\Services\AttendanceService;
+use Payroll\Employee\Services\EmployeeService;
 
 class DemoSeeder extends Seeder
 {
     private AttendanceService $attendanceService;
 
+    private EmployeeService $employeeService;
+
     private Branch $branch;
 
-    private float $dailyRate = 510;
+    /** @var string[] */
+    private array $allJuneDates;
 
-    private array $workingDates;
+    private User $approver;
+
+    /** Govt IDs assigned in order of employees synced. */
+    private array $govtIds = [
+        ['sss' => '33-1234567-8', 'phic' => '01-234567890-1', 'hdmf' => '1234-5678-9012'],
+        ['sss' => '33-2345678-9', 'phic' => '01-345678901-2', 'hdmf' => '2345-6789-0123'],
+        ['sss' => '33-3456789-0', 'phic' => '01-456789012-3', 'hdmf' => '3456-7890-1234'],
+        ['sss' => '33-4567890-1', 'phic' => '01-567890123-4', 'hdmf' => '4567-8901-2345'],
+    ];
+
+    /** Attendance scenario methods, cycled if fewer users than scenarios. */
+    private array $scenarios = [
+        'scenarioNearPerfect',
+        'scenarioFrequentLates',
+        'scenarioAbsencesAndFine',
+        'scenarioGoodWithCAs',
+    ];
 
     public function run(): void
     {
         $this->attendanceService = app(AttendanceService::class);
+        $this->employeeService = app(EmployeeService::class);
         $this->branch = Branch::firstOrCreate(['name' => 'Babak']);
 
         if ($this->branch->wasRecentlyCreated) {
@@ -40,42 +61,27 @@ class DemoSeeder extends Seeder
             Branch::firstOrCreate(['name' => 'Peñaplata']);
         }
 
-        // Ensure admin user exists
-        User::firstOrCreate(
-            ['username' => 'babak_admin'],
-            [
-                'first_name' => 'Admin',
-                'last_name' => 'Babak',
-                'password' => bcrypt('password'),
-                'role' => 'admin',
-                'branch_id' => $this->branch->id,
-            ]
-        );
+        $this->allJuneDates = collect(range(1, 26))
+            ->map(fn ($d) => sprintf('2026-06-%02d', $d))
+            ->all();
 
-        // Ensure customers exist (seed senators if empty)
+        $this->approver = User::where('role', 'superadmin')->first()
+            ?? User::where('role', 'admin')->where('branch_id', $this->branch->id)->first()
+            ?? User::first();
+
         if (Customer::count() === 0) {
             app(CustomerSeeder::class)->run();
         }
-
-        $this->workingDates = [
-            '2026-06-15', // Monday
-            '2026-06-16', // Tuesday
-            '2026-06-17', // Wednesday
-            '2026-06-18', // Thursday
-            '2026-06-19', // Friday
-            '2026-06-22', // Monday (after weekend)
-        ];
 
         $this->seedTags();
         $this->seedSublimations();
         $this->seedAttendance();
     }
 
-    // ─── Tags ────────────────────────────────────────────────────────
+    // ─── Tags ─────────────────────────────────────────────────────────────────
 
     private function seedTags(): void
     {
-        // Status tags
         $statusTags = [
             ['name' => 'Rush Order', 'color' => '#dc2626', 'price_per_piece' => 0],
             ['name' => 'Awaiting Artwork', 'color' => '#f97316', 'price_per_piece' => 0],
@@ -91,7 +97,6 @@ class DemoSeeder extends Seeder
             Tag::firstOrCreate(['name' => $tag['name']], $tag);
         }
 
-        // Sewing tags (items, with price_per_piece)
         $sewingTags = [
             ['name' => 'Jersey', 'color' => '#14b8a6', 'price_per_piece' => 35.00],
             ['name' => 'T-Shirt', 'color' => '#06b6d4', 'price_per_piece' => 30.00],
@@ -108,7 +113,7 @@ class DemoSeeder extends Seeder
         }
     }
 
-    // ─── Sublimations ─────────────────────────────────────────────────
+    // ─── Sublimations ─────────────────────────────────────────────────────────
 
     private function seedSublimations(): void
     {
@@ -146,73 +151,49 @@ class DemoSeeder extends Seeder
                 'customer_id' => $customers->random()->id,
             ]);
 
-            $tagIds = $allTags->random(rand(1, 3))->pluck('id')->toArray();
-            $sublimation->tags()->attach($tagIds);
+            $sublimation->tags()->attach($allTags->random(rand(1, 3))->pluck('id')->toArray());
         }
     }
 
-    // ─── Attendance ───────────────────────────────────────────────────
+    // ─── Attendance ────────────────────────────────────────────────────────────
 
     private function seedAttendance(): void
     {
-        $this->seedPerfectEmployee();
-        $this->seedLeaveEmployee();
-        $this->seedAbsentEmployee();
-        $this->seedLateEmployee();
-        $this->seedCashAdvanceEmployee();
-    }
+        $users = User::where('branch_id', $this->branch->id)
+            ->whereIn('role', ['admin', 'staff'])
+            ->get();
 
-    // ─── Employee helpers ─────────────────────────────────────────────
+        foreach ($users->values() as $index => $user) {
+            $emp = $user->employee_id
+                ? Employee::find($user->employee_id)
+                : $this->employeeService->syncUser($user);
 
-    private function createEmployee(string $first, string $last): Employee
-    {
-        $emp = Employee::firstOrCreate(
-            ['first_name' => $first, 'last_name' => $last],
-            [
-                'branch_id' => $this->branch->id,
+            // Override defaults set by syncUser with real demo values
+            $ids = $this->govtIds[$index % count($this->govtIds)];
+            $emp->update([
+                'current_daily_rate' => 510,
                 'hire_date' => '2026-01-05',
-                'position' => 'regular',
-                'status' => 'active',
-                'current_daily_rate' => $this->dailyRate,
-                'sss_number' => '12-3456789-0',
-                'philhealth_number' => '12-345678901-2',
-                'pagibig_number' => '1234-5678-9012',
-            ]
-        );
+                'sss_number' => $ids['sss'],
+                'philhealth_number' => $ids['phic'],
+                'pagibig_number' => $ids['hdmf'],
+            ]);
 
-        if (! Salary::where('employee_id', $emp->id)->exists()) {
-            Salary::createForEmployee($emp, $this->dailyRate, '2026-01-05', 'Initial salary');
+            // Back-date the schedule so it covers June 1
+            $emp->schedules()->update(['effective_from' => '2026-01-01']);
+
+            if (! Salary::where('employee_id', $emp->id)->exists()) {
+                Salary::createForEmployee($emp, 510, '2026-01-05', 'Initial salary');
+            }
+
+            $scenario = $this->scenarios[$index % count($this->scenarios)];
+            $this->$scenario($emp);
+            $this->processAttendance($emp);
         }
-
-        $username = strtolower($first);
-        User::updateOrCreate(
-            ['username' => $username],
-            [
-                'first_name' => $first,
-                'last_name' => $last,
-                'password' => bcrypt('password'),
-                'role' => 'staff',
-                'branch_id' => $this->branch->id,
-                'employee_id' => $emp->id,
-            ]
-        );
-
-        return $emp;
     }
 
-    private function createSchedule(Employee $emp, array $restDays = [0, 6]): void
-    {
-        EmployeeSchedule::firstOrCreate(
-            ['employee_id' => $emp->id, 'effective_from' => '2026-06-15'],
-            [
-                'start_time' => '08:00',
-                'end_time' => '17:00',
-                'rest_days' => $restDays,
-                'effective_to' => null,
-                'is_active' => true,
-            ]
-        );
-    }
+    // ─── Punch helpers ─────────────────────────────────────────────────────────
+    // Schedule from syncUser: 08:00–17:30 with 30 min unpaid tail = 8 paid hours.
+    // Regular OUT at 17:30; overtime starts after that.
 
     private function punch(Employee $emp, string $date, PunchType $type, string $time): void
     {
@@ -226,154 +207,260 @@ class DemoSeeder extends Seeder
         );
     }
 
-    private function perfectPunches(Employee $emp, string $date): void
+    private function perfectDay(Employee $emp, string $date): void
     {
         $this->punch($emp, $date, PunchType::IN, '08:00:00');
         $this->punch($emp, $date, PunchType::LUNCH_OUT, '12:00:00');
         $this->punch($emp, $date, PunchType::LUNCH_IN, '13:00:00');
-        $this->punch($emp, $date, PunchType::OUT, '17:00:00');
+        $this->punch($emp, $date, PunchType::OUT, '17:30:00');
     }
 
-    private function computeAttendance(Employee $emp): void
+    private function lateDay(Employee $emp, string $date, string $inTime): void
     {
-        foreach ($this->workingDates as $date) {
+        $this->punch($emp, $date, PunchType::IN, $inTime);
+        $this->punch($emp, $date, PunchType::LUNCH_OUT, '12:00:00');
+        $this->punch($emp, $date, PunchType::LUNCH_IN, '13:00:00');
+        $this->punch($emp, $date, PunchType::OUT, '17:30:00');
+    }
+
+    private function undertimeDay(Employee $emp, string $date, string $outTime): void
+    {
+        $this->punch($emp, $date, PunchType::IN, '08:00:00');
+        $this->punch($emp, $date, PunchType::LUNCH_OUT, '12:00:00');
+        $this->punch($emp, $date, PunchType::LUNCH_IN, '13:00:00');
+        $this->punch($emp, $date, PunchType::OUT, $outTime);
+    }
+
+    private function overtimeDay(Employee $emp, string $date, string $otOutTime): void
+    {
+        $this->perfectDay($emp, $date);
+        $this->punch($emp, $date, PunchType::OVERTIME_IN, '17:35:00');
+        $this->punch($emp, $date, PunchType::OVERTIME_OUT, $otOutTime);
+    }
+
+    private function processAttendance(Employee $emp): void
+    {
+        foreach ($this->allJuneDates as $date) {
             $this->attendanceService->processDailyAttendance($emp, $date);
         }
-        // Also process rest days (June 20=Sat, June 21=Sun)
-        $this->attendanceService->processDailyAttendance($emp, '2026-06-20');
-        $this->attendanceService->processDailyAttendance($emp, '2026-06-21');
     }
 
-    // ─── Employee 1: Perfect Attendance ───────────────────────────────
+    // ─── Scenario A: Near-perfect ──────────────────────────────────────────────
+    // 3 lates, 1 paid sick leave (Jun 18), 1 overtime (Jun 22), 1 CA
 
-    private function seedPerfectEmployee(): void
+    private function scenarioNearPerfect(Employee $emp): void
     {
-        $emp = $this->createEmployee('Maria', 'Perfecto');
-        $this->createSchedule($emp);
+        $leave = ['2026-06-18'];
+        $sundays = ['2026-06-07', '2026-06-14', '2026-06-21'];
 
-        foreach ($this->workingDates as $date) {
-            $this->perfectPunches($emp, $date);
+        foreach ($this->allJuneDates as $date) {
+            if (in_array($date, $sundays) || in_array($date, $leave)) {
+                continue;
+            }
+            match ($date) {
+                '2026-06-03' => $this->lateDay($emp, $date, '08:35:00'),
+                '2026-06-10' => $this->lateDay($emp, $date, '08:28:00'),
+                '2026-06-22' => $this->overtimeDay($emp, $date, '19:00:00'),
+                '2026-06-25' => $this->lateDay($emp, $date, '08:22:00'),
+                default      => $this->perfectDay($emp, $date),
+            };
         }
 
-        $this->computeAttendance($emp);
+        LeaveRequest::firstOrCreate(
+            ['employee_id' => $emp->id, 'date' => '2026-06-18'],
+            [
+                'leave_type' => 'sick',
+                'duration' => 'full_day',
+                'is_paid' => true,
+                'reason' => 'Fever and flu',
+                'status' => 'approved',
+                'approved_by' => $this->approver->id,
+                'approved_at' => Carbon::parse('2026-06-18 07:00:00'),
+            ]
+        );
+
+        if (! CashAdvance::where('employee_id', $emp->id)->exists()) {
+            CashAdvance::create([
+                'employee_id' => $emp->id,
+                'amount' => 2000.00,
+                'remaining_balance' => 2000.00,
+                'reason' => 'Medical expenses',
+                'status' => 'approved',
+                'approved_by' => $this->approver->id,
+                'approved_at' => Carbon::parse('2026-06-05 09:00:00'),
+            ]);
+        }
     }
 
-    // ─── Employee 2: With Paid Leave (Thu-Fri) ────────────────────────
+    // ─── Scenario B: Frequent lates ────────────────────────────────────────────
+    // 4 lates, 1 absence (Jun 8), holiday present (Jun 12), 2 overtimes, CA×2, fine
 
-    private function seedLeaveEmployee(): void
+    private function scenarioFrequentLates(Employee $emp): void
     {
-        $emp = $this->createEmployee('Juan', 'Bakasyon');
-        $this->createSchedule($emp);
+        $absent = ['2026-06-08'];
+        $sundays = ['2026-06-07', '2026-06-14', '2026-06-21'];
 
-        // Present Mon-Wed
-        $this->perfectPunches($emp, '2026-06-15');
-        $this->perfectPunches($emp, '2026-06-16');
-        $this->perfectPunches($emp, '2026-06-17');
+        foreach ($this->allJuneDates as $date) {
+            if (in_array($date, $sundays) || in_array($date, $absent)) {
+                continue;
+            }
+            match ($date) {
+                '2026-06-01' => $this->lateDay($emp, $date, '08:18:00'),
+                '2026-06-02' => $this->lateDay($emp, $date, '08:40:00'),
+                '2026-06-16' => $this->lateDay($emp, $date, '08:52:00'),
+                '2026-06-17' => $this->overtimeDay($emp, $date, '20:00:00'),
+                '2026-06-23' => $this->overtimeDay($emp, $date, '18:30:00'),
+                '2026-06-26' => $this->lateDay($emp, $date, '08:15:00'),
+                default      => $this->perfectDay($emp, $date),
+            };
+        }
 
-        // Leave Thu-Fri (paid vacation leave)
-        foreach (['2026-06-18', '2026-06-19'] as $date) {
+        if (! Fine::where('employee_id', $emp->id)->exists()) {
+            Fine::create([
+                'employee_id' => $emp->id,
+                'date' => '2026-06-08',
+                'fine_type' => 'unexcused_absence',
+                'amount' => 200.00,
+                'note' => 'No notice given for absence',
+                'marked_by' => $this->approver->id,
+            ]);
+        }
+
+        if (! CashAdvance::where('employee_id', $emp->id)->exists()) {
+            CashAdvance::create([
+                'employee_id' => $emp->id,
+                'amount' => 3000.00,
+                'remaining_balance' => 3000.00,
+                'reason' => 'Medical emergency',
+                'status' => 'approved',
+                'approved_by' => $this->approver->id,
+                'approved_at' => Carbon::parse('2026-06-10 09:00:00'),
+            ]);
+
+            CashAdvance::create([
+                'employee_id' => $emp->id,
+                'amount' => 1500.00,
+                'remaining_balance' => 1500.00,
+                'reason' => 'Tuition fee advance',
+                'status' => 'pending',
+                'approved_by' => null,
+                'approved_at' => null,
+            ]);
+        }
+    }
+
+    // ─── Scenario C: Absences and fine ─────────────────────────────────────────
+    // 3 absences, 2 big lates, 1 undertime, 1 overtime, fine, partial CA
+
+    private function scenarioAbsencesAndFine(Employee $emp): void
+    {
+        $absent = ['2026-06-04', '2026-06-05', '2026-06-13'];
+        $sundays = ['2026-06-07', '2026-06-14', '2026-06-21'];
+
+        foreach ($this->allJuneDates as $date) {
+            if (in_array($date, $sundays) || in_array($date, $absent)) {
+                continue;
+            }
+            match ($date) {
+                '2026-06-09' => $this->lateDay($emp, $date, '09:02:00'),
+                '2026-06-11' => $this->lateDay($emp, $date, '08:45:00'),
+                '2026-06-19' => $this->undertimeDay($emp, $date, '15:30:00'),
+                '2026-06-20' => $this->lateDay($emp, $date, '08:58:00'),
+                '2026-06-24' => $this->overtimeDay($emp, $date, '19:30:00'),
+                default      => $this->perfectDay($emp, $date),
+            };
+        }
+
+        if (! Fine::where('employee_id', $emp->id)->exists()) {
+            Fine::create([
+                'employee_id' => $emp->id,
+                'date' => '2026-06-12',
+                'fine_type' => 'misconduct',
+                'amount' => 300.00,
+                'note' => 'Inappropriate behavior reported by branch admin',
+                'marked_by' => $this->approver->id,
+            ]);
+        }
+
+        if (! CashAdvance::where('employee_id', $emp->id)->exists()) {
+            CashAdvance::create([
+                'employee_id' => $emp->id,
+                'amount' => 5000.00,
+                'remaining_balance' => 2500.00,
+                'reason' => 'Emergency house repair',
+                'status' => 'approved',
+                'approved_by' => $this->approver->id,
+                'approved_at' => Carbon::parse('2026-05-20 10:00:00'),
+            ]);
+        }
+    }
+
+    // ─── Scenario D: Good attendance with CAs ──────────────────────────────────
+    // 2 small lates, 2-day vacation leave (Jun 15–16), 2 overtimes, 3 CAs
+
+    private function scenarioGoodWithCAs(Employee $emp): void
+    {
+        $leave = ['2026-06-15', '2026-06-16'];
+        $sundays = ['2026-06-07', '2026-06-14', '2026-06-21'];
+
+        foreach ($this->allJuneDates as $date) {
+            if (in_array($date, $sundays) || in_array($date, $leave)) {
+                continue;
+            }
+            match ($date) {
+                '2026-06-02' => $this->lateDay($emp, $date, '08:20:00'),
+                '2026-06-06' => $this->lateDay($emp, $date, '08:30:00'),
+                '2026-06-22' => $this->overtimeDay($emp, $date, '19:00:00'),
+                '2026-06-25' => $this->overtimeDay($emp, $date, '20:00:00'),
+                default      => $this->perfectDay($emp, $date),
+            };
+        }
+
+        foreach ($leave as $leaveDate) {
             LeaveRequest::firstOrCreate(
-                ['employee_id' => $emp->id, 'date' => $date],
+                ['employee_id' => $emp->id, 'date' => $leaveDate],
                 [
                     'leave_type' => 'vacation',
                     'duration' => 'full_day',
                     'is_paid' => true,
-                    'reason' => 'Family matter',
+                    'reason' => 'Family vacation',
                     'status' => 'approved',
-                    'approved_by' => User::first()->id,
-                    'approved_at' => now(),
+                    'approved_by' => $this->approver->id,
+                    'approved_at' => Carbon::parse('2026-06-10 09:00:00'),
                 ]
             );
         }
 
-        // Present on Monday after leave
-        $this->perfectPunches($emp, '2026-06-22');
+        if (! CashAdvance::where('employee_id', $emp->id)->exists()) {
+            CashAdvance::create([
+                'employee_id' => $emp->id,
+                'amount' => 4000.00,
+                'remaining_balance' => 4000.00,
+                'reason' => 'School supplies for children',
+                'status' => 'approved',
+                'approved_by' => $this->approver->id,
+                'approved_at' => Carbon::parse('2026-06-01 08:30:00'),
+            ]);
 
-        $this->computeAttendance($emp);
-    }
+            CashAdvance::create([
+                'employee_id' => $emp->id,
+                'amount' => 2000.00,
+                'remaining_balance' => 2000.00,
+                'reason' => 'Transportation expenses',
+                'status' => 'pending',
+                'approved_by' => null,
+                'approved_at' => null,
+            ]);
 
-    // ─── Employee 3: Absences (unexcused Tue-Wed) ─────────────────────
-
-    private function seedAbsentEmployee(): void
-    {
-        $emp = $this->createEmployee('Pedro', 'Absentado');
-        $this->createSchedule($emp);
-
-        // Present Mon
-        $this->perfectPunches($emp, '2026-06-15');
-
-        // No punches on Tue-Wed (unexcused absence)
-
-        // Present Thu-Fri, Mon
-        $this->perfectPunches($emp, '2026-06-18');
-        $this->perfectPunches($emp, '2026-06-19');
-        $this->perfectPunches($emp, '2026-06-22');
-
-        $this->computeAttendance($emp);
-    }
-
-    // ─── Employee 4: Chronically Late ─────────────────────────────────
-
-    private function seedLateEmployee(): void
-    {
-        $emp = $this->createEmployee('Anna', 'Latecomer');
-        $this->createSchedule($emp);
-
-        foreach ($this->workingDates as $date) {
-            $this->punch($emp, $date, PunchType::IN, '09:30:00');
-            $this->punch($emp, $date, PunchType::LUNCH_OUT, '12:00:00');
-            $this->punch($emp, $date, PunchType::LUNCH_IN, '13:00:00');
-            $this->punch($emp, $date, PunchType::OUT, '17:00:00');
+            CashAdvance::create([
+                'employee_id' => $emp->id,
+                'amount' => 6000.00,
+                'remaining_balance' => 3000.00,
+                'reason' => 'Hospitalization',
+                'status' => 'approved',
+                'approved_by' => $this->approver->id,
+                'approved_at' => Carbon::parse('2026-05-15 11:00:00'),
+            ]);
         }
-
-        $this->computeAttendance($emp);
-    }
-
-    // ─── Employee 5: With Cash Advances ───────────────────────────────
-
-    private function seedCashAdvanceEmployee(): void
-    {
-        $emp = $this->createEmployee('Carlos', 'Utangan');
-        $this->createSchedule($emp);
-
-        // Perfect attendance all working days
-        foreach ($this->workingDates as $date) {
-            $this->perfectPunches($emp, $date);
-        }
-
-        $this->computeAttendance($emp);
-
-        // Cash Advance 1 - approved (to be deducted)
-        CashAdvance::create([
-            'employee_id' => $emp->id,
-            'amount' => 3000.00,
-            'remaining_balance' => 3000.00,
-            'reason' => 'Medical emergency',
-            'status' => 'approved',
-            'approved_by' => User::first()->id,
-            'approved_at' => Carbon::parse('2026-06-15 09:00:00'),
-        ]);
-
-        // Cash Advance 2 - pending (not yet deducted)
-        CashAdvance::create([
-            'employee_id' => $emp->id,
-            'amount' => 1500.00,
-            'remaining_balance' => 1500.00,
-            'reason' => 'Tuition fee',
-            'status' => 'pending',
-            'approved_by' => null,
-            'approved_at' => null,
-        ]);
-
-        // Cash Advance 3 - partially paid (with remaining balance)
-        $ca = CashAdvance::create([
-            'employee_id' => $emp->id,
-            'amount' => 5000.00,
-            'remaining_balance' => 2000.00,
-            'reason' => 'Salary advance',
-            'status' => 'approved',
-            'approved_by' => User::first()->id,
-            'approved_at' => Carbon::parse('2026-06-10 10:00:00'),
-        ]);
     }
 }
