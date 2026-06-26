@@ -34,6 +34,7 @@ type Props = {
     defaults: {
         late_deduction_per_minute: string;
         late_deduction_threshold_minutes: string;
+        no_break_fine: string;
     };
 };
 
@@ -52,6 +53,7 @@ export default function PayrollSettings({
                 late_deduction_threshold_minutes: fd.get(
                     'late_deduction_threshold_minutes',
                 ),
+                no_break_fine: fd.get('no_break_fine'),
             } as any,
             {
                 onSuccess: () => toast.success('Payroll settings updated.'),
@@ -112,6 +114,24 @@ export default function PayrollSettings({
                         <p className="text-xs text-muted-foreground">
                             Minutes after which the penalty switches from
                             per-minute flat rate to hourly-rate-based.
+                        </p>
+                    </div>
+
+                    <div className="space-y-1">
+                        <Label htmlFor="no_break_fine">
+                            No-break fine (₱)
+                        </Label>
+                        <Input
+                            id="no_break_fine"
+                            name="no_break_fine"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            defaultValue={value('no_break_fine')}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            Deducted from daily wage when an employee has no
+                            lunch-break punches (LUNCH OUT / LUNCH IN).
                         </p>
                     </div>
 

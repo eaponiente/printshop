@@ -417,6 +417,18 @@ it('gives double pay when employee works on regular holiday', function () {
     ]);
     TimeLog::create([
         'employee_id' => $emp->id,
+        'timestamp' => Carbon::parse('2026-05-29 12:00'),
+        'type' => PunchType::LUNCH_OUT,
+        'source' => PunchSource::SELF_SERVICE,
+    ]);
+    TimeLog::create([
+        'employee_id' => $emp->id,
+        'timestamp' => Carbon::parse('2026-05-29 13:00'),
+        'type' => PunchType::LUNCH_IN,
+        'source' => PunchSource::SELF_SERVICE,
+    ]);
+    TimeLog::create([
+        'employee_id' => $emp->id,
         'timestamp' => Carbon::parse('2026-05-29 17:00'),
         'type' => PunchType::OUT,
         'source' => PunchSource::SELF_SERVICE,

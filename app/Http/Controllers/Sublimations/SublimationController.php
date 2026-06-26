@@ -202,6 +202,36 @@ class SublimationController extends Controller
         }
     }
 
+    public function duplicate(Request $request, Sublimation $sublimation): RedirectResponse
+    {
+        $validated = $request->validate([
+            'quantity'     => ['required', 'integer', 'min:1', 'max:999999'],
+            'amount_total' => ['required', 'numeric', 'min:1', 'max:99999999.99'],
+        ]);
+
+        try {
+            $copy = Sublimation::create([
+                'description'  => $sublimation->description,
+                'notes'        => $sublimation->notes,
+                'branch_id'    => $sublimation->branch_id,
+                'customer_id'  => $sublimation->customer_id,
+                'amount_total' => $validated['amount_total'],
+                'user_id'      => $sublimation->user_id,
+                'due_at'       => $sublimation->due_at,
+                'quantity'     => $validated['quantity'],
+                'status'       => 'for_approval',
+            ]);
+
+            $copy->tags()->sync($sublimation->tags->pluck('id'));
+
+            return back()->with('success', 'Sublimation duplicated successfully.');
+        } catch (\Exception $e) {
+            Log::error('Failed to duplicate sublimation: '.$e->getMessage());
+
+            return back()->withErrors(['message' => 'An error occurred while duplicating the sublimation.']);
+        }
+    }
+
     public function updateStatus(Request $request, Sublimation $sublimation): RedirectResponse
     {
         $newStatus = SublimationStatus::tryFrom($request->status);

@@ -55,6 +55,7 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/sublimation/{sublimation}/update-status', [SublimationController::class, 'updateStatus'])->name('sublimations.update-status');
     Route::patch('/sublimation/{sublimation}/update-staff', [SublimationController::class, 'updateStaff'])->name('sublimations.update-staff');
     Route::patch('/sublimation/{sublimation}/update-duedate', [SublimationController::class, 'updateDueDate'])->name('sublimations.update-duedate');
+    Route::post('/sublimations/{sublimation}/duplicate', [SublimationController::class, 'duplicate'])->name('sublimations.duplicate');
     Route::post('/sublimations/{sublimation}/tags', [SublimationTagController::class, 'addTag'])->name('sublimations.tags.add');
     Route::delete('/sublimations/{sublimation}/tags/{tag}', [SublimationTagController::class, 'removeTag'])->name('sublimations.tags.remove');
 

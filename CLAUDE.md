@@ -123,3 +123,5 @@ Invariants the test suite enforces — do not break:
 `DB::prohibitDestructiveCommands` is enabled in production (`AppServiceProvider::configureDefaults`). Pint and migrations should never be run with destructive flags on prod.
 
 `config('app.timezone') = 'Asia/Manila'`. `Date::use(CarbonImmutable::class)` is set. Always use `toManilaTime()` on the frontend per AGENTS.md.
+
+Implement with Sonnet.

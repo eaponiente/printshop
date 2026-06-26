@@ -268,6 +268,12 @@ class AttendanceService
         // Daily wage
         $fineDeduction = Fine::where('employee_id', $employee->id)->where('date', $date)->sum('amount');
 
+        // Break fine when employee is present but has no lunch-break punches
+        if ($isPresent && ! $isRestDay && ! $hasFullDayLeave && (! $lunchOut || ! $lunchIn)) {
+            $noBreakFine = (float) app(PayrollSettingService::class)->get('no_break_fine', config('payroll.no_break_fine'));
+            $fineDeduction += $noBreakFine;
+        }
+
         if ($hasFullDayLeave) {
             $basePay = $leaveIsPaid ? $dailyRate : 0;
             $dailyWage = round($basePay - $fineDeduction, 2);

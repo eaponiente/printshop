@@ -17,6 +17,7 @@ class UpdatePayrollSettingRequest extends FormRequest
         return [
             'late_deduction_per_minute' => ['required', 'numeric', 'min:0'],
             'late_deduction_threshold_minutes' => ['required', 'integer', 'min:1'],
+            'no_break_fine' => ['required', 'numeric', 'min:0'],
         ];
     }
 }

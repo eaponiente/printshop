@@ -29,4 +29,6 @@ return [
 
     'late_deduction_threshold_minutes' => env('PAYROLL_LATE_DEDUCTION_THRESHOLD_MINUTES', 20),
 
+    'no_break_fine' => env('PAYROLL_NO_BREAK_FINE', 20),
+
 ];

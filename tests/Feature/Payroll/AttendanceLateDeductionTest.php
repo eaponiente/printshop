@@ -109,6 +109,18 @@ it('subtracts late_deduction from daily_wage', function () {
     punchInAt($this->employee, $date, '08:23');
     TimeLog::create([
         'employee_id' => $this->employee->id,
+        'timestamp' => Carbon::parse("{$date} 12:00"),
+        'type' => PunchType::LUNCH_OUT,
+        'source' => PunchSource::SELF_SERVICE,
+    ]);
+    TimeLog::create([
+        'employee_id' => $this->employee->id,
+        'timestamp' => Carbon::parse("{$date} 13:00"),
+        'type' => PunchType::LUNCH_IN,
+        'source' => PunchSource::SELF_SERVICE,
+    ]);
+    TimeLog::create([
+        'employee_id' => $this->employee->id,
         'timestamp' => Carbon::parse("{$date} 17:00"),
         'type' => PunchType::OUT,
         'source' => PunchSource::SELF_SERVICE,
@@ -166,4 +178,72 @@ it('uses custom threshold from settings', function () {
 
     expect((int) $sheet->late_minutes)->toBe(25);
     expect((string) $sheet->late_deduction)->toBe((string) $expected);
+});
+
+it('adds no-break fine when employee has punch-in/out but no lunch-break punches', function () {
+    $date = '2026-06-01';
+
+    punchInAt($this->employee, $date, '08:00');
+    TimeLog::create([
+        'employee_id' => $this->employee->id,
+        'timestamp'   => Carbon::parse("{$date} 17:00"),
+        'type'        => PunchType::OUT,
+        'source'      => PunchSource::SELF_SERVICE,
+    ]);
+
+    $sheet = $this->service->processDailyAttendance($this->employee, $date);
+
+    $noBreakFine = (float) app(PayrollSettingService::class)->get('no_break_fine', 20);
+
+    expect($sheet->is_present)->toBeTrue();
+    expect((float) $sheet->fine_deduction)->toBe($noBreakFine);
+    expect((float) $sheet->daily_wage)->toBe(round(510 - $noBreakFine, 2));
+});
+
+it('does not add no-break fine when employee has lunch-break punches', function () {
+    $date = '2026-06-01';
+
+    punchInAt($this->employee, $date, '08:00');
+    TimeLog::create([
+        'employee_id' => $this->employee->id,
+        'timestamp'   => Carbon::parse("{$date} 12:00"),
+        'type'        => PunchType::LUNCH_OUT,
+        'source'      => PunchSource::SELF_SERVICE,
+    ]);
+    TimeLog::create([
+        'employee_id' => $this->employee->id,
+        'timestamp'   => Carbon::parse("{$date} 13:00"),
+        'type'        => PunchType::LUNCH_IN,
+        'source'      => PunchSource::SELF_SERVICE,
+    ]);
+    TimeLog::create([
+        'employee_id' => $this->employee->id,
+        'timestamp'   => Carbon::parse("{$date} 17:00"),
+        'type'        => PunchType::OUT,
+        'source'      => PunchSource::SELF_SERVICE,
+    ]);
+
+    $sheet = $this->service->processDailyAttendance($this->employee, $date);
+
+    expect($sheet->is_present)->toBeTrue();
+    expect((float) $sheet->fine_deduction)->toBe(0.0);
+    expect((float) $sheet->daily_wage)->toBe(510.0);
+});
+
+it('no-break fine uses configurable amount from settings', function () {
+    app(PayrollSettingService::class)->set('no_break_fine', '50');
+
+    $date = '2026-06-01';
+    punchInAt($this->employee, $date, '08:00');
+    TimeLog::create([
+        'employee_id' => $this->employee->id,
+        'timestamp'   => Carbon::parse("{$date} 17:00"),
+        'type'        => PunchType::OUT,
+        'source'      => PunchSource::SELF_SERVICE,
+    ]);
+
+    $sheet = $this->service->processDailyAttendance($this->employee, $date);
+
+    expect((float) $sheet->fine_deduction)->toBe(50.0);
+    expect((float) $sheet->daily_wage)->toBe(460.0);
 });

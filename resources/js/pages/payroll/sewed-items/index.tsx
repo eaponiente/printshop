@@ -94,14 +94,14 @@ export default function SewedItemsIndex({
 
     const userCanEdit = (item: SewedItem) => {
         if (isSuperAdmin) {
-return !item.completed_at;
-}
+            return !item.completed_at;
+        }
 
         if (isAdmin || canEditSewedItems) {
-return (
-                !item.completed_at && item.branch?.id === auth?.user?.branch_id
+            return (
+                !item.completed_at && item.branch?.id === +auth?.user?.branch_id
             );
-}
+        }
 
         return !item.completed_at && item.user?.id === auth?.user?.id;
     };
@@ -169,24 +169,24 @@ return (
         const params: Record<string, string> = {};
 
         if (dateFrom) {
-params.date_from = dateFrom;
-}
+            params.date_from = dateFrom;
+        }
 
         if (dateTo) {
-params.date_to = dateTo;
-}
+            params.date_to = dateTo;
+        }
 
         if (canFilter && branchId) {
-params.branch_id = branchId;
-}
+            params.branch_id = branchId;
+        }
 
         if (isSuperAdmin && userId) {
-params.user_id = userId;
-}
+            params.user_id = userId;
+        }
 
         if (includeCompleted) {
-params.include_completed = '1';
-}
+            params.include_completed = '1';
+        }
 
         router.get('/payroll/sewed-items', params, {
             preserveState: true,
@@ -338,9 +338,9 @@ params.include_completed = '1';
                                                 (i) => !i.completed_at,
                                             ).length > 0 &&
                                             selectedIds.size ===
-                                                sewedItems.data.filter(
-                                                    (i) => !i.completed_at,
-                                                ).length
+                                            sewedItems.data.filter(
+                                                (i) => !i.completed_at,
+                                            ).length
                                         }
                                         onCheckedChange={toggleSelectAll}
                                     />
