@@ -82,17 +82,19 @@ it('rejects overtime with missing fields', function () {
 });
 
 it('resolves shift type from employee schedule', function () {
+    $date = '2026-06-23'; // fixed Tuesday — avoids weekend rest_day mismatch
+
     EmployeeSchedule::create([
         'employee_id' => $this->employee->id,
         'start_time' => '2024-01-01 08:00:00',
         'end_time' => '2024-01-01 17:00:00',
         'rest_days' => [0, 6],
-        'effective_from' => now()->subDays(7)->toDateString(),
+        'effective_from' => '2026-06-16',
     ]);
 
     $this->actingAs($this->staff)
         ->post(route('payroll.overtime.store'), [
-            'date' => now()->toDateString(),
+            'date' => $date,
             'start_time' => '17:00',
             'end_time' => '19:00',
             'reason' => 'Testing shift type',
@@ -144,14 +146,14 @@ it('allows admin to deny overtime request', function () {
 });
 
 it('uses approved overtime minutes in attendance sheet', function () {
-    $date = now()->toDateString();
+    $date = '2026-06-23'; // fixed Tuesday — avoids weekend rest_day mismatch
 
     EmployeeSchedule::create([
         'employee_id' => $this->employee->id,
         'start_time' => '2024-01-01 08:00:00',
         'end_time' => '2024-01-01 17:00:00',
         'rest_days' => [0, 6],
-        'effective_from' => now()->subDays(7)->toDateString(),
+        'effective_from' => '2026-06-16',
     ]);
 
     OvertimeRequest::create([
@@ -211,14 +213,14 @@ it('uses approved overtime minutes in attendance sheet', function () {
 });
 
 it('caps overtime at approved amount even if employee stays longer', function () {
-    $date = now()->toDateString();
+    $date = '2026-06-23'; // fixed Tuesday — avoids weekend rest_day mismatch
 
     EmployeeSchedule::create([
         'employee_id' => $this->employee->id,
         'start_time' => '2024-01-01 08:00:00',
         'end_time' => '2024-01-01 17:00:00',
         'rest_days' => [0, 6],
-        'effective_from' => now()->subDays(7)->toDateString(),
+        'effective_from' => '2026-06-16',
     ]);
 
     OvertimeRequest::create([

@@ -118,12 +118,16 @@ export function PayrollSidebar() {
             icon: FileEdit,
             badge: pending_requests?.correction,
         },
-        {
-            title: 'Cash Advances',
-            href: '/payroll/cash-advances',
-            icon: HandCoins,
-            badge: pending_requests?.cash_advance,
-        },
+        ...(canManageAttendance
+            ? [
+                  {
+                      title: 'Cash Advances',
+                      href: '/payroll/cash-advances',
+                      icon: HandCoins,
+                      badge: pending_requests?.cash_advance,
+                  } as NavItem,
+              ]
+            : []),
     ];
 
     return (

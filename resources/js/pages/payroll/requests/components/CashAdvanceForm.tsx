@@ -4,40 +4,55 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 
+type Employee = {
+    id: number;
+    first_name: string;
+    last_name: string;
+    branch?: { name: string };
+};
+
 type Props = {
+    employees: Employee[];
     onClose: () => void;
 };
 
-export default function CashAdvanceForm({ onClose }: Props) {
+export default function CashAdvanceForm({ employees, onClose }: Props) {
+    const [employeeId, setEmployeeId] = useState('');
     const [amount, setAmount] = useState('');
     const [reason, setReason] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
-    const canSubmit = amount && Number(amount) >= 1 && reason;
+    const canSubmit = employeeId && amount && Number(amount) >= 1 && reason;
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!canSubmit) {
-return;
-}
+        if (!canSubmit) return;
 
         setSubmitting(true);
 
         router.post(
             '/payroll/cash-advances',
-            { amount: Number(amount), reason },
+            { employee_id: Number(employeeId), amount: Number(amount), reason },
             {
                 onSuccess: () => {
-                    toast.success('Cash advance request submitted.');
+                    toast.success('Cash advance created.');
+                    setEmployeeId('');
                     setAmount('');
                     setReason('');
                     onClose();
                 },
                 onError: (err: any) =>
-                    toast.error(err.message ?? 'Failed to submit.'),
+                    toast.error(err.error ?? err.message ?? 'Failed to create.'),
                 onFinish: () => setSubmitting(false),
             },
         );
@@ -45,6 +60,23 @@ return;
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1">
+                <Label htmlFor="ca_employee">Employee *</Label>
+                <Select value={employeeId} onValueChange={setEmployeeId}>
+                    <SelectTrigger id="ca_employee">
+                        <SelectValue placeholder="Select employee…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {employees.map((emp) => (
+                            <SelectItem key={emp.id} value={String(emp.id)}>
+                                {emp.last_name}, {emp.first_name}
+                                {emp.branch ? ` — ${emp.branch.name}` : ''}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+
             <div className="space-y-1">
                 <Label htmlFor="ca_amount">Amount (PHP) *</Label>
                 <Input
@@ -74,7 +106,7 @@ return;
                     Cancel
                 </Button>
                 <Button type="submit" disabled={!canSubmit || submitting}>
-                    {submitting ? 'Submitting...' : 'Submit'}
+                    {submitting ? 'Creating…' : 'Create'}
                 </Button>
             </div>
         </form>

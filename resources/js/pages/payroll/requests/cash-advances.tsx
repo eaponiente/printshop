@@ -1,8 +1,7 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
-import { Check, Plus, X } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
-import { toast } from 'sonner';
 import { DataTable } from '@/components/data-table';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,8 +11,6 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import PayrollLayout from '@/layouts/payroll/payroll-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { PaginatedResponse } from '@/types/pagination';
@@ -21,13 +18,24 @@ import { toManilaTime } from '@/utils/dateHelper';
 import { formatCurrency } from '@/utils/formatters';
 import CashAdvanceForm from './components/CashAdvanceForm';
 
-type Props = { requests: PaginatedResponse<any> };
+type Employee = {
+    id: number;
+    first_name: string;
+    last_name: string;
+    branch?: { name: string };
+};
+
+type Props = {
+    requests: PaginatedResponse<any>;
+    employees: Employee[];
+};
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Payroll', href: '/payroll' },
     { title: 'Cash Advances', href: '/payroll/cash-advances' },
 ];
+
 const statusBadge = (s: string) =>
     ({
         approved: 'bg-green-100 text-green-700',
@@ -37,11 +45,9 @@ const statusBadge = (s: string) =>
         unpaid: 'bg-orange-100 text-orange-700',
     })[s] ?? 'bg-gray-100';
 
-export default function CashAdvances({ requests }: Props) {
+export default function CashAdvances({ requests, employees }: Props) {
     const { auth } = usePage().props as any;
     const isSuperadmin = auth?.user?.role === 'superadmin';
-    const canApprove =
-        auth?.user?.role === 'admin' || auth?.user?.role === 'superadmin';
     const [dialogOpen, setDialogOpen] = useState(false);
 
     const columns: ColumnDef<any>[] = [
@@ -97,7 +103,7 @@ export default function CashAdvances({ requests }: Props) {
         },
         {
             accessorKey: 'created_at',
-            header: 'Submitted',
+            header: 'Date',
             cell: ({ row }: CellContext<any, any>) => (
                 <span className="text-xs text-muted-foreground">
                     {toManilaTime(row.original.created_at)}
@@ -119,15 +125,6 @@ export default function CashAdvances({ requests }: Props) {
             },
         },
         {
-            accessorKey: 'approved_at',
-            header: 'Approved At',
-            cell: ({ row }: CellContext<any, any>) => (
-                <span className="text-xs text-muted-foreground">
-                    {toManilaTime(row.original.approved_at)}
-                </span>
-            ),
-        },
-        {
             accessorKey: 'status',
             header: 'Status',
             cell: ({ row }: CellContext<any, any>) => (
@@ -138,54 +135,6 @@ export default function CashAdvances({ requests }: Props) {
                 </span>
             ),
         },
-        ...(canApprove
-            ? [
-                  {
-                      header: 'Actions',
-                      cell: ({ row }: CellContext<any, any>) =>
-                          row.original.status === 'pending' ? (
-                              <div className="flex gap-1">
-                                  <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() =>
-                                          router.post(
-                                              `/payroll/cash-advances/${row.original.id}/approve`,
-                                              {},
-                                              {
-                                                  onSuccess: () =>
-                                                      toast.success('Approved'),
-                                              },
-                                          )
-                                      }
-                                  >
-                                      <Check className="h-4 w-4 text-green-600" />
-                                  </Button>
-                                  <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() =>
-                                          router.post(
-                                              `/payroll/cash-advances/${row.original.id}/deny`,
-                                              {},
-                                              {
-                                                  onSuccess: () =>
-                                                      toast.success('Denied'),
-                                              },
-                                          )
-                                      }
-                                  >
-                                      <X className="h-4 w-4 text-red-500" />
-                                  </Button>
-                              </div>
-                          ) : (
-                              <span className="text-xs text-muted-foreground">
-                                  —
-                              </span>
-                          ),
-                  } as ColumnDef<any>,
-              ]
-            : []),
     ];
 
     return (
@@ -198,14 +147,15 @@ export default function CashAdvances({ requests }: Props) {
                         <DialogTrigger asChild>
                             <Button size="sm">
                                 <Plus className="mr-1 h-4 w-4" />
-                                New Request
+                                New Cash Advance
                             </Button>
                         </DialogTrigger>
                         <DialogContent>
                             <DialogHeader>
-                                <DialogTitle>Request Cash Advance</DialogTitle>
+                                <DialogTitle>New Cash Advance</DialogTitle>
                             </DialogHeader>
                             <CashAdvanceForm
+                                employees={employees}
                                 onClose={() => setDialogOpen(false)}
                             />
                         </DialogContent>

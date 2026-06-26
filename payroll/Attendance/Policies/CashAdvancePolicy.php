@@ -17,16 +17,20 @@ class CashAdvancePolicy
 
     public function viewAny(User $user): bool
     {
-        return true;
+        return ! $user->isStaff();
     }
 
     public function view(User $user): bool
     {
-        return true;
+        return ! $user->isStaff();
     }
 
     public function request(User $user, int $employeeBranchId): bool
     {
+        if ($user->isStaff()) {
+            return false;
+        }
+
         return $this->canAccessEmployee($user, $employeeBranchId);
     }
 
