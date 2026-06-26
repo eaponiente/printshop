@@ -4,6 +4,7 @@ namespace Payroll\Attendance\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
+use App\Models\Payroll\CompanyConfig;
 use App\Models\Payroll\PayrollPeriod;
 use App\Models\Payroll\PayrollPeriodItem;
 use Illuminate\Database\QueryException;
@@ -135,13 +136,20 @@ class PayrollPeriodController extends Controller
 
         $item->load([
             'employee:id,first_name,last_name,employee_number,current_daily_rate,sss_number,philhealth_number,pagibig_number,tin_number,position',
-            'payrollPeriod:id,branch_id,period_start,period_end,status',
+            'payrollPeriod:id,branch_id,period_start,period_end,status,approved_by,approved_at',
             'payrollPeriod.branch:id,name',
         ]);
 
+        $period->load([
+            'branch:id,name',
+            'approvedBy:id,first_name,last_name',
+        ]);
+
         return Inertia::render('payroll/payroll/payslip', [
-            'period' => $period->load('branch:id,name'),
+            'period' => $period,
             'item' => $item,
+            'companyName' => CompanyConfig::getValue('company_name', 'Company Name'),
+            'viewerCanSeeEmployer' => $user->isSuperAdmin() || $user->isAdmin(),
         ]);
     }
 

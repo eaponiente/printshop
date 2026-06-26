@@ -1,0 +1,59 @@
+/* Print styles for /payroll/periods/:period/payslip/:item */
+
+@media print {
+    @page {
+        size: A4 portrait;
+        margin: 12mm;
+    }
+
+    body {
+        background: #ffffff !important;
+        color: #000000 !important;
+    }
+
+    /* Hide app chrome (sidebar, breadcrumbs, action buttons) */
+    .no-print,
+    [data-print-hide],
+    nav,
+    aside,
+    header[role='banner'],
+    .sidebar,
+    [data-sidebar] {
+        display: none !important;
+    }
+
+    .payslip-page {
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+    }
+
+    /* Hard borders on cards, keep them from splitting across pages */
+    [data-payslip-card] {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        border: 1px solid #000 !important;
+        background: #ffffff !important;
+        box-shadow: none !important;
+    }
+
+    /* Net pay block keeps its emphasis but in mono ink */
+    [data-payslip-net] {
+        border: 2px solid #000 !important;
+        background: #ffffff !important;
+        color: #000 !important;
+    }
+    [data-payslip-net] * {
+        color: #000 !important;
+    }
+
+    /* Signature footer gets stronger lines on paper */
+    [data-payslip-signatures] {
+        margin-top: 24px;
+    }
+    [data-payslip-signatures] [data-signature-line] {
+        border-bottom: 1px solid #000 !important;
+        height: 32px;
+    }
+}
