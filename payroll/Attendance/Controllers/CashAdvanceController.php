@@ -16,7 +16,7 @@ class CashAdvanceController extends Controller
 
     public function index()
     {
-        $query = CashAdvance::with(['employee:id,first_name,last_name,branch_id', 'employee.branch:id,name']);
+        $query = CashAdvance::with(['employee:id,first_name,last_name,branch_id', 'employee.branch:id,name', 'approvedBy:id,first_name,last_name']);
         $user = auth()->user();
 
         if ($user->isStaff() && $user->employee_id) {

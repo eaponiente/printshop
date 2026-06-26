@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import PayrollLayout from '@/layouts/payroll/payroll-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { PaginatedResponse } from '@/types/pagination';
+import { toManilaTime } from '@/utils/dateHelper';
 import { formatCurrency } from '@/utils/formatters';
 import CashAdvanceForm from './components/CashAdvanceForm';
 
@@ -38,6 +39,7 @@ const statusBadge = (s: string) =>
 
 export default function CashAdvances({ requests }: Props) {
     const { auth } = usePage().props as any;
+    const isSuperadmin = auth?.user?.role === 'superadmin';
     const canApprove =
         auth?.user?.role === 'admin' || auth?.user?.role === 'superadmin';
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -71,12 +73,57 @@ export default function CashAdvances({ requests }: Props) {
                 </span>
             ),
         },
+        ...(isSuperadmin
+            ? [
+                  {
+                      accessorKey: 'branch',
+                      header: 'Branch',
+                      cell: ({ row }: CellContext<any, any>) => (
+                          <span className="text-xs text-muted-foreground">
+                              {row.original.employee?.branch?.name ?? '—'}
+                          </span>
+                      ),
+                  } as ColumnDef<any>,
+              ]
+            : []),
         {
             accessorKey: 'reason',
             header: 'Reason',
             cell: ({ row }: CellContext<any, any>) => (
                 <span className="text-xs text-muted-foreground">
                     {row.original.reason}
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'created_at',
+            header: 'Submitted',
+            cell: ({ row }: CellContext<any, any>) => (
+                <span className="text-xs text-muted-foreground">
+                    {toManilaTime(row.original.created_at)}
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'approved_by',
+            header: 'Approved By',
+            cell: ({ row }: CellContext<any, any>) => {
+                const approver = row.original.approved_by;
+                return (
+                    <span className="text-xs text-muted-foreground">
+                        {approver
+                            ? `${approver.last_name}, ${approver.first_name}`
+                            : '—'}
+                    </span>
+                );
+            },
+        },
+        {
+            accessorKey: 'approved_at',
+            header: 'Approved At',
+            cell: ({ row }: CellContext<any, any>) => (
+                <span className="text-xs text-muted-foreground">
+                    {toManilaTime(row.original.approved_at)}
                 </span>
             ),
         },
