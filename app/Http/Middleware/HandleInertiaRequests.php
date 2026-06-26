@@ -103,11 +103,15 @@ class HandleInertiaRequests extends Middleware
             }
         }
 
-        return [
-            'overtime' => $overtimeQuery->count(),
-            'leave' => $leaveQuery->count(),
-            'correction' => $correctionQuery->count(),
-            'cash_advance' => $cashAdvanceQuery->count(),
-        ];
+        try {
+            return [
+                'overtime' => $overtimeQuery->count(),
+                'leave' => $leaveQuery->count(),
+                'correction' => $correctionQuery->count(),
+                'cash_advance' => $cashAdvanceQuery->count(),
+            ];
+        } catch (\Throwable) {
+            return $defaults;
+        }
     }
 }

@@ -50,19 +50,21 @@ class UserController extends Controller
                     'branch_id' => $request->branch_id,
                 ]);
 
-                $emp = Employee::create([
-                    'first_name' => $user->first_name,
-                    'last_name' => $user->last_name,
-                    'branch_id' => $user->branch_id,
-                    'hire_date' => now()->toDateString(),
-                    'position' => 'regular',
-                    'status' => 'active',
-                    'current_daily_rate' => 500,
-                ]);
+                if ($user->branch_id) {
+                    $emp = Employee::create([
+                        'first_name' => $user->first_name,
+                        'last_name' => $user->last_name,
+                        'branch_id' => $user->branch_id,
+                        'hire_date' => now()->toDateString(),
+                        'position' => 'regular',
+                        'status' => 'active',
+                        'current_daily_rate' => 500,
+                    ]);
 
-                Salary::createForEmployee($emp, 500, now()->toDateString(), 'Initial salary');
+                    Salary::createForEmployee($emp, 500, now()->toDateString(), 'Initial salary');
 
-                $user->update(['employee_id' => $emp->id]);
+                    $user->update(['employee_id' => $emp->id]);
+                }
             });
 
             return redirect()->back()->with('success', 'User created successfully.');
