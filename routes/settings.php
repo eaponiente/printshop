@@ -75,6 +75,7 @@ Route::middleware(['auth'])->group(function () {
 
     Route::patch('purchase-orders/{purchaseOrder}/status', [PurchaseOrderController::class, 'updateStatus'])->name('purchase-orders.status.update');
     Route::post('purchase-orders/{purchaseOrder}/transactions', [PurchaseOrderController::class, 'createTransaction'])->name('purchase-orders.transactions.store');
+    Route::patch('purchase-orders/{purchaseOrder}/update-staff', [PurchaseOrderController::class, 'updateStaff'])->name('purchase-orders.update-staff');
     Route::resource('purchase-orders', PurchaseOrderController::class);
     Route::resource('endorsements', EndorsementController::class);
     Route::get('/expenses/print', [ExpenseController::class, 'print'])->name('expenses.print');

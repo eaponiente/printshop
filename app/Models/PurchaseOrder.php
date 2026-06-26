@@ -36,4 +36,9 @@ class PurchaseOrder extends Model
     {
         return $this->belongsTo(Customer::class);
     }
+
+    public function assignedUser()
+    {
+        return $this->belongsTo(User::class, 'assigned_user_id');
+    }
 }

@@ -10,10 +10,12 @@ import {
     ArrowUpDown,
     Check,
     ChevronDown,
+    ChevronsUpDown,
     ExternalLink,
     Pencil,
     Plus,
     Trash2,
+    UserPlus,
     XCircle,
 } from 'lucide-react';
 import React, { useState } from 'react';
@@ -33,7 +35,20 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from '@/components/ui/command';
 import { Input } from '@/components/ui/input';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
 import {
     Select,
     SelectContent,
@@ -42,12 +57,14 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
+import { cn } from '@/lib/utils';
 import PurchaseOrderDialog from '@/pages/purchase-orders/purchase-order-dialog';
 import type { BreadcrumbItem } from '@/types';
 import type { PurchaseOrder, PurchaseOrdersList } from '@/types/purchase-order';
+import type { User } from '@/types/user';
 import { readableDate } from '@/utils/dateHelper';
 import { formatCurrency } from '@/utils/formatters';
-import { sortBy } from '@/utils/helpers';
+import { getAvatarColor, sortBy } from '@/utils/helpers';
 import CreatePoTransactionDialog from './components/create-po-transaction-dialog';
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -58,6 +75,7 @@ export default function PurchaseOrderIndex({
     purchase_orders,
     branches,
     filters,
+    users,
 }: PurchaseOrdersList) {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isMakeTransactionDialogOpen, setIsMakeTransactionDialogOpen] =
@@ -275,15 +293,177 @@ export default function PurchaseOrderIndex({
         },
 
         {
-            accessorKey: 'user.fullname',
-            header: 'Staff',
-            cell: ({ row }: CellContext<any, any>) => {
-                const staffName = row.original.user?.fullname;
+            accessorKey: 'assigned_user.fullname',
+            header: () => {
+                const isSorted = filters.sort_field === 'assigned_user_id';
 
                 return (
-                    <div className="max-w-[150px] truncate" title={staffName}>
-                        {staffName}
-                    </div>
+                    <Button
+                        variant="ghost"
+                        onClick={() =>
+                            sortBy(
+                                'assigned_user_id',
+                                filters,
+                                'purchase-orders.index',
+                            )
+                        }
+                        className="p-0 hover:bg-transparent"
+                    >
+                        Assigned To
+                        <ArrowUpDown
+                            className={`ml-2 h-4 w-4 ${isSorted ? 'text-primary' : 'text-muted-foreground/50'}`}
+                        />
+                    </Button>
+                );
+            },
+            cell: ({ row }: CellContext<any, any>) => {
+                const assignedUser = row.original.assigned_user;
+                const recordId = row.original.id;
+
+                const updateStaff = (userId: string | null) => {
+                    router.patch(
+                        route('purchase-orders.update-staff', recordId),
+                        {
+                            assigned_user_id: userId,
+                        },
+                        {
+                            preserveScroll: true,
+                            preserveState: true,
+                            onError: (errors) => {
+                                const message =
+                                    errors.message ??
+                                    Object.values(errors).flat()[0] ??
+                                    'An error occurred';
+                                toast.error(message, {
+                                    position: 'top-center',
+                                });
+                            },
+                        },
+                    );
+                };
+
+                return (
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <button
+                                className={cn(
+                                    'group flex w-fit max-w-[180px] items-center gap-2 rounded-full border px-2 py-1.5 transition-all duration-200',
+                                    assignedUser
+                                        ? 'border-input bg-background hover:border-primary/50 hover:shadow-sm'
+                                        : 'border-dashed border-muted-foreground/30 bg-muted/30 hover:bg-muted/50',
+                                )}
+                            >
+                                <div
+                                    className={cn(
+                                        'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white uppercase transition-colors',
+                                        !assignedUser &&
+                                            'bg-muted-foreground/20 text-muted-foreground',
+                                    )}
+                                    style={
+                                        assignedUser
+                                            ? {
+                                                  backgroundColor:
+                                                      getAvatarColor(
+                                                          assignedUser.fullname,
+                                                      ),
+                                              }
+                                            : {}
+                                    }
+                                >
+                                    {assignedUser ? (
+                                        assignedUser.fullname.substring(0, 2)
+                                    ) : (
+                                        <UserPlus className="h-3 w-3" />
+                                    )}
+                                </div>
+
+                                <span
+                                    className={cn(
+                                        'truncate pr-1 text-xs',
+                                        assignedUser
+                                            ? 'font-medium text-foreground'
+                                            : 'text-muted-foreground',
+                                    )}
+                                >
+                                    {assignedUser
+                                        ? assignedUser.fullname
+                                        : 'Assign Staff'}
+                                </span>
+
+                                <ChevronsUpDown className="h-3 w-3 text-muted-foreground/50 opacity-0 transition-opacity group-hover:opacity-100" />
+                            </button>
+                        </PopoverTrigger>
+
+                        <PopoverContent
+                            className="w-[240px] p-0 shadow-lg"
+                            align="start"
+                        >
+                            <div className="border-b bg-muted/20 p-1.5">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-full justify-start text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                    onClick={() => updateStaff(null)}
+                                >
+                                    <Check
+                                        className={cn(
+                                            'mr-2 h-3.5 w-3.5',
+                                            !assignedUser
+                                                ? 'opacity-100'
+                                                : 'opacity-0',
+                                        )}
+                                    />
+                                    Remove Assignment
+                                </Button>
+                            </div>
+
+                            <Command>
+                                <CommandInput
+                                    placeholder="Search users..."
+                                    className="h-9"
+                                />
+                                <CommandList className="max-h-[250px]">
+                                    <CommandEmpty>No users found.</CommandEmpty>
+                                    <CommandGroup heading="Available Staff">
+                                        {users.map((user: User) => (
+                                            <CommandItem
+                                                key={user.id}
+                                                value={user.fullname}
+                                                onSelect={() =>
+                                                    updateStaff(
+                                                        user.id.toString(),
+                                                    )
+                                                }
+                                                className="flex cursor-pointer items-center gap-2 px-2 py-2"
+                                            >
+                                                <div
+                                                    className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold text-white uppercase"
+                                                    style={{
+                                                        backgroundColor:
+                                                            getAvatarColor(
+                                                                user.fullname,
+                                                            ),
+                                                    }}
+                                                >
+                                                    {user.fullname.substring(
+                                                        0,
+                                                        2,
+                                                    )}
+                                                </div>
+                                                <span className="flex-1 truncate">
+                                                    {user.fullname}
+                                                </span>
+                                                {assignedUser?.id ===
+                                                    user.id && (
+                                                    <Check className="h-4 w-4 text-primary" />
+                                                )}
+                                            </CommandItem>
+                                        ))}
+                                    </CommandGroup>
+                                </CommandList>
+                            </Command>
+                        </PopoverContent>
+                    </Popover>
                 );
             },
         },

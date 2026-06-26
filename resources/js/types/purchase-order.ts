@@ -1,6 +1,7 @@
 import type { Branch } from '@/types/branches';
 import type { PaginatedResponse } from '@/types/pagination';
 import type { Transaction } from './transaction';
+import type { User } from './user';
 
 export type POStatus = 'pending' | 'active' | 'finished' | 'released';
 
@@ -9,6 +10,7 @@ export interface PurchaseOrdersList {
     branches: Branch[];
     statuses: PurchaseOrderStatus[];
     filters: any;
+    users: User[];
 }
 
 export type PurchaseOrderStatus = {
@@ -26,6 +28,7 @@ export interface PurchaseOrder {
     customer_id: number;
     transaction: Transaction | null;
     user_id: number;
+    assigned_user_id: number | null;
     grand_total: number;
     received_at: string;
     due_at: string;
@@ -42,7 +45,11 @@ export interface PurchaseOrder {
     };
     user?: {
         id: number;
-        name: string;
+        fullname: string;
+    };
+    assigned_user?: {
+        id: number;
+        fullname: string;
     };
 }
 
