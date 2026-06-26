@@ -915,22 +915,17 @@ function ProfileTab({
     activeSchedule: Props['activeSchedule'];
 }) {
     const { data, setData, put, processing, errors } = useForm({
-        first_name: employee.first_name,
-        last_name: employee.last_name,
-        middle_name: employee.middle_name ?? '',
-        email: employee.email ?? '',
         phone: employee.phone ?? '',
         address: employee.address ?? '',
         birth_date: toDateInput(employee.birth_date),
         sss_number: employee.sss_number ?? '',
         philhealth_number: employee.philhealth_number ?? '',
         pagibig_number: employee.pagibig_number ?? '',
-        tin_number: employee.tin_number ?? '',
     });
 
     const submit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        put('/payroll/employee/profile', {
+        put(route('payroll.employee.profile.update'), {
             onSuccess: () =>
                 toast.success('Profile updated successfully.', {
                     position: 'top-center',
@@ -947,67 +942,30 @@ function ProfileTab({
             <form onSubmit={submit} className="space-y-6">
                 <section className="space-y-3">
                     <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                        Personal Information
+                        Identity
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                        Contact HR to change your name or email.
+                    </p>
+                    <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+                        <ReadOnlyRow
+                            label="Full Name"
+                            value={employee.full_name}
+                            colSpan={2}
+                        />
+                        <ReadOnlyRow
+                            label="Email"
+                            value={employee.email ?? '—'}
+                            colSpan={2}
+                        />
+                    </div>
+                </section>
+
+                <section className="space-y-3 border-t pt-6">
+                    <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                        Contact
                     </h3>
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div className="space-y-1">
-                            <Label htmlFor="first_name">First Name *</Label>
-                            <Input
-                                id="first_name"
-                                value={data.first_name}
-                                onChange={(e) =>
-                                    setData('first_name', e.target.value)
-                                }
-                                required
-                            />
-                            {errors.first_name && (
-                                <p className="text-xs text-red-500">
-                                    {errors.first_name}
-                                </p>
-                            )}
-                        </div>
-                        <div className="space-y-1">
-                            <Label htmlFor="last_name">Last Name *</Label>
-                            <Input
-                                id="last_name"
-                                value={data.last_name}
-                                onChange={(e) =>
-                                    setData('last_name', e.target.value)
-                                }
-                                required
-                            />
-                            {errors.last_name && (
-                                <p className="text-xs text-red-500">
-                                    {errors.last_name}
-                                </p>
-                            )}
-                        </div>
-                        <div className="space-y-1">
-                            <Label htmlFor="middle_name">Middle Name</Label>
-                            <Input
-                                id="middle_name"
-                                value={data.middle_name}
-                                onChange={(e) =>
-                                    setData('middle_name', e.target.value)
-                                }
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <Label htmlFor="email">Email</Label>
-                            <Input
-                                id="email"
-                                type="email"
-                                value={data.email}
-                                onChange={(e) =>
-                                    setData('email', e.target.value)
-                                }
-                            />
-                            {errors.email && (
-                                <p className="text-xs text-red-500">
-                                    {errors.email}
-                                </p>
-                            )}
-                        </div>
                         <div className="space-y-1">
                             <Label htmlFor="phone">Phone</Label>
                             <Input
@@ -1017,6 +975,11 @@ function ProfileTab({
                                     setData('phone', e.target.value)
                                 }
                             />
+                            {errors.phone && (
+                                <p className="text-xs text-red-500">
+                                    {errors.phone}
+                                </p>
+                            )}
                         </div>
                         <div className="space-y-1">
                             <Label htmlFor="birth_date">Birth Date</Label>
@@ -1028,6 +991,11 @@ function ProfileTab({
                                     setData('birth_date', e.target.value)
                                 }
                             />
+                            {errors.birth_date && (
+                                <p className="text-xs text-red-500">
+                                    {errors.birth_date}
+                                </p>
+                            )}
                         </div>
                         <div className="space-y-1 sm:col-span-2">
                             <Label htmlFor="address">Address</Label>
@@ -1039,6 +1007,11 @@ function ProfileTab({
                                 }
                                 rows={2}
                             />
+                            {errors.address && (
+                                <p className="text-xs text-red-500">
+                                    {errors.address}
+                                </p>
+                            )}
                         </div>
                     </div>
                 </section>
@@ -1047,9 +1020,9 @@ function ProfileTab({
                     <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                         Government IDs
                     </h3>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                         <div className="space-y-1">
-                            <Label htmlFor="sss_number">SSS Number</Label>
+                            <Label htmlFor="sss_number">SSS</Label>
                             <Input
                                 id="sss_number"
                                 value={data.sss_number}
@@ -1057,10 +1030,15 @@ function ProfileTab({
                                     setData('sss_number', e.target.value)
                                 }
                             />
+                            {errors.sss_number && (
+                                <p className="text-xs text-red-500">
+                                    {errors.sss_number}
+                                </p>
+                            )}
                         </div>
                         <div className="space-y-1">
                             <Label htmlFor="philhealth_number">
-                                PhilHealth Number
+                                PhilHealth
                             </Label>
                             <Input
                                 id="philhealth_number"
@@ -1069,11 +1047,14 @@ function ProfileTab({
                                     setData('philhealth_number', e.target.value)
                                 }
                             />
+                            {errors.philhealth_number && (
+                                <p className="text-xs text-red-500">
+                                    {errors.philhealth_number}
+                                </p>
+                            )}
                         </div>
                         <div className="space-y-1">
-                            <Label htmlFor="pagibig_number">
-                                Pag-IBIG Number
-                            </Label>
+                            <Label htmlFor="pagibig_number">Pag-IBIG</Label>
                             <Input
                                 id="pagibig_number"
                                 value={data.pagibig_number}
@@ -1081,16 +1062,11 @@ function ProfileTab({
                                     setData('pagibig_number', e.target.value)
                                 }
                             />
-                        </div>
-                        <div className="space-y-1">
-                            <Label htmlFor="tin_number">TIN</Label>
-                            <Input
-                                id="tin_number"
-                                value={data.tin_number}
-                                onChange={(e) =>
-                                    setData('tin_number', e.target.value)
-                                }
-                            />
+                            {errors.pagibig_number && (
+                                <p className="text-xs text-red-500">
+                                    {errors.pagibig_number}
+                                </p>
+                            )}
                         </div>
                     </div>
                 </section>
@@ -1099,77 +1075,55 @@ function ProfileTab({
                     <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                         Employment Details
                     </h3>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                            <span className="text-muted-foreground">
-                                Employee #:
-                            </span>{' '}
-                            <span className="font-mono font-medium">
-                                {employee.employee_number}
-                            </span>
-                        </div>
-                        <div>
-                            <span className="text-muted-foreground">
-                                Branch:
-                            </span>{' '}
-                            <span className="font-medium">
-                                {employee.branch?.name ?? '—'}
-                            </span>
-                        </div>
-                        <div>
-                            <span className="text-muted-foreground">
-                                Position:
-                            </span>{' '}
-                            <span className="font-medium capitalize">
-                                {employee.position}
-                            </span>
-                        </div>
-                        <div>
-                            <span className="text-muted-foreground">
-                                Status:
-                            </span>{' '}
-                            <span className="font-medium capitalize">
-                                {employee.status}
-                            </span>
-                        </div>
-                        <div>
-                            <span className="text-muted-foreground">
-                                Daily Rate:
-                            </span>{' '}
-                            <span className="font-mono font-medium">
-                                {formatCurrency(employee.current_daily_rate)}
-                            </span>
-                        </div>
-                        <div>
-                            <span className="text-muted-foreground">
-                                Hire Date:
-                            </span>{' '}
-                            <span className="font-medium">
-                                {employee.hire_date}
-                            </span>
-                        </div>
-                        <div className="col-span-2">
-                            <span className="text-muted-foreground">
-                                Shift:
-                            </span>{' '}
-                            <span className="font-medium">
-                                {activeSchedule
+                    <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+                        <ReadOnlyRow
+                            label="Employee #"
+                            value={employee.employee_number}
+                            mono
+                        />
+                        <ReadOnlyRow
+                            label="Branch"
+                            value={employee.branch?.name ?? '—'}
+                        />
+                        <ReadOnlyRow
+                            label="Position"
+                            value={employee.position}
+                            capitalize
+                        />
+                        <ReadOnlyRow
+                            label="Status"
+                            value={employee.status}
+                            capitalize
+                        />
+                        <ReadOnlyRow
+                            label="Daily Rate"
+                            value={formatCurrency(employee.current_daily_rate)}
+                            mono
+                        />
+                        <ReadOnlyRow
+                            label="Hire Date"
+                            value={employee.hire_date}
+                        />
+                        <ReadOnlyRow
+                            label="Shift"
+                            value={
+                                activeSchedule
                                     ? `${formatTime(activeSchedule.start_time)} – ${formatTime(activeSchedule.end_time)}`
-                                    : '—'}
-                            </span>
-                        </div>
-                        <div>
-                            <span className="text-muted-foreground">
-                                Rest Days:
-                            </span>{' '}
-                            <span className="font-medium">
-                                {activeSchedule?.rest_days?.length
+                                    : '—'
+                            }
+                            colSpan={2}
+                        />
+                        <ReadOnlyRow
+                            label="Rest Days"
+                            value={
+                                activeSchedule?.rest_days?.length
                                     ? activeSchedule.rest_days
                                           .map((d: number) => DAY_NAMES[d])
                                           .join(', ')
-                                    : '—'}
-                            </span>
-                        </div>
+                                    : '—'
+                            }
+                            colSpan={2}
+                        />
                     </div>
                 </section>
 
@@ -1183,6 +1137,35 @@ function ProfileTab({
                     </Button>
                 </div>
             </form>
+        </div>
+    );
+}
+
+function ReadOnlyRow({
+    label,
+    value,
+    mono,
+    capitalize,
+    colSpan,
+}: {
+    label: string;
+    value: string | number;
+    mono?: boolean;
+    capitalize?: boolean;
+    colSpan?: 2;
+}) {
+    return (
+        <div
+            className={`rounded-md border bg-muted/30 px-3 py-2 ${colSpan === 2 ? 'sm:col-span-2' : ''}`}
+        >
+            <div className="text-[11px] tracking-wide text-muted-foreground uppercase">
+                {label}
+            </div>
+            <div
+                className={`text-sm font-medium ${mono ? 'font-mono' : ''} ${capitalize ? 'capitalize' : ''}`}
+            >
+                {value}
+            </div>
         </div>
     );
 }

@@ -1029,3 +1029,56 @@ it('returns success when sync-all has nothing to sync', function () {
         ->assertRedirect()
         ->assertSessionHas('success', 'All users are already linked to employees.');
 });
+
+// ──────────── Self-service profile (updateSelf) ────────────
+
+it('self-service profile updates only contact and government IDs', function () {
+    $employee = Employee::create([
+        'first_name' => 'Original',
+        'last_name' => 'Surname',
+        'middle_name' => 'M',
+        'email' => 'original@example.com',
+        'branch_id' => $this->branchA->id,
+        'hire_date' => '2026-01-05',
+        'position' => 'regular',
+        'status' => 'active',
+        'current_daily_rate' => 510,
+        'tin_number' => 'ORIGINAL-TIN',
+    ]);
+    $this->staffA->update(['employee_id' => $employee->id]);
+
+    $this->actingAs($this->staffA->fresh())
+        ->put(route('payroll.employee.profile.update'), [
+            // Allowed
+            'phone' => '0917-555-1234',
+            'address' => '123 Mabini St.',
+            'birth_date' => '1995-06-15',
+            'sss_number' => 'SSS-NEW',
+            'philhealth_number' => 'PHIC-NEW',
+            'pagibig_number' => 'HDMF-NEW',
+            // Not allowed — must be ignored
+            'first_name' => 'Hacked',
+            'last_name' => 'Hacker',
+            'middle_name' => 'X',
+            'email' => 'hacker@example.com',
+            'tin_number' => 'NEW-TIN',
+        ])
+        ->assertRedirect();
+
+    $employee->refresh();
+
+    // Editable fields took the new values.
+    expect($employee->phone)->toBe('0917-555-1234');
+    expect($employee->address)->toBe('123 Mabini St.');
+    expect($employee->birth_date->toDateString())->toBe('1995-06-15');
+    expect($employee->sss_number)->toBe('SSS-NEW');
+    expect($employee->philhealth_number)->toBe('PHIC-NEW');
+    expect($employee->pagibig_number)->toBe('HDMF-NEW');
+
+    // Locked fields stayed put.
+    expect($employee->first_name)->toBe('Original');
+    expect($employee->last_name)->toBe('Surname');
+    expect($employee->middle_name)->toBe('M');
+    expect($employee->email)->toBe('original@example.com');
+    expect($employee->tin_number)->toBe('ORIGINAL-TIN');
+});
