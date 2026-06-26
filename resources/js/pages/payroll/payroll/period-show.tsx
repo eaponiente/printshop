@@ -17,6 +17,7 @@ import {
 import { Button } from '@/components/ui/button';
 import PayrollLayout from '@/layouts/payroll/payroll-layout';
 import type { BreadcrumbItem } from '@/types';
+import type { PaginatedResponse } from '@/types/pagination';
 import { formatCurrency } from '@/utils/formatters';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -39,6 +40,9 @@ type PeriodItem = {
     absent_days: number;
     total_late_minutes: number;
     late_deduction: number;
+    total_undertime_minutes: number;
+    undertime_deduction: number;
+    fine_deduction: number;
     total_overtime_minutes: number;
     overtime_pay: number;
     holiday_pay_days: number;
@@ -60,14 +64,15 @@ type Props = {
         period_end: string;
         status: 'draft' | 'approved' | 'paid' | 'voided';
         approved_at: string | null;
-        items: PeriodItem[];
     };
+    items: PaginatedResponse<PeriodItem>;
     isSuperAdmin: boolean;
     canDelete: boolean;
 };
 
 export default function PayrollPeriodShow({
     period,
+    items,
     isSuperAdmin,
     canDelete,
 }: Props) {
@@ -117,12 +122,14 @@ export default function PayrollPeriodShow({
         {
             header: 'Deductions',
             cell: ({ row }: CellContext<PeriodItem, any>) => {
+                // Statutory + cash advance only. Late, undertime, and fine
+                // deductions are already inside `gross_pay` via daily_wage and
+                // would be double-counted if added here.
                 const total =
                     (Number(row.original.sss_deduction) || 0) +
                     (Number(row.original.philhealth_deduction) || 0) +
                     (Number(row.original.pagibig_deduction) || 0) +
-                    (Number(row.original.ca_deduction) || 0) +
-                    (Number(row.original.late_deduction) || 0);
+                    (Number(row.original.ca_deduction) || 0);
 
                 return (
                     <span className="font-mono text-sm text-red-600">
@@ -262,10 +269,7 @@ export default function PayrollPeriodShow({
                 </div>
 
                 <div className="rounded-md border border-sidebar-border bg-sidebar">
-                    <DataTable
-                        columns={columns}
-                        pagination={{ data: period.items } as any}
-                    />
+                    <DataTable columns={columns} pagination={items} />
                 </div>
             </div>
         </PayrollLayout>

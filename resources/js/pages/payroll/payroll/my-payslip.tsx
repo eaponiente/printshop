@@ -31,11 +31,11 @@ type Props = {
 };
 
 const statusBadge = (status: string) => {
+    // Voided periods are filtered out server-side, so no branch for them here.
     const map: Record<string, string> = {
         draft: 'bg-yellow-100 text-yellow-700',
         approved: 'bg-green-100 text-green-700',
         paid: 'bg-blue-100 text-blue-700',
-        voided: 'bg-red-100 text-red-700',
     };
 
     return map[status] ?? 'bg-gray-100 text-gray-600';

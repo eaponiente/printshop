@@ -51,6 +51,7 @@ class TimeLogController extends Controller
                 ->where('timestamp', '>=', Carbon::now()->subDays(10)->startOfDay())
                 ->whereNull('duplicate_of')
                 ->orderBy('timestamp', 'desc')
+                ->limit(60)
                 ->get()
             : collect();
 

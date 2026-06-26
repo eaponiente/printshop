@@ -13,6 +13,7 @@ use App\Models\Payroll\PayrollPeriodItem;
 use App\Models\Payroll\SssContributionBracket;
 use Carbon\Carbon;
 use DB;
+use Illuminate\Database\Eloquent\Collection;
 use Payroll\Attendance\Enums\PayrollPeriodStatus;
 
 class PayrollPeriodService
@@ -27,17 +28,15 @@ class PayrollPeriodService
             $employees = Employee::where('branch_id', $branch->id)
                 ->where('status', 'active')
                 ->whereDoesntHave('user', fn ($q) => $q->where('role', 'superadmin'))
+                ->with(['benefits'])
                 ->get();
 
+            $holidayDates = $this->resolveHolidayDates($periodStart, $periodEnd);
+
             // Ensure holiday sheets exist and are computed before locking
-            $start = Carbon::parse($periodStart);
-            $end = Carbon::parse($periodEnd);
-            for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
-                $dateStr = $date->toDateString();
-                if (Holiday::forDate($dateStr)) {
-                    foreach ($employees as $employee) {
-                        $this->attendanceService->processDailyAttendance($employee, $dateStr);
-                    }
+            foreach ($holidayDates as $dateStr) {
+                foreach ($employees as $employee) {
+                    $this->attendanceService->processDailyAttendance($employee, $dateStr);
                 }
             }
 
@@ -55,12 +54,57 @@ class PayrollPeriodService
                 'status' => PayrollPeriodStatus::DRAFT,
             ]);
 
+            $sheetsByEmployee = AttendanceSheet::whereIn('employee_id', $employees->pluck('id'))
+                ->whereBetween('date', [$periodStart, $periodEnd])
+                ->get()
+                ->groupBy('employee_id');
+
             foreach ($employees as $employee) {
-                $this->generateItemForEmployee($period, $employee, $periodStart, $periodEnd);
+                $this->generateItemForEmployee(
+                    $period,
+                    $employee,
+                    $periodStart,
+                    $periodEnd,
+                    $sheetsByEmployee->get($employee->id, new Collection),
+                );
             }
 
             return $period;
         });
+    }
+
+    /**
+     * Return all date strings within [start, end] that match a holiday, fixed
+     * or recurring. Batches the holiday lookups to avoid N+1 in generate().
+     */
+    protected function resolveHolidayDates(string $periodStart, string $periodEnd): array
+    {
+        $start = Carbon::parse($periodStart);
+        $end = Carbon::parse($periodEnd);
+
+        $candidates = Holiday::where('recurring', true)
+            ->orWhere(function ($q) use ($periodStart, $periodEnd) {
+                $q->where('recurring', false)
+                    ->whereBetween('date', [$periodStart, $periodEnd]);
+            })
+            ->get();
+
+        $dates = [];
+        for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
+            $dateStr = $date->toDateString();
+            foreach ($candidates as $holiday) {
+                $hDate = Carbon::parse($holiday->date);
+                $matches = $holiday->recurring
+                    ? ($hDate->month === $date->month && $hDate->day === $date->day)
+                    : ($hDate->toDateString() === $dateStr);
+                if ($matches) {
+                    $dates[] = $dateStr;
+                    break;
+                }
+            }
+        }
+
+        return $dates;
     }
 
     protected function generateItemForEmployee(
@@ -68,10 +112,8 @@ class PayrollPeriodService
         Employee $employee,
         string $start,
         string $end,
+        Collection $sheets,
     ): PayrollPeriodItem {
-        $sheets = AttendanceSheet::where('employee_id', $employee->id)
-            ->whereBetween('date', [$start, $end])
-            ->get();
 
         $totalRegularDays = $sheets->where('is_present', true)->whereNull('holiday_type')->where('is_rest_day', false)->count();
         $absentDays = $sheets->where('is_present', false)->where('is_rest_day', false)->count();
@@ -88,7 +130,7 @@ class PayrollPeriodService
         $dailyWageTotal = $sheets->sum('daily_wage');
         $grossPay = round($dailyWageTotal, 2);
 
-        $deminimisEarnings = $this->computeDeminimis($employee, $period);
+        $deminimisEarnings = $this->computeDeminimis($employee, $period, $sheets);
 
         $dailyRate = $employee->current_daily_rate ?? 0;
         $sssDeduction = $this->computeSSS($dailyRate, $employee);
@@ -191,13 +233,15 @@ class PayrollPeriodService
         });
     }
 
-    protected function computeDeminimis(Employee $employee, PayrollPeriod $period): float
+    protected function computeDeminimis(Employee $employee, PayrollPeriod $period, ?Collection $sheets = null): float
     {
         $total = 0;
-        $wasPresent = AttendanceSheet::where('employee_id', $employee->id)
-            ->whereBetween('date', [$period->period_start->toDateString(), $period->period_end->toDateString()])
-            ->where('is_present', true)
-            ->exists();
+        $wasPresent = $sheets !== null
+            ? $sheets->contains(fn ($s) => (bool) $s->is_present)
+            : AttendanceSheet::where('employee_id', $employee->id)
+                ->whereBetween('date', [$period->period_start->toDateString(), $period->period_end->toDateString()])
+                ->where('is_present', true)
+                ->exists();
 
         if (! $wasPresent) {
             return 0;

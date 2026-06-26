@@ -356,6 +356,10 @@ function PunchTab({
                     sendPunch();
                 },
                 () => {
+                    toast.warning(
+                        'Location not captured. Punch recorded without GPS.',
+                        { position: 'top-center' },
+                    );
                     sendPunch();
                 },
                 { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },

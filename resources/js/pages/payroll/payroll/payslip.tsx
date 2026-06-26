@@ -5,12 +5,6 @@ import PayrollLayout from '@/layouts/payroll/payroll-layout';
 import type { BreadcrumbItem } from '@/types';
 import { formatCurrency } from '@/utils/formatters';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Payroll', href: '/payroll' },
-    { title: 'Payslip', href: '#' },
-];
-
 type Props = {
     period: {
         id: number;
@@ -86,6 +80,17 @@ export default function Payslip({ period, item }: Props) {
         (Number(item.philhealth_deduction) || 0) +
         (Number(item.pagibig_deduction) || 0) +
         (Number(item.ca_deduction) || 0);
+
+    const breadcrumbs: BreadcrumbItem[] = [
+        { title: 'Dashboard', href: '/dashboard' },
+        { title: 'Payroll', href: '/payroll' },
+        { title: 'Payroll Periods', href: route('payroll.periods.index') },
+        {
+            title: `${period.period_start} – ${period.period_end}`,
+            href: route('payroll.periods.show', period.id),
+        },
+        { title: 'Payslip', href: route('payroll.payslip', [period.id, item.id]) },
+    ];
 
     return (
         <PayrollLayout breadcrumbs={breadcrumbs}>

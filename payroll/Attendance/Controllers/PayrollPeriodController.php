@@ -80,10 +80,16 @@ class PayrollPeriodController extends Controller
     {
         Gate::authorize('payroll-periods.view', [$period->branch_id]);
 
-        $period->load(['branch', 'items.employee:id,first_name,last_name,employee_number,current_daily_rate,sss_number,philhealth_number,pagibig_number']);
+        $period->load('branch');
+
+        $items = $period->items()
+            ->with('employee:id,first_name,last_name,employee_number,current_daily_rate,sss_number,philhealth_number,pagibig_number')
+            ->paginate(50)
+            ->withQueryString();
 
         return Inertia::render('payroll/payroll/period-show', [
             'period' => $period,
+            'items' => $items,
             'isSuperAdmin' => auth()->user()->isSuperAdmin(),
             'canDelete' => ! auth()->user()->isStaff(),
         ]);

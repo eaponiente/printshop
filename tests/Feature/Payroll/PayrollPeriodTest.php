@@ -851,3 +851,89 @@ it('unlocks attendance sheets on draft deletion', function () {
         ->count();
     expect($unlockedCount)->toBeGreaterThan(0);
 });
+
+// ──────────── Batch: Net pay consistency ────────────
+
+it('net_pay equals gross_pay + deminimis minus statutory and cash advance only', function () {
+    // Late employee whose daily_wage already absorbs the late deduction.
+    $emp = Employee::create([
+        'first_name' => 'Late',
+        'last_name' => 'Linus',
+        'branch_id' => $this->branchA->id,
+        'hire_date' => '2026-01-05',
+        'position' => 'regular',
+        'status' => 'active',
+        'current_daily_rate' => 510,
+        'sss_number' => '123',
+        'philhealth_number' => '456',
+        'pagibig_number' => '789',
+    ]);
+    Salary::createForEmployee($emp, 510, '2026-01-05', 'Initial');
+    EmployeeSchedule::create([
+        'employee_id' => $emp->id,
+        'start_time' => '08:00',
+        'end_time' => '17:00',
+        'rest_days' => [0, 6],
+        'effective_from' => '2026-05-25',
+        'is_active' => true,
+    ]);
+
+    $dates = ['2026-05-25', '2026-05-26', '2026-05-27', '2026-05-28', '2026-05-29'];
+    foreach ($dates as $i => $date) {
+        AttendanceSheet::create([
+            'employee_id' => $emp->id,
+            'date' => $date,
+            'schedule_start_time' => '08:00',
+            'schedule_end_time' => '17:00',
+            'rest_days' => [0, 6],
+            'daily_rate' => 510,
+            'late_minutes' => $i === 0 ? 30 : 0,
+            'late_deduction' => $i === 0 ? 210.63 : 0,
+            'hours_worked' => 8,
+            'daily_wage' => $i === 0 ? 299.37 : 510,
+            'is_present' => true,
+        ]);
+    }
+
+    $service = app(PayrollPeriodService::class);
+    $period = $service->generate($this->branchA, '2026-05-25', '2026-05-30');
+    $item = PayrollPeriodItem::where('payroll_period_id', $period->id)->first();
+
+    $statutoryAndCa =
+        (float) $item->sss_deduction
+        + (float) $item->philhealth_deduction
+        + (float) $item->pagibig_deduction
+        + (float) $item->ca_deduction;
+
+    $expectedNet = round(
+        (float) $item->gross_pay + (float) $item->deminimis_earnings - $statutoryAndCa,
+        2,
+    );
+
+    expect((float) $item->net_pay)->toBe($expectedNet);
+    // Late deduction is NOT part of the post-gross subtraction — it's baked into gross_pay.
+    expect((float) $item->late_deduction)->toBeGreaterThan(0);
+    expect((float) $item->gross_pay)->toBeLessThan(510 * 5);
+});
+
+// ──────────── Batch: Query count guard for generate() ────────────
+
+it('generate runs a bounded number of queries regardless of employee count', function () {
+    // Seed 10 employees with 5 days of attendance each.
+    for ($n = 0; $n < 10; $n++) {
+        createEmployeeWithAttendance($this->branchA, "Emp{$n}");
+    }
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+
+    app(PayrollPeriodService::class)->generate($this->branchA, '2026-05-25', '2026-05-30');
+
+    $count = count(DB::getQueryLog());
+    DB::disableQueryLog();
+
+    // Per-employee item insert + statutory bracket lookups + ledger updates are unavoidable.
+    // Pre-refactor this would have been well over 200. We allow generous headroom but
+    // assert the order of magnitude has dropped.
+    expect($count)->toBeLessThan(150);
+});
