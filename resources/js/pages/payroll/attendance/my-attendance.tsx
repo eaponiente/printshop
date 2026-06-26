@@ -1,16 +1,18 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
 import {
+    CheckCircle2,
     Clock,
     Coffee,
     LogIn,
     LogOut,
-    PlusCircle,
+    MapPin,
     MinusCircle,
-    User,
+    PlusCircle,
+    UserCog,
     UtensilsCrossed,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/data-table';
 import {
@@ -26,6 +28,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetHeader,
+    SheetTitle,
+} from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import PayrollLayout from '@/layouts/payroll/payroll-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -99,7 +108,7 @@ type Props = {
 
 export default function MyAttendance(props: Props) {
     const { punchState, employee } = props;
-    const [tab, setTab] = useState<'punch' | 'profile'>('punch');
+    const [profileOpen, setProfileOpen] = useState(false);
 
     if (!employee) {
         return (
@@ -118,52 +127,50 @@ export default function MyAttendance(props: Props) {
         <PayrollLayout breadcrumbs={breadcrumbs}>
             <Head title="My Attendance" />
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
-                <div>
-                    <h1 className="text-xl font-semibold">My Attendance</h1>
-                    <p className="text-sm text-muted-foreground">
-                        {employee.full_name}
-                    </p>
-                </div>
-
-                <div className="flex gap-1 overflow-x-auto rounded-md border bg-sidebar p-1">
-                    <button
-                        onClick={() => setTab('punch')}
-                        className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
-                            tab === 'punch'
-                                ? 'bg-accent text-accent-foreground shadow-sm'
-                                : 'text-muted-foreground hover:text-foreground'
-                        }`}
+                <div className="flex items-start justify-between gap-3">
+                    <div>
+                        <h1 className="text-xl font-semibold">My Attendance</h1>
+                        <p className="text-sm text-muted-foreground">
+                            {employee.full_name}
+                        </p>
+                    </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setProfileOpen(true)}
+                        className="gap-1.5"
                     >
-                        <Clock className="h-3.5 w-3.5" />
-                        Punch
-                    </button>
-                    <button
-                        onClick={() => setTab('profile')}
-                        className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
-                            tab === 'profile'
-                                ? 'bg-accent text-accent-foreground shadow-sm'
-                                : 'text-muted-foreground hover:text-foreground'
-                        }`}
-                    >
-                        <User className="h-3.5 w-3.5" />
+                        <UserCog className="h-4 w-4" />
                         Profile
-                    </button>
+                    </Button>
                 </div>
 
-                {tab === 'punch' && (
-                    <PunchTab
-                        punchState={punchState}
-                        attendanceSheets={props.attendanceSheets}
-                        recentTimeLogs={props.recentTimeLogs}
-                        enableCustomPunchTime={props.enableCustomPunchTime}
-                    />
-                )}
-                {tab === 'profile' && (
-                    <ProfileTab
-                        employee={props.employee!}
-                        activeSchedule={props.activeSchedule}
-                    />
-                )}
+                <PunchTab
+                    punchState={punchState}
+                    attendanceSheets={props.attendanceSheets}
+                    recentTimeLogs={props.recentTimeLogs}
+                    enableCustomPunchTime={props.enableCustomPunchTime}
+                />
+
+                <Sheet open={profileOpen} onOpenChange={setProfileOpen}>
+                    <SheetContent
+                        side="right"
+                        className="w-full overflow-y-auto sm:max-w-xl"
+                    >
+                        <SheetHeader>
+                            <SheetTitle>Profile</SheetTitle>
+                            <SheetDescription>
+                                Update your personal details and statutory IDs.
+                            </SheetDescription>
+                        </SheetHeader>
+                        <div className="px-4 pb-6">
+                            <ProfileTab
+                                employee={employee}
+                                activeSchedule={props.activeSchedule}
+                            />
+                        </div>
+                    </SheetContent>
+                </Sheet>
             </div>
         </PayrollLayout>
     );
@@ -371,6 +378,79 @@ function PunchTab({
 
     const groupedLogs = groupTimeLogsByDate(recentTimeLogs);
 
+    const [clock, setClock] = useState(new Date());
+    useEffect(() => {
+        const id = window.setInterval(() => setClock(new Date()), 1000);
+
+        return () => window.clearInterval(id);
+    }, []);
+
+    const fmtClock = (ts: string) =>
+        new Date(ts).toLocaleTimeString('en-PH', {
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+
+    const heroStatus = (() => {
+        if (!punchState) {
+            return { tone: 'neutral' as const, label: 'Loading…' };
+        }
+
+        if (punchState.is_complete) {
+            return {
+                tone: 'done' as const,
+                label: 'Day complete',
+                hint: punchState.last_punch
+                    ? `Punched out at ${fmtClock(punchState.last_punch.timestamp)}`
+                    : undefined,
+            };
+        }
+
+        const last = punchState.last_punch;
+
+        if (!last) {
+            return {
+                tone: 'idle' as const,
+                label: 'Not punched in yet',
+            };
+        }
+
+        const t = last.type;
+
+        if (t === 'in') {
+            return {
+                tone: 'active' as const,
+                label: `Punched in at ${fmtClock(last.timestamp)}`,
+            };
+        }
+
+        if (t === 'lunch_out') {
+            return {
+                tone: 'paused' as const,
+                label: `On break since ${fmtClock(last.timestamp)}`,
+            };
+        }
+
+        if (t === 'lunch_in') {
+            return {
+                tone: 'active' as const,
+                label: `Back from break at ${fmtClock(last.timestamp)}`,
+            };
+        }
+
+        if (t === 'overtime_in') {
+            return {
+                tone: 'active' as const,
+                label: `Overtime started at ${fmtClock(last.timestamp)}`,
+            };
+        }
+
+        return {
+            tone: 'neutral' as const,
+            label: `${last.label} at ${fmtClock(last.timestamp)}`,
+        };
+    })();
+
     const disabledReason = (
         kind: 'in' | 'out' | 'lunch_out' | 'lunch_in' | 'overtime_in' | 'overtime_out',
     ): string | null => {
@@ -414,8 +494,62 @@ return null;
         }
     };
 
+    const toneStyles: Record<string, string> = {
+        neutral: 'border-border bg-sidebar text-foreground',
+        idle: 'border-amber-200 bg-amber-50 text-amber-800',
+        active: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+        paused: 'border-yellow-200 bg-yellow-50 text-yellow-800',
+        done: 'border-green-200 bg-green-50 text-green-800',
+    };
+
     return (
         <div className="mx-auto w-full max-w-5xl space-y-6">
+            <div
+                className={`rounded-lg border p-4 sm:p-5 ${toneStyles[heroStatus.tone]}`}
+            >
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                    <div>
+                        <div className="font-mono text-3xl font-semibold tabular-nums sm:text-4xl">
+                            {clock.toLocaleTimeString('en-PH', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                            })}
+                        </div>
+                        <div className="text-xs opacity-80 sm:text-sm">
+                            {clock.toLocaleDateString('en-PH', {
+                                weekday: 'long',
+                                month: 'long',
+                                day: 'numeric',
+                                year: 'numeric',
+                            })}
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                        {heroStatus.tone === 'done' && (
+                            <CheckCircle2 className="h-4 w-4" />
+                        )}
+                        {heroStatus.tone === 'active' && (
+                            <Clock className="h-4 w-4" />
+                        )}
+                        {heroStatus.tone === 'paused' && (
+                            <Coffee className="h-4 w-4" />
+                        )}
+                        {heroStatus.tone === 'idle' && (
+                            <MapPin className="h-4 w-4" />
+                        )}
+                        <div>
+                            <div>{heroStatus.label}</div>
+                            {heroStatus.hint && (
+                                <div className="text-xs font-normal opacity-80">
+                                    {heroStatus.hint}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div className="grid gap-6 lg:grid-cols-5">
                 <div className="space-y-2 lg:col-span-2">
                     <h3 className="text-sm font-semibold">Recent Time Logs</h3>
@@ -485,24 +619,6 @@ return null;
                 </div>
 
                 <div className="space-y-4 lg:col-span-3">
-                    {punchState?.last_punch && (
-                        <div className="rounded-md border bg-sidebar p-3 text-sm">
-                            Last punch:{' '}
-                            <span className="font-medium">
-                                {punchState.last_punch.label}
-                            </span>{' '}
-                            at{' '}
-                            <span className="font-medium">
-                                {new Date(
-                                    punchState.last_punch.timestamp,
-                                ).toLocaleTimeString('en-PH', {
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                })}
-                            </span>
-                        </div>
-                    )}
-
                     {(firstInLog || lastOutLog) && (
                         <div className="flex items-center justify-center gap-3 rounded-md border bg-sidebar px-4 py-2 text-sm">
                             <span className="text-muted-foreground">In</span>
@@ -528,12 +644,6 @@ return null;
                                       })
                                     : '—'}
                             </span>
-                        </div>
-                    )}
-
-                    {punchState?.is_complete && (
-                        <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-700">
-                            All punches complete for today.
                         </div>
                     )}
 
@@ -833,10 +943,10 @@ function ProfileTab({
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 pt-4">
             <form onSubmit={submit} className="space-y-6">
-                <div className="rounded-md border bg-sidebar p-4">
-                    <h3 className="mb-3 text-xs font-semibold text-muted-foreground uppercase">
+                <section className="space-y-3">
+                    <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                         Personal Information
                     </h3>
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -931,10 +1041,10 @@ function ProfileTab({
                             />
                         </div>
                     </div>
-                </div>
+                </section>
 
-                <div className="rounded-md border bg-sidebar p-4">
-                    <h3 className="mb-3 text-xs font-semibold text-muted-foreground uppercase">
+                <section className="space-y-3 border-t pt-6">
+                    <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                         Government IDs
                     </h3>
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -983,10 +1093,10 @@ function ProfileTab({
                             />
                         </div>
                     </div>
-                </div>
+                </section>
 
-                <div className="rounded-md border bg-sidebar p-4">
-                    <h3 className="mb-3 text-xs font-semibold text-muted-foreground uppercase">
+                <section className="space-y-3 border-t pt-6">
+                    <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                         Employment Details
                     </h3>
                     <div className="grid grid-cols-2 gap-3 text-sm">
@@ -1061,11 +1171,17 @@ function ProfileTab({
                             </span>
                         </div>
                     </div>
-                </div>
+                </section>
 
-                <Button type="submit" disabled={processing}>
-                    Save Changes
-                </Button>
+                <div className="sticky bottom-0 -mx-4 border-t bg-background/95 px-4 py-3 backdrop-blur">
+                    <Button
+                        type="submit"
+                        disabled={processing}
+                        className="w-full"
+                    >
+                        Save Changes
+                    </Button>
+                </div>
             </form>
         </div>
     );
