@@ -40,6 +40,8 @@ class AttendanceService
         $hoursWorked = 0;
         $isPresent = false;
         $absenceType = null;
+        $isMorningHalf = false;
+        $isAfternoonHalf = false;
 
         $dailyRate = $employee->current_daily_rate ?? 0;
         $hourlyRate = $dailyRate / 8;
@@ -77,8 +79,18 @@ class AttendanceService
             if ($inPunch) {
                 $rawInTime = Carbon::parse($inPunch->timestamp);
 
-                // Tardy: based on actual punch vs schedule start
-                if ($rawInTime->gt($scheduleStart)) {
+                // Half-day detection (must precede late calculation)
+                $noonTime = Carbon::parse("{$date} 12:00");
+                $isMorningHalf = $outPunch
+                    && $rawInTime->lt($noonTime)
+                    && Carbon::parse($outPunch->timestamp)->lt(Carbon::parse("{$date} 13:00"))
+                    && ! $isRestDay;
+                $isAfternoonHalf = $rawInTime->gte($noonTime)
+                    && $scheduleStart->lt($noonTime)
+                    && ! $isRestDay;
+
+                // Tardy: based on actual punch vs schedule start (suppressed for afternoon half)
+                if ($rawInTime->gt($scheduleStart) && ! $isAfternoonHalf) {
                     $lateMinutes = abs($rawInTime->diffInMinutes($scheduleStart));
                 }
 
@@ -128,6 +140,18 @@ class AttendanceService
                     }
                 }
                 $undertimeDeduction = round(($undertimeMinutes / 60) * $hourlyRate, 2);
+
+                // Half-day: charge only for the missing half, capped at paidEndTime
+                if (($isMorningHalf || $isAfternoonHalf) && $outPunch) {
+                    $outTimeForHalf = Carbon::parse($outPunch->timestamp);
+                    if ($outTimeForHalf->gt($paidEndTime)) {
+                        $outTimeForHalf = $paidEndTime->copy();
+                    }
+                    $halfWorkedMinutes = $inTime->diffInMinutes($outTimeForHalf);
+                    $fullDayMinutes = $scheduledPaidMinutes - $unpaidTailMinutes;
+                    $undertimeMinutes = max(0, $fullDayMinutes - $halfWorkedMinutes);
+                    $undertimeDeduction = round(($undertimeMinutes / 60) * $hourlyRate, 2);
+                }
 
                 // Hours worked (uses capped inTime)
                 $endTime = $outPunch ? Carbon::parse($outPunch->timestamp) : $paidEndTime;
@@ -268,8 +292,8 @@ class AttendanceService
         // Daily wage
         $fineDeduction = Fine::where('employee_id', $employee->id)->where('date', $date)->sum('amount');
 
-        // Break fine when employee is present but has no lunch-break punches
-        if ($isPresent && ! $isRestDay && ! $hasFullDayLeave && (! $lunchOut || ! $lunchIn)) {
+        // Break fine when employee is present but has no lunch-break punches (not applicable to half-days)
+        if ($isPresent && ! $isRestDay && ! $hasFullDayLeave && (! $lunchOut || ! $lunchIn) && ! $isMorningHalf && ! $isAfternoonHalf) {
             $noBreakFine = (float) app(PayrollSettingService::class)->get('no_break_fine', config('payroll.no_break_fine'));
             $fineDeduction += $noBreakFine;
         }
