@@ -87,6 +87,9 @@ class AttendanceService
             } elseif ($lunchOut && ! $lunchIn) {
                 $isIncomplete = true;
                 $incompleteReason = 'Lunch return punch missing';
+            } elseif (! $lunchOut && $lunchIn) {
+                $isIncomplete = true;
+                $incompleteReason = 'Lunch break punch missing';
             }
 
             if ($inPunch) {

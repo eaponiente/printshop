@@ -73,6 +73,8 @@ class PayrollPeriodService
                 $reason = 'Punch-out missing';
             } elseif ($hasLunchOut && ! $hasLunchIn) {
                 $reason = 'Lunch return punch missing';
+            } elseif (! $hasLunchOut && $hasLunchIn) {
+                $reason = 'Lunch break punch missing';
             }
 
             if ($reason !== null) {
