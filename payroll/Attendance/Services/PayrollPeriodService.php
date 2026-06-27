@@ -5,6 +5,7 @@ namespace Payroll\Attendance\Services;
 use App\Models\Branch;
 use App\Models\Payroll\AttendanceSheet;
 use App\Models\Payroll\CashAdvance;
+use App\Models\Payroll\TimeLog;
 use App\Models\Payroll\CompanyConfig;
 use App\Models\Payroll\Employee;
 use App\Models\Payroll\Holiday;
@@ -24,24 +25,67 @@ class PayrollPeriodService
 
     public function findIncompleteSheets(Branch $branch, string $periodStart, string $periodEnd): array
     {
-        return AttendanceSheet::whereIn('employee_id', function ($query) use ($branch) {
+        // Fetch present, non-leave, non-rest-day sheets for the period.
+        $sheets = AttendanceSheet::whereIn('employee_id', function ($query) use ($branch) {
             $query->select('id')->from('employees')->where('branch_id', $branch->id);
         })
             ->whereBetween('date', [$periodStart, $periodEnd])
-            ->where('is_incomplete', true)
+            ->where('is_present', true)
+            ->where('is_rest_day', false)
+            ->whereNull('leave_type')
             ->with('employee:id,first_name,last_name')
             ->orderBy('date')
             ->orderBy('employee_id')
-            ->get()
-            ->map(fn ($sheet) => [
-                'employee'    => $sheet->employee->last_name.', '.$sheet->employee->first_name,
-                'employee_id' => $sheet->employee_id,
-                'date'        => $sheet->date instanceof \Carbon\Carbon
-                    ? $sheet->date->toDateString()
-                    : (string) $sheet->date,
-                'reason'      => $sheet->incomplete_reason ?? 'Incomplete punch record',
+            ->get();
+
+        if ($sheets->isEmpty()) {
+            return [];
+        }
+
+        // Batch-fetch all time logs for the period in one query.
+        $allLogs = TimeLog::whereIn('employee_id', $sheets->pluck('employee_id')->unique())
+            ->whereBetween('timestamp', [
+                Carbon::parse($periodStart)->startOfDay(),
+                Carbon::parse($periodEnd)->endOfDay(),
             ])
-            ->toArray();
+            ->whereNull('duplicate_of')
+            ->get()
+            ->groupBy(fn ($log) => $log->employee_id.'|'.Carbon::parse($log->timestamp)->toDateString());
+
+        $result = [];
+
+        foreach ($sheets as $sheet) {
+            $dateStr = $sheet->date instanceof Carbon
+                ? $sheet->date->toDateString()
+                : (string) $sheet->date;
+
+            $punches = $allLogs->get($sheet->employee_id.'|'.$dateStr) ?? collect();
+
+            $hasIn       = $punches->contains(fn ($l) => $l->type->value === 'in');
+            $hasOut      = $punches->contains(fn ($l) => $l->type->value === 'out');
+            $hasLunchOut = $punches->contains(fn ($l) => $l->type->value === 'lunch_out');
+            $hasLunchIn  = $punches->contains(fn ($l) => $l->type->value === 'lunch_in');
+
+            $reason = null;
+            if (! $hasIn) {
+                $reason = 'No punch-in recorded';
+            } elseif (! $hasOut) {
+                $reason = 'Punch-out missing';
+            } elseif ($hasLunchOut && ! $hasLunchIn) {
+                $reason = 'Lunch return punch missing';
+            }
+
+            if ($reason !== null) {
+                $result[] = [
+                    'employee'    => $sheet->employee->last_name.', '.$sheet->employee->first_name,
+                    'employee_id' => $sheet->employee_id,
+                    'date'        => $dateStr,
+                    'reason'      => $reason,
+                ];
+            }
+        }
+
+        return $result;
     }
 
     public function generate(Branch $branch, string $periodStart, string $periodEnd): PayrollPeriod
