@@ -55,9 +55,7 @@ class PayrollPeriodService
         $result = [];
 
         foreach ($sheets as $sheet) {
-            $dateStr = $sheet->date instanceof Carbon
-                ? $sheet->date->toDateString()
-                : (string) $sheet->date;
+            $dateStr = $sheet->date->toDateString();
 
             $punches = $allLogs->get($sheet->employee_id.'|'.$dateStr) ?? collect();
 
