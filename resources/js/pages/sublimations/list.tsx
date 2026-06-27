@@ -102,6 +102,11 @@ export default function SublimationIndex({
         useState<Sublimation | null>(null);
     const [zoomedImage, setZoomedImage] = useState<UploadedImage | null>(null);
 
+    const [duplicateTarget, setDuplicateTarget] = useState<Sublimation | null>(null);
+    const [duplicateQty, setDuplicateQty] = useState('');
+    const [duplicateAmount, setDuplicateAmount] = useState('');
+    const [duplicating, setDuplicating] = useState(false);
+
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
     const [gallerySublimation, setGallerySublimation] =
         useState<Sublimation | null>(null);
@@ -251,6 +256,22 @@ export default function SublimationIndex({
         {
             accessorKey: 'quantity',
             header: 'Quantity',
+            cell: ({ row }: CellContext<any, any>) => (
+                <div className="flex items-center gap-1">
+                    <span>{row.original.quantity}</span>
+                    <button
+                        type="button"
+                        title="Duplicate with new quantity"
+                        className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        onClick={() => {
+                            setDuplicateTarget(row.original);
+                            setDuplicateQty('');
+                        }}
+                    >
+                        <Plus className="h-3 w-3" />
+                    </button>
+                </div>
+            ),
         },
         {
             accessorKey: 'branch.name',
@@ -882,6 +903,101 @@ export default function SublimationIndex({
                             </div>
                         </div>
                     )}
+                </DialogContent>
+            </Dialog>
+            <Dialog
+                open={!!duplicateTarget}
+                onOpenChange={(open) => {
+                    if (!open) {
+setDuplicateTarget(null);
+}
+                }}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Duplicate Sublimation</DialogTitle>
+                        <DialogDescription>
+                            Enter a quantity for the new sublimation. All other
+                            fields will be copied from the original.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <form
+                        onSubmit={(e) => {
+                            e.preventDefault();
+
+                            if (!duplicateTarget || duplicating) {
+return;
+}
+
+                            setDuplicating(true);
+                            router.post(
+                                route('sublimations.duplicate', duplicateTarget.id),
+                                { quantity: Number(duplicateQty), amount_total: Number(duplicateAmount) },
+                                {
+                                    preserveScroll: true,
+                                    onSuccess: () => {
+                                        toast.success('Sublimation duplicated.', { position: 'top-center' });
+                                        setDuplicateTarget(null);
+                                    },
+                                    onError: (errors) => {
+                                        toast.error(
+                                            errors.quantity ?? errors.amount_total ?? errors.message ?? 'Failed to duplicate.',
+                                            { position: 'top-center' },
+                                        );
+                                    },
+                                    onFinish: () => setDuplicating(false),
+                                },
+                            );
+                        }}
+                        className="space-y-4 pt-2"
+                    >
+                        <div className="space-y-1">
+                            <label className="text-sm font-medium">
+                                Quantity
+                            </label>
+                            <input
+                                type="number"
+                                min={1}
+                                max={999999}
+                                value={duplicateQty}
+                                onChange={(e) => setDuplicateQty(e.target.value)}
+                                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                placeholder="e.g. 50"
+                                autoFocus
+                                required
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-sm font-medium">
+                                Amount (PHP)
+                            </label>
+                            <input
+                                type="number"
+                                min={1}
+                                step="0.01"
+                                value={duplicateAmount}
+                                onChange={(e) => setDuplicateAmount(e.target.value)}
+                                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                placeholder="e.g. 500.00"
+                                required
+                            />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setDuplicateTarget(null)}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={!duplicateQty || Number(duplicateQty) < 1 || !duplicateAmount || Number(duplicateAmount) < 1 || duplicating}
+                            >
+                                {duplicating ? 'Duplicating…' : 'Duplicate'}
+                            </Button>
+                        </div>
+                    </form>
                 </DialogContent>
             </Dialog>
         </AppLayout>

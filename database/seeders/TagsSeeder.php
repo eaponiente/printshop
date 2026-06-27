@@ -12,14 +12,14 @@ class TagsSeeder extends Seeder
         $tagGroups = [
             // Production Status (Red/Orange/Yellow)
             'status' => [
-                ['name' => 'Rush Order', 'color' => 'bg-red-600'],
-                ['name' => 'Awaiting Artwork', 'color' => 'bg-orange-500'],
-                ['name' => 'Proof Sent', 'color' => 'bg-yellow-500'],
-                ['name' => 'Ready to Press', 'color' => 'bg-green-600'],
-                ['name' => 'Printed', 'color' => 'bg-blue-500'],
-                ['name' => 'Quality Control Failed', 'color' => 'bg-rose-700'],
-                ['name' => 'Reprint Needed', 'color' => 'bg-purple-600'],
-                ['name' => 'On Hold', 'color' => 'bg-slate-700'],
+                ['name' => 'Rush Order', 'color' => '#dc2626', 'price_per_piece' => 0],
+                ['name' => 'Awaiting Artwork', 'color' => '#f97316', 'price_per_piece' => 0],
+                ['name' => 'Proof Sent', 'color' => '#eab308', 'price_per_piece' => 0],
+                ['name' => 'Ready to Press', 'color' => '#16a34a', 'price_per_piece' => 0],
+                ['name' => 'Printed', 'color' => '#3b82f6', 'price_per_piece' => 0],
+                ['name' => 'Quality Control Failed', 'color' => '#be123c', 'price_per_piece' => 0],
+                ['name' => 'Reprint Needed', 'color' => '#9333ea', 'price_per_piece' => 0],
+                ['name' => 'On Hold', 'color' => '#334155', 'price_per_piece' => 0],
             ],
         ];
 

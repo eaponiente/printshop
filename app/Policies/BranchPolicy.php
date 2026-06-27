@@ -28,7 +28,7 @@ class BranchPolicy
      */
     public function create(User $user): bool
     {
-        return false;
+        return $user->role === 'superadmin';
     }
 
     /**
@@ -36,7 +36,7 @@ class BranchPolicy
      */
     public function update(User $user, Branch $branch): bool
     {
-        return false;
+        return $user->role === 'superadmin';
     }
 
     /**
@@ -44,7 +44,7 @@ class BranchPolicy
      */
     public function delete(User $user, Branch $branch): bool
     {
-        return false;
+        return $user->role === 'superadmin';
     }
 
     /**

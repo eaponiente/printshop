@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\Sublimations\SublimationStatus;
+use App\Models\Payroll\SewedItem;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
@@ -48,6 +49,11 @@ class Sublimation extends Model
     public function transaction()
     {
         return $this->belongsTo(Transaction::class, 'transaction_id');
+    }
+
+    public function sewedItem()
+    {
+        return $this->hasOne(SewedItem::class);
     }
 
     public function getStatusLabelAttribute(): string

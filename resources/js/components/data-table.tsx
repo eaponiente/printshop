@@ -112,7 +112,7 @@ export function DataTable<TData>({
             </div>
 
             {/* Pagination Controls */}
-            <div className="flex items-center justify-between px-2">
+            <div className="flex items-center justify-between border-t px-4 py-3">
                 <div className="text-sm text-muted-foreground">
                     Page {pagination.current_page} of {pagination.last_page} (
                     {pagination.total} total)

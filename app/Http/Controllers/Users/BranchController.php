@@ -28,10 +28,10 @@ class BranchController extends Controller
 
     public function store(StoreBranchRequest $request): RedirectResponse
     {
+        $this->authorize('create', Branch::class);
+
         try {
-            Branch::create([
-                'name' => $request->name,
-            ]);
+            Branch::create($request->validated());
 
             return redirect()->back()->with('success', 'Branch created successfully.');
         } catch (\Exception $e) {
@@ -43,7 +43,7 @@ class BranchController extends Controller
 
     public function update(UpdateBranchRequest $request, Branch $branch): RedirectResponse
     {
-        $this->authorize('update', auth()->user());
+        $this->authorize('update', $branch);
 
         try {
             $branch->update($request->validated());
@@ -58,7 +58,7 @@ class BranchController extends Controller
 
     public function destroy(Branch $branch): RedirectResponse
     {
-        $this->authorize('delete', auth()->user());
+        $this->authorize('delete', $branch);
 
         if ($branch->users()->count() > 0) {
             return redirect()->back()->withErrors(['error' => 'You cannot delete this branch yet as it still has some users.']);

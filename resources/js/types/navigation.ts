@@ -12,6 +12,7 @@ export type NavItem = {
     url?: string;
     icon?: LucideIcon | null;
     isActive?: boolean;
+    badge?: number;
     items?: {
         title: string;
         url: string;

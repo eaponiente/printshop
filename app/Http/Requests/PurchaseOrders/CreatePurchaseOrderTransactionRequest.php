@@ -31,9 +31,9 @@ class CreatePurchaseOrderTransactionRequest extends FormRequest
             $purchaseOrder = $this->route('purchaseOrder');
 
             // Check if the purchase order exists and doesn't have an assigned user
-            if (!$purchaseOrder || empty($purchaseOrder->assigned_user_id)) {
+            if (! $purchaseOrder || empty($purchaseOrder->assigned_user_id)) {
                 $validator->errors()->add(
-                    'amount_total', 
+                    'amount_total',
                     'A user must be assigned to the purchase order before creating a transaction.'
                 );
             }

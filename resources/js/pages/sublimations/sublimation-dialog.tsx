@@ -40,6 +40,7 @@ export default function SublimationDialog({
     open,
     setOpen,
     branches,
+    users,
     availableTags,
     sublimation,
 }: SublimationDialogProps) {
@@ -58,6 +59,7 @@ export default function SublimationDialog({
         branch_id: sublimation?.branch_id ?? (auth.user as any).branch_id ?? '',
         customer_id: sublimation?.customer_id ?? '',
         tag_ids: (sublimation?.tags?.map((t) => t.id) ?? []) as number[],
+        user_id: sublimation?.user_id ?? '',
     });
 
     // Automatically uncheck/reset if the transaction type changes to PO
@@ -185,6 +187,28 @@ export default function SublimationDialog({
                                 </NativeSelect>
                                 <InputError message={errors.branch_id} />
                             </div>
+                        </div>
+
+                        {/* Assigned To */}
+                        <div className="grid gap-2">
+                            <Label htmlFor="user_id">Assigned To</Label>
+                            <NativeSelect
+                                id="user_id"
+                                value={data.user_id}
+                                onChange={(e) =>
+                                    setData('user_id', e.target.value)
+                                }
+                            >
+                                <NativeSelectOption value="">
+                                    Select staff
+                                </NativeSelectOption>
+                                {users.map((u) => (
+                                    <NativeSelectOption key={u.id} value={u.id}>
+                                        {u.fullname}
+                                    </NativeSelectOption>
+                                ))}
+                            </NativeSelect>
+                            <InputError message={errors.user_id} />
                         </div>
 
                         {/* Transaction Type & Production Authorization */}

@@ -20,6 +20,11 @@ class DatabaseSeeder extends Seeder
                 // TransactionSeeder::class,
                 // PurchaseOrderSeeder::class,
                 // ExpenseSeeder::class,
+                HolidaySeeder::class,
+                SssBracketSeeder::class,
+                // AttendanceDemoSeeder::class,
+                // EmployeeScenarioSeeder::class,
+                // DemoSeeder::class,
             ]);
         } else {
             $this->call([

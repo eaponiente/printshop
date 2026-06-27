@@ -2,13 +2,8 @@
 
 namespace App\Http\Controllers\Home;
 
-use App\Enums\Sales\TransactionStatus;
 use App\Http\Controllers\Controller;
-use App\Models\Customer;
-use App\Models\Transaction;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 

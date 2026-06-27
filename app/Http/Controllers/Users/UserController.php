@@ -8,10 +8,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Users\StoreUserRequest;
 use App\Http\Requests\Users\UpdateUserRequest;
 use App\Models\Branch;
+use App\Models\Payroll\Employee;
+use App\Models\Payroll\Salary;
 use App\Models\User;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -37,14 +40,32 @@ class UserController extends Controller
     public function store(StoreUserRequest $request): RedirectResponse
     {
         try {
-            User::create([
-                'first_name' => $request->first_name,
-                'last_name' => $request->last_name,
-                'username' => $request->username,
-                'role' => $request->role,
-                'password' => bcrypt($request->password),
-                'branch_id' => $request->branch_id,
-            ]);
+            DB::transaction(function () use ($request) {
+                $user = User::create([
+                    'first_name' => $request->first_name,
+                    'last_name' => $request->last_name,
+                    'username' => $request->username,
+                    'role' => $request->role,
+                    'password' => bcrypt($request->password),
+                    'branch_id' => $request->branch_id,
+                ]);
+
+                if ($user->branch_id) {
+                    $emp = Employee::create([
+                        'first_name' => $user->first_name,
+                        'last_name' => $user->last_name,
+                        'branch_id' => $user->branch_id,
+                        'hire_date' => now()->toDateString(),
+                        'position' => 'regular',
+                        'status' => 'active',
+                        'current_daily_rate' => 500,
+                    ]);
+
+                    Salary::createForEmployee($emp, 500, now()->toDateString(), 'Initial salary');
+
+                    $user->update(['employee_id' => $emp->id]);
+                }
+            });
 
             return redirect()->back()->with('success', 'User created successfully.');
         } catch (\Exception $e) {

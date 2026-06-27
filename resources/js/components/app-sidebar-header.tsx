@@ -1,3 +1,5 @@
+import { Link } from '@inertiajs/react';
+import { Banknote } from 'lucide-react';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import type { BreadcrumbItem as BreadcrumbItemType } from '@/types';
@@ -13,7 +15,6 @@ export function AppSidebarHeader({
                 <SidebarTrigger className="-ml-1" />
                 <Breadcrumbs breadcrumbs={breadcrumbs} />
             </div>
-            {/* {auth.user.role !== 'staff' && (
                 <div className="ml-auto">
                     <Link
                         href="/payroll"
@@ -23,7 +24,6 @@ export function AppSidebarHeader({
                         Payroll
                     </Link>
                 </div>
-            )} */}
         </header>
     );
 }
