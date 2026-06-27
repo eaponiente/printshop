@@ -90,6 +90,12 @@ class AttendanceService
             } elseif (! $lunchOut && $lunchIn) {
                 $isIncomplete = true;
                 $incompleteReason = 'Lunch break punch missing';
+            } elseif ($otInPunch && ! $otOutPunch) {
+                $isIncomplete = true;
+                $incompleteReason = 'Overtime punch-out missing';
+            } elseif (! $otInPunch && $otOutPunch) {
+                $isIncomplete = true;
+                $incompleteReason = 'Overtime punch-in missing';
             }
 
             if ($inPunch) {

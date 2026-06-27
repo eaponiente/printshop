@@ -61,10 +61,12 @@ class PayrollPeriodService
 
             $punches = $allLogs->get($sheet->employee_id.'|'.$dateStr) ?? collect();
 
-            $hasIn       = $punches->contains(fn ($l) => $l->type->value === 'in');
-            $hasOut      = $punches->contains(fn ($l) => $l->type->value === 'out');
-            $hasLunchOut = $punches->contains(fn ($l) => $l->type->value === 'lunch_out');
-            $hasLunchIn  = $punches->contains(fn ($l) => $l->type->value === 'lunch_in');
+            $hasIn          = $punches->contains(fn ($l) => $l->type->value === 'in');
+            $hasOut         = $punches->contains(fn ($l) => $l->type->value === 'out');
+            $hasLunchOut    = $punches->contains(fn ($l) => $l->type->value === 'lunch_out');
+            $hasLunchIn     = $punches->contains(fn ($l) => $l->type->value === 'lunch_in');
+            $hasOvertimeIn  = $punches->contains(fn ($l) => $l->type->value === 'overtime_in');
+            $hasOvertimeOut = $punches->contains(fn ($l) => $l->type->value === 'overtime_out');
 
             $reason = null;
             if (! $hasIn) {
@@ -75,6 +77,10 @@ class PayrollPeriodService
                 $reason = 'Lunch return punch missing';
             } elseif (! $hasLunchOut && $hasLunchIn) {
                 $reason = 'Lunch break punch missing';
+            } elseif ($hasOvertimeIn && ! $hasOvertimeOut) {
+                $reason = 'Overtime punch-out missing';
+            } elseif (! $hasOvertimeIn && $hasOvertimeOut) {
+                $reason = 'Overtime punch-in missing';
             }
 
             if ($reason !== null) {
