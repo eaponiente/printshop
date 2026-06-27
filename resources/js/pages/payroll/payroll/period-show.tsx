@@ -343,7 +343,9 @@ export default function PayrollPeriodShow({
                                             {s.reason}
                                         </span>
                                         <a
-                                            href={`/payroll/attendance-sheets/${s.employee_id}`}
+                                            href={`/payroll/attendance-sheets/${s.employee_id}?date=${s.date}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
                                             className="ml-auto text-xs text-blue-600 underline hover:text-blue-800"
                                         >
                                             View attendance →

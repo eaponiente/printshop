@@ -1,5 +1,7 @@
-import { Head } from '@inertiajs/react';
-import { ArrowLeft } from 'lucide-react';
+import { Head, router } from '@inertiajs/react';
+import { ArrowLeft, Plus, X } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import PayrollLayout from '@/layouts/payroll/payroll-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -56,7 +58,17 @@ type Props = {
         accuracy_meters: number | null;
         note: string | null;
     }[];
+    canEdit: boolean;
 };
+
+const PUNCH_TYPES = [
+    { value: 'in', label: 'Punch In' },
+    { value: 'lunch_out', label: 'Lunch Out' },
+    { value: 'lunch_in', label: 'Lunch In' },
+    { value: 'out', label: 'Punch Out' },
+    { value: 'overtime_in', label: 'OT In' },
+    { value: 'overtime_out', label: 'OT Out' },
+];
 
 export default function SheetDetail({
     employee,
@@ -65,7 +77,12 @@ export default function SheetDetail({
     lockedAt,
     fines,
     timeLogs,
+    canEdit,
 }: Props) {
+    const [addType, setAddType] = useState('in');
+    const [addTime, setAddTime] = useState('');
+    const [adding, setAdding] = useState(false);
+
     const hourLabel = (h: number) => (h === 8 ? 'Full Day' : `${h}h`);
     const dailyRate = Number(sheet?.daily_rate) || 0;
     const hourlyRate = dailyRate / 8;
@@ -73,6 +90,32 @@ export default function SheetDetail({
         sheet?.is_rest_day && sheet?.is_present
             ? Math.round(sheet.hours_worked * hourlyRate * 0.3 * 100) / 100
             : 0;
+
+    function handleAddPunch() {
+        if (!addTime) return;
+        setAdding(true);
+        router.post(
+            `/payroll/attendance-sheets/${employee.id}/logs`,
+            { date, type: addType, time: addTime },
+            {
+                onSuccess: () => {
+                    setAddTime('');
+                    toast.success('Punch added.');
+                },
+                onError: () => toast.error('Failed to add punch.'),
+                onFinish: () => setAdding(false),
+            },
+        );
+    }
+
+    function handleDeletePunch(logId: number) {
+        router.delete(`/payroll/attendance-sheets/${employee.id}/logs/${logId}`, {
+            onSuccess: () => toast.success('Punch removed.'),
+            onError: () => toast.error('Failed to remove punch.'),
+        });
+    }
+
+    const showPunchesCard = timeLogs.length > 0 || canEdit;
 
     return (
         <PayrollLayout breadcrumbs={breadcrumbs}>
@@ -90,51 +133,36 @@ export default function SheetDetail({
                     <h1 className="text-xl font-semibold">
                         {employee.full_name} — {date}
                     </h1>
+                    {lockedAt && (
+                        <span className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                            Locked in payroll period
+                        </span>
+                    )}
                 </div>
 
-                {sheet ? (
-                    <div className="max-w-md space-y-4">
-                        {/* Status */}
+                <div className="max-w-md space-y-4">
+                    {/* Punches — always visible to admin */}
+                    {showPunchesCard && (
                         <div className="rounded-md border border-sidebar-border bg-sidebar p-4 text-sm">
-                            <Row
-                                label="Status"
-                                value={statusLabel(sheet)}
-                                valueClass={statusClass(sheet)}
-                            />
-                            {sheet.is_present && (
-                                <>
-                                    <Row
-                                        label="Hours Worked"
-                                        value={hourLabel(sheet.hours_worked)}
-                                    />
-                                    {sheet.schedule_start_time && (
-                                        <Row
-                                            label="Schedule"
-                                            value={`${formatTime(sheet.schedule_start_time)} – ${formatTime(sheet.schedule_end_time)}`}
-                                        />
-                                    )}
-                                    <Row
-                                        label="Daily Rate"
-                                        value={`${formatCurrency(sheet.daily_rate)} (${formatCurrency(Number(sheet.daily_rate) / 8)}/hr)`}
-                                    />
-                                </>
-                            )}
-                        </div>
+                            <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
+                                Punches
+                            </h3>
 
-                        {/* Punches */}
-                        {timeLogs.length > 0 && (
-                            <div className="rounded-md border border-sidebar-border bg-sidebar p-4 text-sm">
-                                <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
-                                    Punches
-                                </h3>
-                                {timeLogs.map((log) => (
-                                    <div
-                                        key={log.id}
-                                        className="flex justify-between py-0.5"
-                                    >
-                                        <span className="text-muted-foreground capitalize">
-                                            {typeLabel(log.type)}
-                                        </span>
+                            {timeLogs.length === 0 && (
+                                <p className="mb-2 text-xs text-muted-foreground">
+                                    No punches recorded.
+                                </p>
+                            )}
+
+                            {timeLogs.map((log) => (
+                                <div
+                                    key={log.id}
+                                    className="flex items-center justify-between py-0.5"
+                                >
+                                    <span className="text-muted-foreground capitalize">
+                                        {typeLabel(log.type)}
+                                    </span>
+                                    <div className="flex items-center gap-2">
                                         <span className="font-mono text-xs">
                                             {new Date(
                                                 log.timestamp,
@@ -144,150 +172,240 @@ export default function SheetDetail({
                                                 second: '2-digit',
                                             })}
                                         </span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {/* Punch Locations */}
-                        {timeLogs.filter(
-                            (l) => ['in', 'out'].includes(l.type) && l.note,
-                        ).length > 0 && (
-                            <div className="rounded-md border border-sidebar-border bg-sidebar p-4 text-sm">
-                                <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
-                                    Punch Locations
-                                </h3>
-                                {timeLogs
-                                    .filter(
-                                        (l) =>
-                                            ['in', 'out'].includes(l.type) &&
-                                            l.note,
-                                    )
-                                    .map((log) => (
-                                        <div
-                                            key={log.id}
-                                            className="flex justify-between py-0.5"
-                                        >
-                                            <span className="text-muted-foreground capitalize">
-                                                {log.type === 'in'
-                                                    ? 'Punch In'
-                                                    : 'Punch Out'}
-                                            </span>
-                                            <span
-                                                className={`text-xs ${log.note?.includes('✅') ? 'text-green-600' : log.note?.includes('⚠️') ? 'text-amber-600' : 'text-muted-foreground'}`}
+                                        {canEdit && (
+                                            <button
+                                                onClick={() =>
+                                                    handleDeletePunch(log.id)
+                                                }
+                                                className="text-muted-foreground hover:text-red-500"
+                                                title="Remove punch"
                                             >
-                                                {log.note}
-                                            </span>
-                                        </div>
-                                    ))}
-                            </div>
-                        )}
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
 
-                        {/* Deductions */}
-                        {(sheet.late_deduction > 0 ||
-                            sheet.undertime_deduction > 0) && (
-                            <div className="rounded-md border border-sidebar-border bg-sidebar p-4 text-sm">
-                                <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
-                                    Deductions
-                                </h3>
-                                {sheet.late_deduction > 0 && (
-                                    <Row
-                                        label="Late"
-                                        value={`${sheet.late_minutes} min → −${formatCurrency(sheet.late_deduction)}`}
-                                        red
+                            {canEdit && (
+                                <div className="mt-3 flex items-center gap-2 border-t border-sidebar-border pt-3">
+                                    <select
+                                        value={addType}
+                                        onChange={(e) =>
+                                            setAddType(e.target.value)
+                                        }
+                                        className="h-7 rounded border border-input bg-background px-2 text-xs"
+                                    >
+                                        {PUNCH_TYPES.map((t) => (
+                                            <option
+                                                key={t.value}
+                                                value={t.value}
+                                            >
+                                                {t.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <input
+                                        type="time"
+                                        value={addTime}
+                                        onChange={(e) =>
+                                            setAddTime(e.target.value)
+                                        }
+                                        className="h-7 rounded border border-input bg-background px-2 font-mono text-xs"
                                     />
-                                )}
-                                {sheet.undertime_deduction > 0 && (
-                                    <Row
-                                        label="Undertime"
-                                        value={`${sheet.undertime_minutes} min → −${formatCurrency(sheet.undertime_deduction)}`}
-                                        red
-                                    />
-                                )}
-                            </div>
-                        )}
-
-                        {/* Additions */}
-                        {(sheet.overtime_pay > 0 ||
-                            sheet.holiday_pay > 0 ||
-                            restDayPremium > 0) && (
-                            <div className="rounded-md border border-sidebar-border bg-sidebar p-4 text-sm">
-                                <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
-                                    Additions
-                                </h3>
-                                {restDayPremium > 0 && (
-                                    <Row
-                                        label="Rest Day"
-                                        value={`${sheet.hours_worked}h × 1.30× → +${formatCurrency(restDayPremium)}`}
-                                    />
-                                )}
-                                {sheet.overtime_pay > 0 && (
-                                    <Row
-                                        label="Overtime"
-                                        value={`${sheet.overtime_minutes} min × ${sheet.overtime_multiplier ?? '—'}× → +${formatCurrency(sheet.overtime_pay)}`}
-                                    />
-                                )}
-                                {sheet.holiday_pay > 0 && (
-                                    <Row
-                                        label="Holiday"
-                                        value={`${sheet.holiday_type} ${sheet.holiday_pay_percent}% → +${formatCurrency(sheet.holiday_pay)}`}
-                                    />
-                                )}
-                            </div>
-                        )}
-
-                        {/* Leave */}
-                        {sheet.leave_type && (
-                            <div className="rounded-md border border-sidebar-border bg-sidebar p-4 text-sm">
-                                <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
-                                    Leave
-                                </h3>
-                                <Row label="Type" value={sheet.leave_type} />
-                                <Row
-                                    label="Duration"
-                                    value={
-                                        sheet.leave_duration?.replace(
-                                            /_/g,
-                                            ' ',
-                                        ) ?? '—'
-                                    }
-                                />
-                                <Row
-                                    label="Credited"
-                                    value={`${sheet.leave_hours_credited}h`}
-                                />
-                                <Row
-                                    label="Paid"
-                                    value={sheet.leave_is_paid ? 'Yes' : 'No'}
-                                />
-                            </div>
-                        )}
-
-                        {/* Fines */}
-                        <SheetFinesCard
-                            employeeId={employee.id}
-                            date={date}
-                            fines={fines}
-                            lockedAt={lockedAt}
-                        />
-
-                        {/* Daily Wage */}
-                        <div className="rounded-md border border-sidebar-border bg-sidebar p-4 text-sm">
-                            <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
-                                Daily Wage
-                            </h3>
-                            <Row
-                                label="Total"
-                                value={formatCurrency(sheet.daily_wage)}
-                                bold
-                            />
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 text-xs"
+                                        disabled={!addTime || adding}
+                                        onClick={handleAddPunch}
+                                    >
+                                        <Plus className="mr-1 h-3 w-3" /> Add
+                                    </Button>
+                                </div>
+                            )}
                         </div>
-                    </div>
-                ) : (
-                    <p className="text-muted-foreground">
-                        No attendance sheet for this date.
-                    </p>
-                )}
+                    )}
+
+                    {sheet ? (
+                        <>
+                            {/* Status */}
+                            <div className="rounded-md border border-sidebar-border bg-sidebar p-4 text-sm">
+                                <Row
+                                    label="Status"
+                                    value={statusLabel(sheet)}
+                                    valueClass={statusClass(sheet)}
+                                />
+                                {sheet.is_present && (
+                                    <>
+                                        <Row
+                                            label="Hours Worked"
+                                            value={hourLabel(
+                                                sheet.hours_worked,
+                                            )}
+                                        />
+                                        {sheet.schedule_start_time && (
+                                            <Row
+                                                label="Schedule"
+                                                value={`${formatTime(sheet.schedule_start_time)} – ${formatTime(sheet.schedule_end_time)}`}
+                                            />
+                                        )}
+                                        <Row
+                                            label="Daily Rate"
+                                            value={`${formatCurrency(sheet.daily_rate)} (${formatCurrency(Number(sheet.daily_rate) / 8)}/hr)`}
+                                        />
+                                    </>
+                                )}
+                            </div>
+
+                            {/* Punch Locations */}
+                            {timeLogs.filter(
+                                (l) => ['in', 'out'].includes(l.type) && l.note,
+                            ).length > 0 && (
+                                <div className="rounded-md border border-sidebar-border bg-sidebar p-4 text-sm">
+                                    <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
+                                        Punch Locations
+                                    </h3>
+                                    {timeLogs
+                                        .filter(
+                                            (l) =>
+                                                ['in', 'out'].includes(
+                                                    l.type,
+                                                ) && l.note,
+                                        )
+                                        .map((log) => (
+                                            <div
+                                                key={log.id}
+                                                className="flex justify-between py-0.5"
+                                            >
+                                                <span className="text-muted-foreground capitalize">
+                                                    {log.type === 'in'
+                                                        ? 'Punch In'
+                                                        : 'Punch Out'}
+                                                </span>
+                                                <span
+                                                    className={`text-xs ${log.note?.includes('✅') ? 'text-green-600' : log.note?.includes('⚠️') ? 'text-amber-600' : 'text-muted-foreground'}`}
+                                                >
+                                                    {log.note}
+                                                </span>
+                                            </div>
+                                        ))}
+                                </div>
+                            )}
+
+                            {/* Deductions */}
+                            {(sheet.late_deduction > 0 ||
+                                sheet.undertime_deduction > 0) && (
+                                <div className="rounded-md border border-sidebar-border bg-sidebar p-4 text-sm">
+                                    <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
+                                        Deductions
+                                    </h3>
+                                    {sheet.late_deduction > 0 && (
+                                        <Row
+                                            label="Late"
+                                            value={`${sheet.late_minutes} min → −${formatCurrency(sheet.late_deduction)}`}
+                                            red
+                                        />
+                                    )}
+                                    {sheet.undertime_deduction > 0 && (
+                                        <Row
+                                            label="Undertime"
+                                            value={`${sheet.undertime_minutes} min → −${formatCurrency(sheet.undertime_deduction)}`}
+                                            red
+                                        />
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Additions */}
+                            {(sheet.overtime_pay > 0 ||
+                                sheet.holiday_pay > 0 ||
+                                restDayPremium > 0) && (
+                                <div className="rounded-md border border-sidebar-border bg-sidebar p-4 text-sm">
+                                    <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
+                                        Additions
+                                    </h3>
+                                    {restDayPremium > 0 && (
+                                        <Row
+                                            label="Rest Day"
+                                            value={`${sheet.hours_worked}h × 1.30× → +${formatCurrency(restDayPremium)}`}
+                                        />
+                                    )}
+                                    {sheet.overtime_pay > 0 && (
+                                        <Row
+                                            label="Overtime"
+                                            value={`${sheet.overtime_minutes} min × ${sheet.overtime_multiplier ?? '—'}× → +${formatCurrency(sheet.overtime_pay)}`}
+                                        />
+                                    )}
+                                    {sheet.holiday_pay > 0 && (
+                                        <Row
+                                            label="Holiday"
+                                            value={`${sheet.holiday_type} ${sheet.holiday_pay_percent}% → +${formatCurrency(sheet.holiday_pay)}`}
+                                        />
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Leave */}
+                            {sheet.leave_type && (
+                                <div className="rounded-md border border-sidebar-border bg-sidebar p-4 text-sm">
+                                    <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
+                                        Leave
+                                    </h3>
+                                    <Row
+                                        label="Type"
+                                        value={sheet.leave_type}
+                                    />
+                                    <Row
+                                        label="Duration"
+                                        value={
+                                            sheet.leave_duration?.replace(
+                                                /_/g,
+                                                ' ',
+                                            ) ?? '—'
+                                        }
+                                    />
+                                    <Row
+                                        label="Credited"
+                                        value={`${sheet.leave_hours_credited}h`}
+                                    />
+                                    <Row
+                                        label="Paid"
+                                        value={
+                                            sheet.leave_is_paid ? 'Yes' : 'No'
+                                        }
+                                    />
+                                </div>
+                            )}
+
+                            {/* Fines */}
+                            <SheetFinesCard
+                                employeeId={employee.id}
+                                date={date}
+                                fines={fines}
+                                lockedAt={lockedAt}
+                            />
+
+                            {/* Daily Wage */}
+                            <div className="rounded-md border border-sidebar-border bg-sidebar p-4 text-sm">
+                                <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
+                                    Daily Wage
+                                </h3>
+                                <Row
+                                    label="Total"
+                                    value={formatCurrency(sheet.daily_wage)}
+                                    bold
+                                />
+                            </div>
+                        </>
+                    ) : (
+                        !showPunchesCard && (
+                            <p className="text-muted-foreground">
+                                No attendance sheet for this date.
+                            </p>
+                        )
+                    )}
+                </div>
             </div>
         </PayrollLayout>
     );
@@ -350,6 +468,8 @@ function typeLabel(type: string) {
         lunch_out: 'Lunch Out',
         lunch_in: 'Lunch In',
         out: 'Punch Out',
+        overtime_in: 'OT In',
+        overtime_out: 'OT Out',
     };
 
     return map[type] ?? type;

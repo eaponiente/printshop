@@ -11,12 +11,17 @@ use App\Models\Payroll\TimeLog;
 use Carbon\Carbon;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
+use Payroll\Attendance\Enums\PunchSource;
 use Payroll\Attendance\Enums\PunchType;
+use Payroll\Attendance\Services\AttendanceService;
+use Payroll\Audit\Traits\Auditable;
 
 class AttendanceSheetController extends Controller
 {
+    use Auditable;
     use AuthorizesRequests;
 
     public function index(Request $request)
@@ -101,7 +106,94 @@ class AttendanceSheetController extends Controller
             'lockedAt' => $sheet?->locked_at?->toDateTimeString(),
             'fines' => $fines,
             'timeLogs' => $timeLogs,
+            'canEdit' => ! $user->isStaff(),
         ]);
+    }
+
+    public function storeLog(Employee $employee, Request $request, AttendanceService $service)
+    {
+        $user = auth()->user();
+
+        if ($user->isStaff()) {
+            abort(403);
+        }
+
+        Gate::authorize('attendance-sheets.show', [$employee->branch_id]);
+
+        $validated = $request->validate([
+            'date' => ['required', 'date'],
+            'type' => ['required', 'string', 'in:in,lunch_out,lunch_in,out,overtime_in,overtime_out'],
+            'time' => ['required', 'date_format:H:i'],
+        ]);
+
+        $timestamp = $validated['date'].' '.$validated['time'].':00';
+
+        DB::transaction(function () use ($employee, $validated, $timestamp, $service) {
+            $log = TimeLog::create([
+                'employee_id' => $employee->id,
+                'type' => PunchType::from($validated['type']),
+                'source' => PunchSource::MANUAL,
+                'timestamp' => $timestamp,
+                'note' => 'Admin correction',
+            ]);
+
+            $this->reprocessSheet($employee, $validated['date'], $service);
+
+            $this->audit('admin_correction_added', $log, [], [
+                'type' => $validated['type'],
+                'timestamp' => $timestamp,
+            ]);
+        });
+
+        return back()->with('success', 'Punch added and attendance reprocessed.');
+    }
+
+    public function destroyLog(Employee $employee, TimeLog $log, AttendanceService $service)
+    {
+        $user = auth()->user();
+
+        if ($user->isStaff()) {
+            abort(403);
+        }
+
+        Gate::authorize('attendance-sheets.show', [$employee->branch_id]);
+
+        if ((int) $log->employee_id !== $employee->id) {
+            abort(404);
+        }
+
+        $date = Carbon::parse($log->timestamp)->toDateString();
+        $before = ['type' => $log->type->value, 'timestamp' => $log->timestamp->toDateTimeString()];
+
+        DB::transaction(function () use ($employee, $log, $date, $before, $service) {
+            $log->delete();
+            $this->reprocessSheet($employee, $date, $service);
+            $this->audit('admin_correction_removed', $log, $before, []);
+        });
+
+        return back()->with('success', 'Punch removed and attendance reprocessed.');
+    }
+
+    private function reprocessSheet(Employee $employee, string $date, AttendanceService $service): void
+    {
+        $wasLocked = AttendanceSheet::where('employee_id', $employee->id)
+            ->where('date', $date)
+            ->whereNotNull('locked_at')
+            ->exists();
+
+        if ($wasLocked) {
+            AttendanceSheet::where('employee_id', $employee->id)
+                ->where('date', $date)
+                ->update(['locked_at' => null]);
+        }
+
+        $service->processDailyAttendance($employee, $date);
+
+        if ($wasLocked) {
+            AttendanceSheet::where('employee_id', $employee->id)
+                ->where('date', $date)
+                ->update(['locked_at' => now()]);
+        }
     }
 
     public function geo(Request $request)
