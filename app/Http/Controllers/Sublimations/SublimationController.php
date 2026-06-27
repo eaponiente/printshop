@@ -205,21 +205,21 @@ class SublimationController extends Controller
     public function duplicate(Request $request, Sublimation $sublimation): RedirectResponse
     {
         $validated = $request->validate([
-            'quantity'     => ['required', 'integer', 'min:1', 'max:999999'],
+            'quantity' => ['required', 'integer', 'min:1', 'max:999999'],
             'amount_total' => ['required', 'numeric', 'min:1', 'max:99999999.99'],
         ]);
 
         try {
             $copy = Sublimation::create([
-                'description'  => $sublimation->description,
-                'notes'        => $sublimation->notes,
-                'branch_id'    => $sublimation->branch_id,
-                'customer_id'  => $sublimation->customer_id,
+                'description' => $sublimation->description,
+                'notes' => $sublimation->notes,
+                'branch_id' => $sublimation->branch_id,
+                'customer_id' => $sublimation->customer_id,
                 'amount_total' => $validated['amount_total'],
-                'user_id'      => $sublimation->user_id,
-                'due_at'       => $sublimation->due_at,
-                'quantity'     => $validated['quantity'],
-                'status'       => 'for_approval',
+                'user_id' => $sublimation->user_id,
+                'due_at' => $sublimation->due_at,
+                'quantity' => $validated['quantity'],
+                'status' => 'for_approval',
             ]);
 
             $copy->tags()->sync($sublimation->tags->pluck('id'));

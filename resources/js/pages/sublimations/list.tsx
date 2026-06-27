@@ -908,7 +908,9 @@ export default function SublimationIndex({
             <Dialog
                 open={!!duplicateTarget}
                 onOpenChange={(open) => {
-                    if (!open) setDuplicateTarget(null);
+                    if (!open) {
+setDuplicateTarget(null);
+}
                 }}
             >
                 <DialogContent>
@@ -922,7 +924,11 @@ export default function SublimationIndex({
                     <form
                         onSubmit={(e) => {
                             e.preventDefault();
-                            if (!duplicateTarget || duplicating) return;
+
+                            if (!duplicateTarget || duplicating) {
+return;
+}
+
                             setDuplicating(true);
                             router.post(
                                 route('sublimations.duplicate', duplicateTarget.id),

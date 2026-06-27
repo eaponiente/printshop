@@ -5,13 +5,13 @@ namespace Payroll\Attendance\Services;
 use App\Models\Branch;
 use App\Models\Payroll\AttendanceSheet;
 use App\Models\Payroll\CashAdvance;
-use App\Models\Payroll\TimeLog;
 use App\Models\Payroll\CompanyConfig;
 use App\Models\Payroll\Employee;
 use App\Models\Payroll\Holiday;
 use App\Models\Payroll\PayrollPeriod;
 use App\Models\Payroll\PayrollPeriodItem;
 use App\Models\Payroll\SssContributionBracket;
+use App\Models\Payroll\TimeLog;
 use Carbon\Carbon;
 use DB;
 use Illuminate\Database\Eloquent\Collection;
@@ -59,11 +59,11 @@ class PayrollPeriodService
 
             $punches = $allLogs->get($sheet->employee_id.'|'.$dateStr) ?? collect();
 
-            $hasIn          = $punches->contains(fn ($l) => $l->type->value === 'in');
-            $hasOut         = $punches->contains(fn ($l) => $l->type->value === 'out');
-            $hasLunchOut    = $punches->contains(fn ($l) => $l->type->value === 'lunch_out');
-            $hasLunchIn     = $punches->contains(fn ($l) => $l->type->value === 'lunch_in');
-            $hasOvertimeIn  = $punches->contains(fn ($l) => $l->type->value === 'overtime_in');
+            $hasIn = $punches->contains(fn ($l) => $l->type->value === 'in');
+            $hasOut = $punches->contains(fn ($l) => $l->type->value === 'out');
+            $hasLunchOut = $punches->contains(fn ($l) => $l->type->value === 'lunch_out');
+            $hasLunchIn = $punches->contains(fn ($l) => $l->type->value === 'lunch_in');
+            $hasOvertimeIn = $punches->contains(fn ($l) => $l->type->value === 'overtime_in');
             $hasOvertimeOut = $punches->contains(fn ($l) => $l->type->value === 'overtime_out');
 
             $reason = null;
@@ -83,10 +83,10 @@ class PayrollPeriodService
 
             if ($reason !== null) {
                 $result[] = [
-                    'employee'    => $sheet->employee->last_name.', '.$sheet->employee->first_name,
+                    'employee' => $sheet->employee->last_name.', '.$sheet->employee->first_name,
                     'employee_id' => $sheet->employee_id,
-                    'date'        => $dateStr,
-                    'reason'      => $reason,
+                    'date' => $dateStr,
+                    'reason' => $reason,
                 ];
             }
         }

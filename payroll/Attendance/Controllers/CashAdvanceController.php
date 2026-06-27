@@ -54,8 +54,8 @@ class CashAdvanceController extends Controller
 
         $validated = $request->validate([
             'employee_id' => ['required', 'integer', 'exists:employees,id'],
-            'amount'      => ['required', 'numeric', 'min:1'],
-            'reason'      => ['required', 'string', 'max:500'],
+            'amount' => ['required', 'numeric', 'min:1'],
+            'reason' => ['required', 'string', 'max:500'],
         ]);
 
         $employee = Employee::findOrFail($validated['employee_id']);
@@ -75,22 +75,22 @@ class CashAdvanceController extends Controller
 
         DB::transaction(function () use ($validated, $employee, $user) {
             CashAdvance::create([
-                'employee_id'       => $employee->id,
-                'amount'            => $validated['amount'],
+                'employee_id' => $employee->id,
+                'amount' => $validated['amount'],
                 'remaining_balance' => $validated['amount'],
-                'reason'            => $validated['reason'],
-                'status'            => 'approved',
-                'approved_by'       => $user->id,
-                'approved_at'       => now(),
+                'reason' => $validated['reason'],
+                'status' => 'approved',
+                'approved_by' => $user->id,
+                'approved_at' => now(),
             ]);
 
             Expense::create([
-                'description'  => 'Cash Advance - ' . $employee->last_name . ', ' . $employee->first_name,
-                'amount'       => $validated['amount'],
+                'description' => 'Cash Advance - '.$employee->last_name.', '.$employee->first_name,
+                'amount' => $validated['amount'],
                 'payment_type' => 'cash',
-                'status'       => 'paid',
-                'user_id'      => $user->id,
-                'branch_id'    => $employee->branch_id,
+                'status' => 'paid',
+                'user_id' => $user->id,
+                'branch_id' => $employee->branch_id,
                 'expense_date' => now()->toDateString(),
             ]);
 
@@ -109,7 +109,7 @@ class CashAdvanceController extends Controller
         Gate::authorize('cash-advances.approve', [$cashAdvance->employee->branch_id, $cashAdvance->employee->user?->id]);
 
         $cashAdvance->update([
-            'status'      => 'approved',
+            'status' => 'approved',
             'approved_by' => auth()->id(),
             'approved_at' => now(),
         ]);

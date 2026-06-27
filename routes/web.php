@@ -2,7 +2,6 @@
 
 use Database\Seeders\HolidaySeeder;
 use Database\Seeders\SssBracketSeeder;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 

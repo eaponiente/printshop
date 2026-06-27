@@ -115,6 +115,7 @@ export default function CashAdvances({ requests, employees }: Props) {
             header: 'Approved By',
             cell: ({ row }: CellContext<any, any>) => {
                 const approver = row.original.approved_by;
+
                 return (
                     <span className="text-xs text-muted-foreground">
                         {approver

@@ -92,7 +92,10 @@ export default function SheetDetail({
             : 0;
 
     function handleAddPunch() {
-        if (!addTime) return;
+        if (!addTime) {
+return;
+}
+
         setAdding(true);
         router.post(
             `/payroll/attendance-sheets/${employee.id}/logs`,

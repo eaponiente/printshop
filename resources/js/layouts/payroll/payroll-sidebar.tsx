@@ -8,7 +8,6 @@ import {
     FileEdit,
     FileText,
     HandCoins,
-    LayoutGrid,
     MapPin,
     Printer,
     ScrollText,

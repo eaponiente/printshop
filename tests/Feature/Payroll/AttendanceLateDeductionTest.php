@@ -186,9 +186,9 @@ it('adds no-break fine when employee has punch-in/out but no lunch-break punches
     punchInAt($this->employee, $date, '08:00');
     TimeLog::create([
         'employee_id' => $this->employee->id,
-        'timestamp'   => Carbon::parse("{$date} 17:00"),
-        'type'        => PunchType::OUT,
-        'source'      => PunchSource::SELF_SERVICE,
+        'timestamp' => Carbon::parse("{$date} 17:00"),
+        'type' => PunchType::OUT,
+        'source' => PunchSource::SELF_SERVICE,
     ]);
 
     $sheet = $this->service->processDailyAttendance($this->employee, $date);
@@ -206,21 +206,21 @@ it('does not add no-break fine when employee has lunch-break punches', function 
     punchInAt($this->employee, $date, '08:00');
     TimeLog::create([
         'employee_id' => $this->employee->id,
-        'timestamp'   => Carbon::parse("{$date} 12:00"),
-        'type'        => PunchType::LUNCH_OUT,
-        'source'      => PunchSource::SELF_SERVICE,
+        'timestamp' => Carbon::parse("{$date} 12:00"),
+        'type' => PunchType::LUNCH_OUT,
+        'source' => PunchSource::SELF_SERVICE,
     ]);
     TimeLog::create([
         'employee_id' => $this->employee->id,
-        'timestamp'   => Carbon::parse("{$date} 13:00"),
-        'type'        => PunchType::LUNCH_IN,
-        'source'      => PunchSource::SELF_SERVICE,
+        'timestamp' => Carbon::parse("{$date} 13:00"),
+        'type' => PunchType::LUNCH_IN,
+        'source' => PunchSource::SELF_SERVICE,
     ]);
     TimeLog::create([
         'employee_id' => $this->employee->id,
-        'timestamp'   => Carbon::parse("{$date} 17:00"),
-        'type'        => PunchType::OUT,
-        'source'      => PunchSource::SELF_SERVICE,
+        'timestamp' => Carbon::parse("{$date} 17:00"),
+        'type' => PunchType::OUT,
+        'source' => PunchSource::SELF_SERVICE,
     ]);
 
     $sheet = $this->service->processDailyAttendance($this->employee, $date);
@@ -237,9 +237,9 @@ it('no-break fine uses configurable amount from settings', function () {
     punchInAt($this->employee, $date, '08:00');
     TimeLog::create([
         'employee_id' => $this->employee->id,
-        'timestamp'   => Carbon::parse("{$date} 17:00"),
-        'type'        => PunchType::OUT,
-        'source'      => PunchSource::SELF_SERVICE,
+        'timestamp' => Carbon::parse("{$date} 17:00"),
+        'type' => PunchType::OUT,
+        'source' => PunchSource::SELF_SERVICE,
     ]);
 
     $sheet = $this->service->processDailyAttendance($this->employee, $date);

@@ -44,15 +44,15 @@ it('gives half-day pay for morning half (in 8am, out 12pm)', function () {
 
     TimeLog::create([
         'employee_id' => $this->employee->id,
-        'timestamp'   => Carbon::parse("{$date} 08:00"),
-        'type'        => PunchType::IN,
-        'source'      => PunchSource::SELF_SERVICE,
+        'timestamp' => Carbon::parse("{$date} 08:00"),
+        'type' => PunchType::IN,
+        'source' => PunchSource::SELF_SERVICE,
     ]);
     TimeLog::create([
         'employee_id' => $this->employee->id,
-        'timestamp'   => Carbon::parse("{$date} 12:00"),
-        'type'        => PunchType::OUT,
-        'source'      => PunchSource::SELF_SERVICE,
+        'timestamp' => Carbon::parse("{$date} 12:00"),
+        'type' => PunchType::OUT,
+        'source' => PunchSource::SELF_SERVICE,
     ]);
 
     $sheet = $this->service->processDailyAttendance($this->employee, $date);
@@ -68,15 +68,15 @@ it('charges more undertime when morning half-day employee leaves before noon', f
 
     TimeLog::create([
         'employee_id' => $this->employee->id,
-        'timestamp'   => Carbon::parse("{$date} 08:00"),
-        'type'        => PunchType::IN,
-        'source'      => PunchSource::SELF_SERVICE,
+        'timestamp' => Carbon::parse("{$date} 08:00"),
+        'type' => PunchType::IN,
+        'source' => PunchSource::SELF_SERVICE,
     ]);
     TimeLog::create([
         'employee_id' => $this->employee->id,
-        'timestamp'   => Carbon::parse("{$date} 10:00"), // left 2h early
-        'type'        => PunchType::OUT,
-        'source'      => PunchSource::SELF_SERVICE,
+        'timestamp' => Carbon::parse("{$date} 10:00"), // left 2h early
+        'type' => PunchType::OUT,
+        'source' => PunchSource::SELF_SERVICE,
     ]);
 
     $sheet = $this->service->processDailyAttendance($this->employee, $date);
@@ -91,15 +91,15 @@ it('applies late deduction without double-charging undertime on morning half', f
 
     TimeLog::create([
         'employee_id' => $this->employee->id,
-        'timestamp'   => Carbon::parse("{$date} 08:15"),
-        'type'        => PunchType::IN,
-        'source'      => PunchSource::SELF_SERVICE,
+        'timestamp' => Carbon::parse("{$date} 08:15"),
+        'type' => PunchType::IN,
+        'source' => PunchSource::SELF_SERVICE,
     ]);
     TimeLog::create([
         'employee_id' => $this->employee->id,
-        'timestamp'   => Carbon::parse("{$date} 12:00"),
-        'type'        => PunchType::OUT,
-        'source'      => PunchSource::SELF_SERVICE,
+        'timestamp' => Carbon::parse("{$date} 12:00"),
+        'type' => PunchType::OUT,
+        'source' => PunchSource::SELF_SERVICE,
     ]);
 
     $sheet = $this->service->processDailyAttendance($this->employee, $date);
@@ -118,15 +118,15 @@ it('gives half-day pay for afternoon half (in 1pm, out 5pm)', function () {
 
     TimeLog::create([
         'employee_id' => $this->employee->id,
-        'timestamp'   => Carbon::parse("{$date} 13:00"),
-        'type'        => PunchType::IN,
-        'source'      => PunchSource::SELF_SERVICE,
+        'timestamp' => Carbon::parse("{$date} 13:00"),
+        'type' => PunchType::IN,
+        'source' => PunchSource::SELF_SERVICE,
     ]);
     TimeLog::create([
         'employee_id' => $this->employee->id,
-        'timestamp'   => Carbon::parse("{$date} 17:00"),
-        'type'        => PunchType::OUT,
-        'source'      => PunchSource::SELF_SERVICE,
+        'timestamp' => Carbon::parse("{$date} 17:00"),
+        'type' => PunchType::OUT,
+        'source' => PunchSource::SELF_SERVICE,
     ]);
 
     $sheet = $this->service->processDailyAttendance($this->employee, $date);
@@ -142,15 +142,15 @@ it('charges undertime when afternoon half-day employee leaves early', function (
 
     TimeLog::create([
         'employee_id' => $this->employee->id,
-        'timestamp'   => Carbon::parse("{$date} 13:00"),
-        'type'        => PunchType::IN,
-        'source'      => PunchSource::SELF_SERVICE,
+        'timestamp' => Carbon::parse("{$date} 13:00"),
+        'type' => PunchType::IN,
+        'source' => PunchSource::SELF_SERVICE,
     ]);
     TimeLog::create([
         'employee_id' => $this->employee->id,
-        'timestamp'   => Carbon::parse("{$date} 16:00"), // left 1h before paid end
-        'type'        => PunchType::OUT,
-        'source'      => PunchSource::SELF_SERVICE,
+        'timestamp' => Carbon::parse("{$date} 16:00"), // left 1h before paid end
+        'type' => PunchType::OUT,
+        'source' => PunchSource::SELF_SERVICE,
     ]);
 
     $sheet = $this->service->processDailyAttendance($this->employee, $date);
@@ -164,7 +164,7 @@ it('charges undertime when afternoon half-day employee leaves early', function (
 it('afternoon half respects 5:30pm schedule tail (5pm–5:30pm is unpaid)', function () {
     // Adjust schedule: 8am–5:30pm, with 30-min unpaid tail
     EmployeeSchedule::where('employee_id', $this->employee->id)->update([
-        'end_time'            => '17:30',
+        'end_time' => '17:30',
         'unpaid_tail_minutes' => 30,
     ]);
 
@@ -172,15 +172,15 @@ it('afternoon half respects 5:30pm schedule tail (5pm–5:30pm is unpaid)', func
 
     TimeLog::create([
         'employee_id' => $this->employee->id,
-        'timestamp'   => Carbon::parse("{$date} 13:00"),
-        'type'        => PunchType::IN,
-        'source'      => PunchSource::SELF_SERVICE,
+        'timestamp' => Carbon::parse("{$date} 13:00"),
+        'type' => PunchType::IN,
+        'source' => PunchSource::SELF_SERVICE,
     ]);
     TimeLog::create([
         'employee_id' => $this->employee->id,
-        'timestamp'   => Carbon::parse("{$date} 17:30"), // leaves at end of schedule
-        'type'        => PunchType::OUT,
-        'source'      => PunchSource::SELF_SERVICE,
+        'timestamp' => Carbon::parse("{$date} 17:30"), // leaves at end of schedule
+        'type' => PunchType::OUT,
+        'source' => PunchSource::SELF_SERVICE,
     ]);
 
     $sheet = $this->service->processDailyAttendance($this->employee, $date);
@@ -200,15 +200,15 @@ it('does not treat leaving after 1pm as a morning half-day', function () {
 
     TimeLog::create([
         'employee_id' => $this->employee->id,
-        'timestamp'   => Carbon::parse("{$date} 08:00"),
-        'type'        => PunchType::IN,
-        'source'      => PunchSource::SELF_SERVICE,
+        'timestamp' => Carbon::parse("{$date} 08:00"),
+        'type' => PunchType::IN,
+        'source' => PunchSource::SELF_SERVICE,
     ]);
     TimeLog::create([
         'employee_id' => $this->employee->id,
-        'timestamp'   => Carbon::parse("{$date} 14:00"), // out at 2pm — not morning half
-        'type'        => PunchType::OUT,
-        'source'      => PunchSource::SELF_SERVICE,
+        'timestamp' => Carbon::parse("{$date} 14:00"), // out at 2pm — not morning half
+        'type' => PunchType::OUT,
+        'source' => PunchSource::SELF_SERVICE,
     ]);
 
     $sheet = $this->service->processDailyAttendance($this->employee, $date);

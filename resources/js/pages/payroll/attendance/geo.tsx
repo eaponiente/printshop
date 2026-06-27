@@ -1,7 +1,7 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
-import { CalendarDays, MapPin, Search } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { MapPin, Search } from 'lucide-react';
+import { useState } from 'react';
 import { DataTable } from '@/components/data-table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -103,12 +103,6 @@ export default function AttendanceGeo({
     const [fromDate, setFromDate] = useState(dateFrom);
     const [toDate, setToDate] = useState(dateTo);
     const [hasSearched, setHasSearched] = useState(!!selectedBranch);
-
-    useEffect(() => {
-        if (selectedBranch && branches.length > 0) {
-            setHasSearched(true);
-        }
-    }, []);
 
     const handleSearch = () => {
         if (!branchId) {

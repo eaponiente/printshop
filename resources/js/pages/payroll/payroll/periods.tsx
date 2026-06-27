@@ -180,8 +180,6 @@ export default function PayrollPeriodsIndex({ periods, canGenerate, isSuperAdmin
         },
     ];
 
-    const today = new Date().toISOString().substring(0, 10);
-
     return (
         <PayrollLayout breadcrumbs={breadcrumbs}>
             <Head title="Payroll Periods" />

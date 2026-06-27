@@ -297,7 +297,7 @@ class DemoSeeder extends Seeder
                 '2026-06-19' => $this->noLunchOutDay($emp, $date),
                 '2026-06-22' => $this->overtimeDay($emp, $date, '19:00:00'),
                 '2026-06-25' => $this->lateDay($emp, $date, '08:22:00'),
-                default      => $this->perfectDay($emp, $date),
+                default => $this->perfectDay($emp, $date),
             };
         }
 
@@ -349,7 +349,7 @@ class DemoSeeder extends Seeder
                 '2026-06-20' => $this->noPunchOutDay($emp, $date),
                 '2026-06-23' => $this->overtimeDay($emp, $date, '18:30:00'),
                 '2026-06-26' => $this->lateDay($emp, $date, '08:15:00'),
-                default      => $this->perfectDay($emp, $date),
+                default => $this->perfectDay($emp, $date),
             };
         }
 
@@ -409,7 +409,7 @@ class DemoSeeder extends Seeder
                 '2026-06-19' => $this->undertimeDay($emp, $date, '15:30:00'),
                 '2026-06-20' => $this->lateDay($emp, $date, '08:58:00'),
                 '2026-06-24' => $this->overtimeDay($emp, $date, '19:30:00'),
-                default      => $this->perfectDay($emp, $date),
+                default => $this->perfectDay($emp, $date),
             };
         }
 
@@ -460,7 +460,7 @@ class DemoSeeder extends Seeder
                 '2026-06-18' => $this->noLunchInDay($emp, $date),
                 '2026-06-22' => $this->overtimeDay($emp, $date, '19:00:00'),
                 '2026-06-25' => $this->overtimeDay($emp, $date, '20:00:00'),
-                default      => $this->perfectDay($emp, $date),
+                default => $this->perfectDay($emp, $date),
             };
         }
 

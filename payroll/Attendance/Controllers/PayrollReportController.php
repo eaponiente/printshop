@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Payroll\PayrollPeriod;
 use App\Models\Payroll\PayrollPeriodItem;
+use Carbon\Carbon;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -190,10 +191,10 @@ class PayrollReportController extends Controller
             return [
                 'period_id' => $row->period_id,
                 'branch' => $branchMap[$row->branch_id]?->name ?? '—',
-                'period_start' => $row->period_start instanceof \Carbon\Carbon
+                'period_start' => $row->period_start instanceof Carbon
                     ? $row->period_start->format('Y-m-d')
                     : (string) $row->period_start,
-                'period_end' => $row->period_end instanceof \Carbon\Carbon
+                'period_end' => $row->period_end instanceof Carbon
                     ? $row->period_end->format('Y-m-d')
                     : (string) $row->period_end,
                 'status' => $row->status instanceof PayrollPeriodStatus

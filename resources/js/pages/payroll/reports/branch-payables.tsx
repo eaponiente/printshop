@@ -78,8 +78,10 @@ function formatPeriod(start: string, end: string) {
             'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
             'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
         ];
+
         return `${months[Number(m) - 1]} ${Number(day)}, ${y}`;
     };
+
     return `${fmt(start)} – ${fmt(end)}`;
 }
 
@@ -98,6 +100,21 @@ export default function BranchPayables({
     );
     const [search, setSearch] = useState('');
 
+    const filteredPeriods = useMemo(() => {
+        const q = search.toLowerCase();
+
+        if (!q) {
+            return periods;
+        }
+
+        return periods.filter(
+            (p) =>
+                p.branch.name.toLowerCase().includes(q) ||
+                p.period_start.includes(q) ||
+                p.period_end.includes(q),
+        );
+    }, [periods, search]);
+
     if (!isAuthorized) {
         return (
             <PayrollLayout breadcrumbs={breadcrumbs}>
@@ -111,17 +128,6 @@ export default function BranchPayables({
         );
     }
 
-    const filteredPeriods = useMemo(() => {
-        const q = search.toLowerCase();
-        if (!q) return periods;
-        return periods.filter(
-            (p) =>
-                p.branch.name.toLowerCase().includes(q) ||
-                p.period_start.includes(q) ||
-                p.period_end.includes(q),
-        );
-    }, [periods, search]);
-
     const togglePeriod = (id: number) => {
         setSelected((prev) =>
             prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
@@ -132,7 +138,10 @@ export default function BranchPayables({
     const clearAll = () => setSelected([]);
 
     const handleView = () => {
-        if (selected.length === 0) return;
+        if (selected.length === 0) {
+return;
+}
+
         router.get(
             '/payroll/reports/branch-payables',
             { period_ids: selected },
@@ -184,6 +193,7 @@ export default function BranchPayables({
                             <div className="max-h-72 overflow-y-auto rounded-md border">
                                 {filteredPeriods.map((p) => {
                                     const checked = selected.includes(p.id);
+
                                     return (
                                         <label
                                             key={p.id}

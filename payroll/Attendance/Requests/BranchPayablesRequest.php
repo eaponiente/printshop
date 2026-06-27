@@ -16,7 +16,7 @@ class BranchPayablesRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'period_ids'   => ['nullable', 'array'],
+            'period_ids' => ['nullable', 'array'],
             'period_ids.*' => ['integer', 'exists:payroll_periods,id'],
         ];
     }
