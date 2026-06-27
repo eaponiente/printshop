@@ -86,6 +86,31 @@ it('charges more undertime when morning half-day employee leaves before noon', f
     expect((float) $sheet->daily_wage)->toBe(round(510 - 6 * $this->hourlyRate, 2));
 });
 
+it('applies late deduction without double-charging undertime on morning half', function () {
+    $date = '2026-06-01';
+
+    TimeLog::create([
+        'employee_id' => $this->employee->id,
+        'timestamp'   => Carbon::parse("{$date} 08:15"),
+        'type'        => PunchType::IN,
+        'source'      => PunchSource::SELF_SERVICE,
+    ]);
+    TimeLog::create([
+        'employee_id' => $this->employee->id,
+        'timestamp'   => Carbon::parse("{$date} 12:00"),
+        'type'        => PunchType::OUT,
+        'source'      => PunchSource::SELF_SERVICE,
+    ]);
+
+    $sheet = $this->service->processDailyAttendance($this->employee, $date);
+
+    // Late: 15 min × ₱10 = ₱150. Undertime anchored from 8am (not 8:15am),
+    // so undertime = 480 − 240 = 240 min = 4h. Late does not inflate undertime.
+    expect((int) $sheet->late_minutes)->toBe(15);
+    expect((int) $sheet->undertime_minutes)->toBe(240);
+    expect((float) $sheet->daily_wage)->toBe(round(510 - 150 - 4 * $this->hourlyRate, 2)); // 105.00
+});
+
 // --- Afternoon half-day (1pm–5pm) ---
 
 it('gives half-day pay for afternoon half (in 1pm, out 5pm)', function () {

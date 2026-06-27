@@ -141,13 +141,17 @@ class AttendanceService
                 }
                 $undertimeDeduction = round(($undertimeMinutes / 60) * $hourlyRate, 2);
 
-                // Half-day: charge only for the missing half, capped at paidEndTime
+                // Half-day: charge only for the missing half, capped at paidEndTime.
+                // Morning half uses scheduleStart (not actual punch) so late deduction
+                // doesn't also inflate undertime. Afternoon half uses inTime because
+                // the late penalty is already suppressed for that case.
                 if (($isMorningHalf || $isAfternoonHalf) && $outPunch) {
                     $outTimeForHalf = Carbon::parse($outPunch->timestamp);
                     if ($outTimeForHalf->gt($paidEndTime)) {
                         $outTimeForHalf = $paidEndTime->copy();
                     }
-                    $halfWorkedMinutes = $inTime->diffInMinutes($outTimeForHalf);
+                    $halfStartTime = $isMorningHalf ? $scheduleStart : $inTime;
+                    $halfWorkedMinutes = $halfStartTime->diffInMinutes($outTimeForHalf);
                     $fullDayMinutes = $scheduledPaidMinutes - $unpaidTailMinutes;
                     $undertimeMinutes = max(0, $fullDayMinutes - $halfWorkedMinutes);
                     $undertimeDeduction = round(($undertimeMinutes / 60) * $hourlyRate, 2);
