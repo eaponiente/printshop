@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\Users\UserRole;
+use App\Models\Payroll\Employee;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -11,6 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
+use Payroll\Employee\Enums\EmployeeStatus;
 
 class User extends Authenticatable
 {
@@ -29,6 +31,7 @@ class User extends Authenticatable
         'password',
         'role',
         'branch_id',
+        'employee_id',
     ];
 
     /**
@@ -84,6 +87,30 @@ class User extends Authenticatable
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function employee(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class);
+    }
+
+    public function canLogin(): bool
+    {
+        if (! $this->employee_id) {
+            return true;
+        }
+
+        $employee = $this->employee()->withTrashed()->first();
+
+        if (! $employee) {
+            return true;
+        }
+
+        if ($employee->trashed()) {
+            return false;
+        }
+
+        return $employee->status === EmployeeStatus::ACTIVE;
     }
 
     public function endorsements()

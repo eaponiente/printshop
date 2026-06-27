@@ -14,6 +14,9 @@ class Branch extends Model
 
     protected $fillable = [
         'name',
+        'latitude',
+        'longitude',
+        'geofence_radius',
     ];
 
     public function users()
@@ -23,7 +26,10 @@ class Branch extends Model
 
     public function scopeAccessibleBy($query, $user)
     {
-        if ($user->role === UserRole::STAFF->value) {
+        if (
+            $user->role === UserRole::ADMIN->value ||
+            $user->role === UserRole::STAFF->value
+        ) {
             return $query->where('id', $user->branch_id);
         }
 

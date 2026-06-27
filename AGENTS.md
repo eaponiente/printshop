@@ -1,111 +1,300 @@
 # AGENTS.md
 
-## Stack
+## Core Principles
 
-- **Backend**: Laravel 12, PHP 8.4, SQLite (local) / MySQL (Sail/prod)
-- **Frontend**: Inertia.js React, TypeScript, Vite, Tailwind CSS v4, Radix UI/shadcn-style
-- **Testing**: Pest (PHP), RefreshDatabase on Feature tests
-- **Auth**: Laravel Fortify
-- **Other**: Ziggy (route helpers), Wayfinder (generated types/actions/routes), babel-plugin-react-compiler (auto-memo)
+- Keep responses concise and to the point unless the user explicitly asks for detail.
+- Never assume features, UX, workflows, or designs that were not explicitly requested.
+- Always consider edge cases and real-world usage scenarios.
+- Prefer maintainability and clarity over clever abstractions.
 
-## Commands
+---
 
-```bash
-# Full setup (install deps, generate key, migrate, build assets)
-composer setup
+# Stack
 
-# Start all dev servers (laravel serve + queue + pail + vite)
-composer dev
+## Backend
+- Laravel 12
+- PHP 8.4
+- Laravel Fortify
+- SQLite (local/tests)
+- MySQL (production)
 
-# Run PHP tests
-php artisan test
+## Frontend
+- React
+- TypeScript
+- Inertia.js
+- Tailwind CSS v4
+- Vite
+- Radix UI / shadcn-style components
 
-# Run a single test file
-php artisan test --filter=SaleIndexTest
+## Testing
+- Pest PHP
+- RefreshDatabase
 
-# Frontend type check
-npm run types:check
+---
 
-# Run Pest directly (used in CI)
-./vendor/bin/pest
+# Architecture Rules
+
+## Controllers
+Controllers must only:
+- authorize,
+- validate,
+- delegate to services,
+- return responses.
+
+Do not place business logic inside controllers.
+All models are inside the App\Models
+
+---
+
+## Services
+- Use services for complex business processes.
+- Split overly large service methods into smaller methods.
+- Use pessimistic locking (`lockForUpdate()`) when updating financial or ledger-related records.
+
+---
+
+## Validation
+- Always use FormRequest classes.
+- Never place validation logic inline in controllers.
+- Request classes should only handle validation and authorization.
+
+---
+
+## Authorization
+- Always use policies/gates.
+- Never perform manual role checks inline.
+
+Bad:
+```php
+if ($user->role === 'superadmin')
 ```
 
-## Architecture
+Good:
+```php
+$this->authorize(...)
+```
 
-### Backend Flow
-`routes/settings.php` → Controller (`app/Http/Controllers`) → FormRequest (`app/Http/Requests`) → Service/Model logic
+---
 
-- All routes are in `routes/settings.php` (required from `routes/web.php`). There is no typical `web.php` with many routes — just an Inertia login page and `require settings.php`.
-- Business logic lives in `app/Services/` (e.g. `CashOnHandService`, `SalesService`, `Files/`). Keep controllers thin.
-- Enums in `app/Enums/<Domain>/` — use them instead of raw status/payment strings. Key enums: `SublimationStatus`, `TransactionStatus`, `ExpenseStatus`, `UserRole`.
-- Reusable traits in `app/Concerns/` (`SaleFilterTrait`, `Sortable`).
-- Policies in `app/Policies/` — use `$this->authorize(...)` in controllers, not inline role checks.
+## Audit Logs
+Every mutating action must create an audit log.
 
-### Frontend Flow
-Inertia pages resolve from `resources/js/pages/<domain>/` matching route names. Props are typed in `resources/js/types/`.
+Examples:
+- create
+- update
+- delete
+- void
+- rehire
 
-Domain-level component placement:
-- `resources/js/pages/<domain>/` — page entrypoints
-- `resources/js/pages/<domain>/components/` — domain-specific child components
-- `resources/js/components/` — shared/reusable UI
-- `resources/js/components/ui/` — **generated** shadcn primitives (do not edit)
+Use:
+```php
+Payroll\Audit\Traits\Auditable
+```
 
-Domains: `sales`, `expenses`, `sublimations`, `purchase-orders`, `customers`, `endorsements`, `branches`, `tags`, `settings`, `home`.
+---
 
-### Key Models & State Machines
-- **Transaction**: Central ledger for billable services. Status: `PENDING` → `PARTIAL` → `PAID`. Payments go through `$transaction->recordPayment()`. Total amount is locked once payments exist.
-- **Sublimation**: Custom orders with status phases (Pre-Payment → Production → Post-Production). Transition logic in `Sublimation::canMoveTo()`. When status reaches `DOWNPAYMENT_COMPLETE`, a linked Transaction is auto-created.
-- **Expense**: Cash outflows. Void pattern uses `ExpenseController@void` with reason; reverses cash impact through `CashOnHandService`.
-- **PurchaseOrder**: Links to Transactions and Sublimations. Acts as an override for sublimation phase gates.
-- **CashOnHandService**: Singleton tracking branch cash drawer balances — used by Sales, Expenses, and Sublimations.
+# Domain Constraints
 
-## Conventions
+## Transactions
+- `amount_total` becomes immutable once payments exist.
+- Refunds must use negative ledger entries.
 
-### Must Follow
-- Use `route()` (Ziggy) for all frontend URL generation — never hard-code paths.
-- Use `@/` imports (resolves to `resources/js/`).
-- Use `import type` for type-only imports. No `any` in TypeScript.
-- Align frontend/backend naming by domain (same domain prefixes everywhere).
-- Wrap multi-write DB operations in `DB::transaction(...)`.
-- Every new page needs: named route, controller action, request validation, typed Inertia props, and focused Pest test(s).
-- Return Inertia responses with stable prop names. Update TypeScript types when prop shape changes.
+---
 
-### Never
-- Do not add new dependencies unless the task explicitly requires them.
-- Do not use `$table->enum()` in migrations — use `$table->string()` and keep the enum only at the Eloquent model level (enum cast in `casts()`).
-- Do not modify generated code in `resources/js/components/ui/*`, `resources/js/routes/**`, `resources/js/wayfinder/**`, or `resources/js/actions/**`.
-- Do not change `resources/css/app.css` theme foundations or CSS tokens for feature requests.
-- Do not make broad refactors during a feature/fix — keep changes scoped.
-- Do not commit `.env` files.
-- Always write a descriptive commit message summarizing the changes based on `git diff`.
+## Sublimations
+- Production flow cannot proceed until downpayment requirements are satisfied unless bypassed by Superadmin.
+- Backend currently expects single-file uploads.
 
-### Formatting
-- 4-space indentation (`.editorconfig`, `.prettierrc`)
-- PHP: Pint with `laravel` preset
-- JS/TS: Prettier (single quotes, semicolons, 80 print width) + ESLint (curlies required, import ordering, brace-style 1tbs)
+---
 
-## Gotchas
+## Branch Access Rules
 
-- **Local DB is SQLite** (`database/database.sqlite`). MySQL-native functions like `YEARWEEK()` won't work in local/test environments.
-- **CarbonImmutable** is used project-wide (set in `AppServiceProvider`). Don't use mutable Carbon.
-- **DB destructive commands are prohibited in production** (`DB::prohibitDestructiveCommands`).
-- **Sail** is configured via `compose.yaml` for Docker-based local dev with MySQL.
-- **Generated route types** come from Wayfinder/Laravel Vite Plugin — routes are resolved at build time, so run `npm run dev` or build after adding routes.
-- **SSR** is configured (`resources/js/ssr.tsx`, `bootstrap/ssr` in `.gitignore`). The `dev:ssr` script runs with Inertia SSR enabled.
-- **Feature tests use RefreshDatabase** (declared in `tests/Pest.php`). Tests run against in-memory SQLite.
-- **`.npmrc`** sets `public-hoist-pattern[]=@inertiajs/core` — needed for pnpm compatibility.
-- **`react-compiler`** is enabled via babel plugin in Vite config — React components get auto-memoized, so manual `useMemo`/`useCallback` may be redundant.
-- **The `/add-user` route** (in `routes/settings.php`) creates a superadmin user (`username: superadmin`, `password: password`) and seeds branches. Use this for initial setup.
+### Superadmin
+- Full unrestricted access.
 
-## Notes
-- Payroll stuff should go into Payroll Domain namespace.
-- Payroll js/tsx files should go into payroll/pages.
-- Always think of the use cases and edge cases when creating features or making changes to existing features.
-- Always write tests for new features or changes to existing features.
-- Always document the new features or changes to existing features.
-- Always use pagination on lists except if coming from enums or other queries with limit.
-- Always put the validation logic in Request classes and keep them only for validation purpose, no business logic should be there.
-- When making class create separate folder for each class. This applies to controllers, models, requests, etc. Example: App\Http\Controllers\Employee\CreateController.php and App\Http\Requests\Employee\StoreEmployeeRequest.php
-- Use Tailwind CSS v4 for styling. No need for bootstrap or any other css framework.
-- On tsx files, if a component is deemed too big (exceeds 100 lines), split it into smaller components.
-- Always run lint and artisan test when committing files.
+### Admin
+- Limited to assigned branch.
+- Special branch group sharing applies to:
+  - Babak
+  - Peñaplata
+  - Tibungco
+
+### Staff
+- Limited to assigned branch.
+- Can only access their own records.
+
+---
+
+# Database Rules
+
+## Enums
+Do not use database enums.
+
+Bad:
+```php
+$table->enum(...)
+```
+
+Good:
+```php
+$table->string(...)
+```
+
+Use PHP backed enums in model casts.
+
+---
+
+## SQLite Compatibility
+Avoid MySQL-specific SQL functions such as:
+- `YEARWEEK()`
+
+Ensure all logic works in SQLite tests.
+
+---
+
+## Transactions
+Wrap multi-model mutations inside database transactions.
+
+```php
+DB::transaction(function () {
+    //
+});
+```
+
+---
+
+# Frontend Rules
+
+## TypeScript
+- Always use `import type` for type-only imports.
+- Avoid `any`.
+
+---
+
+## Components
+- Components larger than ~100 lines should be split into smaller components.
+- Place child components inside a `components/` folder.
+
+---
+
+## Routing
+Always use Ziggy route helpers.
+
+Good:
+```ts
+route('sales.index')
+```
+
+Bad:
+```ts
+'/sales'
+```
+
+---
+
+## Dates
+Always use:
+```ts
+toManilaTime()
+```
+
+Never use raw browser locale formatting.
+
+---
+
+## Styling
+- Use Tailwind CSS v4 only.
+- Do not introduce additional CSS frameworks.
+
+---
+
+## UI Components
+Do not directly modify generated `ui/` shadcn primitive files.
+
+---
+
+# Project Structure Rules
+
+## Payroll Domain
+- Payroll backend code belongs inside the `Payroll\` namespace.
+- Payroll frontend pages belong inside:
+
+resources/js/payroll/pages
+
+---
+
+## File Organization
+When a domain grows, split files into dedicated folders.
+
+Examples:
+
+App\Http\Controllers\Employee\CreateController.php
+App\Http\Requests\Employee\StoreEmployeeRequest.php
+
+---
+
+# Testing Rules
+
+Always write tests for:
+- new features,
+- modified behavior,
+- authorization,
+- edge cases,
+- invalid workflows.
+
+Before committing:
+
+```bash
+composer lint
+npm run lint
+php artisan test
+```
+
+---
+
+# Pagination Rules
+
+Always paginate lists unless:
+- static datasets,
+- enums,
+- intentionally limited queries.
+
+---
+
+# Edit Mode Rules
+
+When implementing planned changes:
+
+- Identify work that can run in parallel.
+- Use sub-agents for parallelizable tasks when possible.
+- Separate backend, frontend, tests, and documentation work when practical.
+- Avoid overlapping file edits between sub-agents.
+
+---
+
+# Performance & Safety
+
+## Inertia Props
+- Only expose necessary data.
+- Never expose sensitive fields in shared auth props.
+
+---
+
+## React Optimization
+- Manual `useMemo` and `useCallback` are usually unnecessary due to React compiler optimizations.
+
+---
+
+# Documentation Rules
+
+- Document significant feature changes.
+- Keep AGENTS.md focused on contributor and AI operating instructions.
+- Move detailed business/domain documentation into `/docs`.
+
+---
+
+# Important Reminders
+
+- Always think through edge cases before implementing changes.
+- If a backend value is an enum, create matching frontend TS types.
+- Prefer stable, maintainable solutions over shortcuts.

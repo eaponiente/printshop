@@ -1,0 +1,171 @@
+import { Head, usePage } from '@inertiajs/react';
+import type { CellContext, ColumnDef } from '@tanstack/react-table';
+import { Plus } from 'lucide-react';
+import { useState } from 'react';
+import { DataTable } from '@/components/data-table';
+import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
+import PayrollLayout from '@/layouts/payroll/payroll-layout';
+import type { BreadcrumbItem } from '@/types';
+import type { PaginatedResponse } from '@/types/pagination';
+import { toManilaTime } from '@/utils/dateHelper';
+import { formatCurrency } from '@/utils/formatters';
+import CashAdvanceForm from './components/CashAdvanceForm';
+
+type Employee = {
+    id: number;
+    first_name: string;
+    last_name: string;
+    branch?: { name: string };
+};
+
+type Props = {
+    requests: PaginatedResponse<any>;
+    employees: Employee[];
+};
+
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Dashboard', href: '/dashboard' },
+    { title: 'Payroll', href: '/payroll' },
+    { title: 'Cash Advances', href: '/payroll/cash-advances' },
+];
+
+const statusBadge = (s: string) =>
+    ({
+        approved: 'bg-green-100 text-green-700',
+        paid: 'bg-blue-100 text-blue-700',
+        denied: 'bg-red-100 text-red-700',
+        pending: 'bg-yellow-100 text-yellow-700',
+        unpaid: 'bg-orange-100 text-orange-700',
+    })[s] ?? 'bg-gray-100';
+
+export default function CashAdvances({ requests, employees }: Props) {
+    const { auth } = usePage().props as any;
+    const isSuperadmin = auth?.user?.role === 'superadmin';
+    const [dialogOpen, setDialogOpen] = useState(false);
+
+    const columns: ColumnDef<any>[] = [
+        {
+            accessorKey: 'employee',
+            header: 'Employee',
+            cell: ({ row }: CellContext<any, any>) => (
+                <span>
+                    {row.original.employee?.last_name},{' '}
+                    {row.original.employee?.first_name}
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'amount',
+            header: 'Amount',
+            cell: ({ row }: CellContext<any, any>) => (
+                <span className="font-mono text-sm">
+                    {formatCurrency(row.original.amount)}
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'remaining_balance',
+            header: 'Balance',
+            cell: ({ row }: CellContext<any, any>) => (
+                <span className="font-mono text-sm">
+                    {formatCurrency(row.original.remaining_balance)}
+                </span>
+            ),
+        },
+        ...(isSuperadmin
+            ? [
+                  {
+                      accessorKey: 'branch',
+                      header: 'Branch',
+                      cell: ({ row }: CellContext<any, any>) => (
+                          <span className="text-xs text-muted-foreground">
+                              {row.original.employee?.branch?.name ?? '—'}
+                          </span>
+                      ),
+                  } as ColumnDef<any>,
+              ]
+            : []),
+        {
+            accessorKey: 'reason',
+            header: 'Reason',
+            cell: ({ row }: CellContext<any, any>) => (
+                <span className="text-xs text-muted-foreground">
+                    {row.original.reason}
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'created_at',
+            header: 'Date',
+            cell: ({ row }: CellContext<any, any>) => (
+                <span className="text-xs text-muted-foreground">
+                    {toManilaTime(row.original.created_at)}
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'approved_by',
+            header: 'Approved By',
+            cell: ({ row }: CellContext<any, any>) => {
+                const approver = row.original.approved_by;
+
+                return (
+                    <span className="text-xs text-muted-foreground">
+                        {approver
+                            ? `${approver.last_name}, ${approver.first_name}`
+                            : '—'}
+                    </span>
+                );
+            },
+        },
+        {
+            accessorKey: 'status',
+            header: 'Status',
+            cell: ({ row }: CellContext<any, any>) => (
+                <span
+                    className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium capitalize ${statusBadge(row.original.status)}`}
+                >
+                    {row.original.status}
+                </span>
+            ),
+        },
+    ];
+
+    return (
+        <PayrollLayout breadcrumbs={breadcrumbs}>
+            <Head title="Cash Advances" />
+            <div className="flex h-full flex-1 flex-col gap-4 p-4">
+                <div className="flex items-center justify-between">
+                    <h1 className="text-xl font-semibold">Cash Advances</h1>
+                    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button size="sm">
+                                <Plus className="mr-1 h-4 w-4" />
+                                New Cash Advance
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>New Cash Advance</DialogTitle>
+                            </DialogHeader>
+                            <CashAdvanceForm
+                                employees={employees}
+                                onClose={() => setDialogOpen(false)}
+                            />
+                        </DialogContent>
+                    </Dialog>
+                </div>
+                <div className="rounded-md border border-sidebar-border bg-sidebar">
+                    <DataTable columns={columns} pagination={requests} />
+                </div>
+            </div>
+        </PayrollLayout>
+    );
+}

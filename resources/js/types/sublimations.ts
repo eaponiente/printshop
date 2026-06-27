@@ -20,7 +20,7 @@ export type Sublimation = {
     notes: string;
     branch_id: number;
     customer_id: number;
-    user_id: number;
+    user_id: number | null;
     status: string;
     status_color: string;
     status_label: string;
@@ -35,4 +35,12 @@ export type Sublimation = {
     customer?: Customer;
     tags?: Tag[];
     transaction: Transaction;
+    sewed_item?: {
+        id: number;
+        quantity: number;
+        unit_price: number;
+        amount: number;
+        sewed_date: string;
+        notes: string | null;
+    } | null;
 };

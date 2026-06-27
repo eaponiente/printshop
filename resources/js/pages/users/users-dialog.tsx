@@ -21,7 +21,7 @@ import type { User } from '@/types';
 import type { Branch } from '@/types/branches';
 
 interface UserDialogProps {
-    user?: User; // If null, we are in 'Create' mode
+    user?: User;
     open: boolean;
     setOpen: (open: boolean) => void;
     branches: Branch[];
@@ -34,18 +34,11 @@ export default function UserDialog({
     branches,
 }: UserDialogProps) {
     const isEdit = !!user;
-
     const { auth } = usePage().props;
 
     const roles = [
-        {
-            id: 'staff',
-            name: 'Staff',
-        },
-        {
-            id: 'admin',
-            name: 'Admin',
-        },
+        { id: 'staff', name: 'Staff' },
+        { id: 'admin', name: 'Admin' },
     ];
 
     return (
@@ -54,7 +47,6 @@ export default function UserDialog({
                 <DialogHeader>
                     <DialogTitle>Add Staff</DialogTitle>
                 </DialogHeader>
-
                 <Form
                     {...(isEdit ? update.form(user) : store.form())}
                     className="flex flex-col gap-6"
@@ -66,7 +58,6 @@ export default function UserDialog({
                                 : 'User saved successfully',
                             { position: 'top-center' },
                         );
-
                         setOpen(false);
                     }}
                 >
@@ -85,7 +76,6 @@ export default function UserDialog({
                                     />
                                     <InputError message={errors.first_name} />
                                 </div>
-
                                 <div className="grid gap-3">
                                     <Label htmlFor="last_name">Last name</Label>
                                     <Input
@@ -166,7 +156,6 @@ export default function UserDialog({
                                     />
                                     <InputError message={errors.password} />
                                 </div>
-
                                 <div className="grid gap-2">
                                     <Label htmlFor="password_confirmation">
                                         Confirm Password
@@ -189,8 +178,7 @@ export default function UserDialog({
                                 disabled={processing}
                                 data-test="login-button"
                             >
-                                {processing && <Spinner />}
-                                Save
+                                {processing && <Spinner />} Save
                             </Button>
                         </>
                     )}

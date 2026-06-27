@@ -8,6 +8,7 @@ import {
 import {
     SidebarGroup,
     SidebarMenu,
+    SidebarMenuBadge,
     SidebarMenuButton,
     SidebarMenuItem,
     SidebarMenuSub,
@@ -39,6 +40,11 @@ export function NavMain({ items = [] }: { items: NavItem[] }) {
                                         <span>{item.title}</span>
                                     </Link>
                                 </SidebarMenuButton>
+                                {item.badge != null && item.badge > 0 && (
+                                    <SidebarMenuBadge className="rounded-full bg-red-500 text-white">
+                                        {item.badge}
+                                    </SidebarMenuBadge>
+                                )}
                             </SidebarMenuItem>
                         );
                     }

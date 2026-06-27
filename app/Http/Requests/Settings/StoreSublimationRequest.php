@@ -23,6 +23,7 @@ class StoreSublimationRequest extends FormRequest
             'amount_total' => 'required|numeric|min:1|max:99999999.99',
             'tag_ids' => ['required', 'array'],
             'tag_ids.*' => ['exists:tags,id'],
+            'user_id' => ['nullable', 'exists:users,id'],
         ];
     }
 }

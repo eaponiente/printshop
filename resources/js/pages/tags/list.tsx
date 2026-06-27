@@ -74,6 +74,7 @@ export default function TagIndex({ tags }: TagsList) {
                             <TableRow>
                                 <TableHead>Name</TableHead>
                                 <TableHead>Color</TableHead>
+                                <TableHead>Price per piece</TableHead>
                                 <TableHead className="text-right">
                                     Actions
                                 </TableHead>
@@ -95,6 +96,11 @@ export default function TagIndex({ tags }: TagsList) {
                                         >
                                             {tag.color}
                                         </span>
+                                    </TableCell>
+                                    <TableCell>
+                                        {tag.price_per_piece
+                                            ? `₱${tag.price_per_piece}`
+                                            : '—'}
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <Button

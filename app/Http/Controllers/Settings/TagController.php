@@ -27,10 +27,7 @@ class TagController extends Controller
     public function store(StoreTagRequest $request): RedirectResponse
     {
         try {
-            Tag::create([
-                'name' => $request->name,
-                'color' => $request->color,
-            ]);
+            Tag::create($request->validated());
 
             return redirect()->back()->with('success', 'Tag created successfully.');
         } catch (\Exception $e) {
