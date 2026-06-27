@@ -238,6 +238,38 @@ class DemoSeeder extends Seeder
         $this->punch($emp, $date, PunchType::OVERTIME_OUT, $otOutTime);
     }
 
+    /** Has IN + lunch but no OUT punch → "Punch-out missing" */
+    private function noPunchOutDay(Employee $emp, string $date): void
+    {
+        $this->punch($emp, $date, PunchType::IN, '08:00:00');
+        $this->punch($emp, $date, PunchType::LUNCH_OUT, '12:00:00');
+        $this->punch($emp, $date, PunchType::LUNCH_IN, '13:00:00');
+    }
+
+    /** Has lunch + OUT but no IN punch → "No punch-in recorded" */
+    private function noPunchInDay(Employee $emp, string $date): void
+    {
+        $this->punch($emp, $date, PunchType::LUNCH_OUT, '12:00:00');
+        $this->punch($emp, $date, PunchType::LUNCH_IN, '13:00:00');
+        $this->punch($emp, $date, PunchType::OUT, '17:30:00');
+    }
+
+    /** Has LUNCH_IN but no LUNCH_OUT → "Lunch break punch missing" */
+    private function noLunchOutDay(Employee $emp, string $date): void
+    {
+        $this->punch($emp, $date, PunchType::IN, '08:00:00');
+        $this->punch($emp, $date, PunchType::LUNCH_IN, '13:00:00');
+        $this->punch($emp, $date, PunchType::OUT, '17:30:00');
+    }
+
+    /** Has LUNCH_OUT but no LUNCH_IN → "Lunch return punch missing" */
+    private function noLunchInDay(Employee $emp, string $date): void
+    {
+        $this->punch($emp, $date, PunchType::IN, '08:00:00');
+        $this->punch($emp, $date, PunchType::LUNCH_OUT, '12:00:00');
+        $this->punch($emp, $date, PunchType::OUT, '17:30:00');
+    }
+
     private function processAttendance(Employee $emp): void
     {
         foreach ($this->allJuneDates as $date) {
@@ -247,6 +279,8 @@ class DemoSeeder extends Seeder
 
     // ─── Scenario A: Near-perfect ──────────────────────────────────────────────
     // 3 lates, 1 paid sick leave (Jun 18), 1 overtime (Jun 22), 1 CA
+    // Works on holiday Jun 12 (Independence Day) → earns holiday pay
+    // Jun 19: missing LUNCH_OUT punch → flagged "Lunch break punch missing"
 
     private function scenarioNearPerfect(Employee $emp): void
     {
@@ -260,6 +294,7 @@ class DemoSeeder extends Seeder
             match ($date) {
                 '2026-06-03' => $this->lateDay($emp, $date, '08:35:00'),
                 '2026-06-10' => $this->lateDay($emp, $date, '08:28:00'),
+                '2026-06-19' => $this->noLunchOutDay($emp, $date),
                 '2026-06-22' => $this->overtimeDay($emp, $date, '19:00:00'),
                 '2026-06-25' => $this->lateDay($emp, $date, '08:22:00'),
                 default      => $this->perfectDay($emp, $date),
@@ -293,7 +328,9 @@ class DemoSeeder extends Seeder
     }
 
     // ─── Scenario B: Frequent lates ────────────────────────────────────────────
-    // 4 lates, 1 absence (Jun 8), holiday present (Jun 12), 2 overtimes, CA×2, fine
+    // 4 lates, 1 absence WITH fine (Jun 8 — unexcused, no show), 2 overtimes, CA×2
+    // Works on holiday Jun 12 (Independence Day) → earns holiday pay
+    // Jun 20: missing OUT punch → flagged "Punch-out missing"
 
     private function scenarioFrequentLates(Employee $emp): void
     {
@@ -309,6 +346,7 @@ class DemoSeeder extends Seeder
                 '2026-06-02' => $this->lateDay($emp, $date, '08:40:00'),
                 '2026-06-16' => $this->lateDay($emp, $date, '08:52:00'),
                 '2026-06-17' => $this->overtimeDay($emp, $date, '20:00:00'),
+                '2026-06-20' => $this->noPunchOutDay($emp, $date),
                 '2026-06-23' => $this->overtimeDay($emp, $date, '18:30:00'),
                 '2026-06-26' => $this->lateDay($emp, $date, '08:15:00'),
                 default      => $this->perfectDay($emp, $date),
@@ -350,11 +388,14 @@ class DemoSeeder extends Seeder
     }
 
     // ─── Scenario C: Absences and fine ─────────────────────────────────────────
-    // 3 absences, 2 big lates, 1 undertime, 1 overtime, fine, partial CA
+    // 3 absences with NO fine (Jun 4, 5, 13 — just didn't show, no penalty)
+    // Absent on holiday Jun 12 — no pay, no fine (holiday)
+    // Jun 18: missing IN punch → flagged "No punch-in recorded"
+    // Misconduct fine on Jun 11 (independent of attendance)
 
     private function scenarioAbsencesAndFine(Employee $emp): void
     {
-        $absent = ['2026-06-04', '2026-06-05', '2026-06-13'];
+        $absent = ['2026-06-04', '2026-06-05', '2026-06-12', '2026-06-13'];
         $sundays = ['2026-06-07', '2026-06-14', '2026-06-21'];
 
         foreach ($this->allJuneDates as $date) {
@@ -364,6 +405,7 @@ class DemoSeeder extends Seeder
             match ($date) {
                 '2026-06-09' => $this->lateDay($emp, $date, '09:02:00'),
                 '2026-06-11' => $this->lateDay($emp, $date, '08:45:00'),
+                '2026-06-18' => $this->noPunchInDay($emp, $date),
                 '2026-06-19' => $this->undertimeDay($emp, $date, '15:30:00'),
                 '2026-06-20' => $this->lateDay($emp, $date, '08:58:00'),
                 '2026-06-24' => $this->overtimeDay($emp, $date, '19:30:00'),
@@ -374,7 +416,7 @@ class DemoSeeder extends Seeder
         if (! Fine::where('employee_id', $emp->id)->exists()) {
             Fine::create([
                 'employee_id' => $emp->id,
-                'date' => '2026-06-12',
+                'date' => '2026-06-11',
                 'fine_type' => 'misconduct',
                 'amount' => 300.00,
                 'note' => 'Inappropriate behavior reported by branch admin',
@@ -396,20 +438,26 @@ class DemoSeeder extends Seeder
     }
 
     // ─── Scenario D: Good attendance with CAs ──────────────────────────────────
-    // 2 small lates, 2-day vacation leave (Jun 15–16), 2 overtimes, 3 CAs
+    // 2 small lates, 1 absence with NO fine (Jun 8 — just missed, no penalty)
+    // Absent on holiday Jun 12 — no pay, no fine (holiday)
+    // 2-day paid vacation leave (Jun 15–16)
+    // Jun 18: LUNCH_OUT with no LUNCH_IN → flagged "Lunch return punch missing"
+    // 2 overtimes, CA×3
 
     private function scenarioGoodWithCAs(Employee $emp): void
     {
+        $absent = ['2026-06-08', '2026-06-12'];
         $leave = ['2026-06-15', '2026-06-16'];
         $sundays = ['2026-06-07', '2026-06-14', '2026-06-21'];
 
         foreach ($this->allJuneDates as $date) {
-            if (in_array($date, $sundays) || in_array($date, $leave)) {
+            if (in_array($date, $sundays) || in_array($date, $absent) || in_array($date, $leave)) {
                 continue;
             }
             match ($date) {
                 '2026-06-02' => $this->lateDay($emp, $date, '08:20:00'),
                 '2026-06-06' => $this->lateDay($emp, $date, '08:30:00'),
+                '2026-06-18' => $this->noLunchInDay($emp, $date),
                 '2026-06-22' => $this->overtimeDay($emp, $date, '19:00:00'),
                 '2026-06-25' => $this->overtimeDay($emp, $date, '20:00:00'),
                 default      => $this->perfectDay($emp, $date),
