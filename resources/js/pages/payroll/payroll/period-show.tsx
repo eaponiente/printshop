@@ -1,6 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
-import { ArrowLeft, CheckCircle, Eye, Trash2, Undo2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CheckCircle, ClipboardCheck, Trash2, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/data-table';
 import {
@@ -56,6 +56,13 @@ type PeriodItem = {
     net_pay: number;
 };
 
+type IncompleteSheet = {
+    employee: string;
+    employee_id: number;
+    date: string;
+    reason: string;
+};
+
 type Props = {
     period: {
         id: number;
@@ -64,8 +71,10 @@ type Props = {
         period_end: string;
         status: 'draft' | 'approved' | 'paid' | 'voided';
         approved_at: string | null;
+        checked_at: string | null;
     };
     items: PaginatedResponse<PeriodItem>;
+    incompleteSheets: IncompleteSheet[];
     canApprove: boolean;
     canDelete: boolean;
     isSuperAdmin: boolean;
@@ -74,6 +83,7 @@ type Props = {
 export default function PayrollPeriodShow({
     period,
     items,
+    incompleteSheets,
     canApprove,
     canDelete,
     isSuperAdmin,
@@ -172,6 +182,25 @@ export default function PayrollPeriodShow({
                     <div className="flex items-center gap-2">
                         {canApprove && period.status === 'draft' && (
                             <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                    router.post(
+                                        `/payroll/periods/${period.id}/check`,
+                                        {},
+                                        {
+                                            onError: () =>
+                                                toast.error('Check failed.'),
+                                        },
+                                    )
+                                }
+                            >
+                                <ClipboardCheck className="mr-1 h-4 w-4" />
+                                Check Payroll
+                            </Button>
+                        )}
+                        {canApprove && period.status === 'draft' && period.checked_at && (
+                            <Button
                                 variant="default"
                                 size="sm"
                                 onClick={() =>
@@ -269,6 +298,66 @@ export default function PayrollPeriodShow({
                             )}
                     </div>
                 </div>
+
+                {period.checked_at && (
+                    <div
+                        className={`rounded-md border p-4 text-sm ${
+                            incompleteSheets.length > 0
+                                ? 'border-amber-200 bg-amber-50'
+                                : 'border-green-200 bg-green-50'
+                        }`}
+                    >
+                        <div className="mb-1 flex items-center gap-2 font-semibold">
+                            {incompleteSheets.length > 0 ? (
+                                <>
+                                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                                    <span className="text-amber-700">
+                                        {incompleteSheets.length} incomplete attendance record
+                                        {incompleteSheets.length !== 1 ? 's' : ''} found
+                                    </span>
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircle className="h-4 w-4 text-green-600" />
+                                    <span className="text-green-700">
+                                        All attendance records are complete
+                                    </span>
+                                </>
+                            )}
+                        </div>
+                        {incompleteSheets.length > 0 && (
+                            <ul className="mt-2 space-y-1">
+                                {incompleteSheets.map((s, i) => (
+                                    <li
+                                        key={i}
+                                        className="flex items-center gap-2 text-amber-800"
+                                    >
+                                        <span className="font-medium">
+                                            {s.employee}
+                                        </span>
+                                        <span className="text-amber-500">—</span>
+                                        <span className="font-mono text-xs">
+                                            {s.date}
+                                        </span>
+                                        <span className="text-amber-600">
+                                            {s.reason}
+                                        </span>
+                                        <a
+                                            href={`/payroll/attendance-sheets/${s.employee_id}`}
+                                            className="ml-auto text-xs text-blue-600 underline hover:text-blue-800"
+                                        >
+                                            View attendance →
+                                        </a>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                        <p className="mt-2 text-xs text-muted-foreground">
+                            Last checked:{' '}
+                            {new Date(period.checked_at).toLocaleString()}
+                        </p>
+                    </div>
+                )}
 
                 <div className="rounded-md border border-sidebar-border bg-sidebar">
                     <DataTable columns={columns} pagination={items} />

@@ -77,7 +77,7 @@ class PayrollPeriodController extends Controller
             ->with('success', 'Payroll period generated successfully.');
     }
 
-    public function show(PayrollPeriod $period)
+    public function show(PayrollPeriod $period, PayrollPeriodService $service)
     {
         Gate::authorize('payroll-periods.view', [$period->branch_id]);
 
@@ -88,13 +88,29 @@ class PayrollPeriodController extends Controller
             ->paginate(50)
             ->withQueryString();
 
+        $incompleteSheets = $period->checked_at
+            ? $service->findIncompleteSheets($period->branch, $period->period_start->toDateString(), $period->period_end->toDateString())
+            : [];
+
         return Inertia::render('payroll/payroll/period-show', [
-            'period' => $period,
+            'period' => array_merge($period->toArray(), [
+                'checked_at' => $period->checked_at?->toDateTimeString(),
+            ]),
             'items' => $items,
+            'incompleteSheets' => $incompleteSheets,
             'canApprove' => Gate::check('payroll-periods.approve', [$period->branch_id]),
             'canDelete' => ! auth()->user()->isStaff(),
             'isSuperAdmin' => auth()->user()->isSuperAdmin(),
         ]);
+    }
+
+    public function check(PayrollPeriod $period)
+    {
+        Gate::authorize('payroll-periods.approve', [$period->branch_id]);
+
+        $period->update(['checked_at' => now()]);
+
+        return redirect()->route('payroll.periods.show', $period);
     }
 
     public function approve(PayrollPeriod $period, PayrollPeriodService $service)

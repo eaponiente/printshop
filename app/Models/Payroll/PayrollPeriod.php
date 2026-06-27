@@ -20,6 +20,7 @@ class PayrollPeriod extends Model
             'period_end' => 'date:Y-m-d',
             'status' => PayrollPeriodStatus::class,
             'approved_at' => 'datetime',
+            'checked_at' => 'datetime',
         ];
     }
 

@@ -42,6 +42,8 @@ class AttendanceService
         $absenceType = null;
         $isMorningHalf = false;
         $isAfternoonHalf = false;
+        $isIncomplete = false;
+        $incompleteReason = null;
 
         $dailyRate = $employee->current_daily_rate ?? 0;
         $hourlyRate = $dailyRate / 8;
@@ -75,6 +77,17 @@ class AttendanceService
 
         if ($hasAnyPunch) {
             $isPresent = true;
+
+            if (! $inPunch) {
+                $isIncomplete = true;
+                $incompleteReason = 'No punch-in recorded';
+            } elseif (! $outPunch) {
+                $isIncomplete = true;
+                $incompleteReason = 'Punch-out missing';
+            } elseif ($lunchOut && ! $lunchIn) {
+                $isIncomplete = true;
+                $incompleteReason = 'Lunch return punch missing';
+            }
 
             if ($inPunch) {
                 $rawInTime = Carbon::parse($inPunch->timestamp);
@@ -351,6 +364,8 @@ class AttendanceService
             'is_present' => $isPresent,
             'absence_type' => $absenceType,
             'is_rest_day' => $isRestDay,
+            'is_incomplete' => $isIncomplete,
+            'incomplete_reason' => $incompleteReason,
             'leave_type' => $leaveType,
             'leave_duration' => $leaveDuration,
             'leave_is_paid' => $leaveIsPaid,

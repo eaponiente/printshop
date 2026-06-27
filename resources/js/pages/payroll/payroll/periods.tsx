@@ -65,12 +65,7 @@ const statusBadge = (status: string) => {
     return map[status] ?? 'bg-gray-100 text-gray-700 border-gray-200';
 };
 
-export default function PayrollPeriodsIndex({
-    periods,
-    canGenerate,
-    isSuperAdmin,
-    branches,
-}: Props) {
+export default function PayrollPeriodsIndex({ periods, canGenerate, isSuperAdmin, branches }: Props) {
     const columns: ColumnDef<Period>[] = [
         {
             accessorKey: 'branch',

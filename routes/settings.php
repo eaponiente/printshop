@@ -131,6 +131,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('periods', [PayrollPeriodController::class, 'index'])->name('periods.index');
         Route::post('periods/generate', [PayrollPeriodController::class, 'generate'])->name('periods.generate');
         Route::get('periods/{period}', [PayrollPeriodController::class, 'show'])->name('periods.show');
+        Route::post('periods/{period}/check', [PayrollPeriodController::class, 'check'])->name('periods.check');
         Route::post('periods/{period}/approve', [PayrollPeriodController::class, 'approve'])->name('periods.approve');
         Route::post('periods/{period}/void', [PayrollPeriodController::class, 'void'])->name('periods.void');
         Route::delete('periods/{period}', [PayrollPeriodController::class, 'destroy'])->name('periods.destroy');

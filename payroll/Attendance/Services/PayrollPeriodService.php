@@ -22,6 +22,28 @@ class PayrollPeriodService
 
     public function __construct(private AttendanceService $attendanceService) {}
 
+    public function findIncompleteSheets(Branch $branch, string $periodStart, string $periodEnd): array
+    {
+        return AttendanceSheet::whereIn('employee_id', function ($query) use ($branch) {
+            $query->select('id')->from('employees')->where('branch_id', $branch->id);
+        })
+            ->whereBetween('date', [$periodStart, $periodEnd])
+            ->where('is_incomplete', true)
+            ->with('employee:id,first_name,last_name')
+            ->orderBy('date')
+            ->orderBy('employee_id')
+            ->get()
+            ->map(fn ($sheet) => [
+                'employee'    => $sheet->employee->last_name.', '.$sheet->employee->first_name,
+                'employee_id' => $sheet->employee_id,
+                'date'        => $sheet->date instanceof \Carbon\Carbon
+                    ? $sheet->date->toDateString()
+                    : (string) $sheet->date,
+                'reason'      => $sheet->incomplete_reason ?? 'Incomplete punch record',
+            ])
+            ->toArray();
+    }
+
     public function generate(Branch $branch, string $periodStart, string $periodEnd): PayrollPeriod
     {
         return DB::transaction(function () use ($branch, $periodStart, $periodEnd) {
