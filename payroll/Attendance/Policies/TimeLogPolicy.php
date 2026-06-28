@@ -45,6 +45,6 @@ class TimeLogPolicy
 
     public function useCustomTimestamp(User $user): bool
     {
-        return $user->isSuperAdmin();
+        return config('app.enable_custom_punch_time') || $user->isSuperAdmin();
     }
 }
