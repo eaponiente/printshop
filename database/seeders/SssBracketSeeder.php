@@ -5,35 +5,59 @@ namespace Database\Seeders;
 use App\Models\Payroll\SssContributionBracket;
 use Illuminate\Database\Seeder;
 
+// SSS Circular No. 2024-006 — Schedule of SSS Contributions effective January 2025
+// employee_contribution and employer_contribution are monthly fixed amounts.
+// employer_contribution includes Regular SS (employer share) + MPF (employer share) + EC.
+// The payroll service divides by 4 to get the weekly deduction per payroll period.
 class SssBracketSeeder extends Seeder
 {
     public function run(): void
     {
-        $brackets = [
-            ['salary_min' => 1, 'salary_max' => 4250, 'employee_percentage' => 5.00, 'employer_percentage' => 10.00, 'effective_from' => '2026-01-01'],
-            ['salary_min' => 4251, 'salary_max' => 5250, 'employee_percentage' => 5.00, 'employer_percentage' => 10.00, 'effective_from' => '2026-01-01'],
-            ['salary_min' => 5251, 'salary_max' => 6250, 'employee_percentage' => 5.00, 'employer_percentage' => 10.00, 'effective_from' => '2026-01-01'],
-            ['salary_min' => 6251, 'salary_max' => 7250, 'employee_percentage' => 5.00, 'employer_percentage' => 10.00, 'effective_from' => '2026-01-01'],
-            ['salary_min' => 7251, 'salary_max' => 8250, 'employee_percentage' => 5.00, 'employer_percentage' => 10.00, 'effective_from' => '2026-01-01'],
-            ['salary_min' => 8251, 'salary_max' => 9250, 'employee_percentage' => 5.00, 'employer_percentage' => 10.00, 'effective_from' => '2026-01-01'],
-            ['salary_min' => 9251, 'salary_max' => 10250, 'employee_percentage' => 5.00, 'employer_percentage' => 10.00, 'effective_from' => '2026-01-01'],
-            ['salary_min' => 10251, 'salary_max' => 11250, 'employee_percentage' => 5.00, 'employer_percentage' => 10.00, 'effective_from' => '2026-01-01'],
-            ['salary_min' => 11251, 'salary_max' => 12250, 'employee_percentage' => 5.00, 'employer_percentage' => 10.00, 'effective_from' => '2026-01-01'],
-            ['salary_min' => 12251, 'salary_max' => 13250, 'employee_percentage' => 5.00, 'employer_percentage' => 10.00, 'effective_from' => '2026-01-01'],
-            ['salary_min' => 13251, 'salary_max' => 14250, 'employee_percentage' => 5.00, 'employer_percentage' => 10.00, 'effective_from' => '2026-01-01'],
-            ['salary_min' => 14251, 'salary_max' => 15250, 'employee_percentage' => 5.00, 'employer_percentage' => 10.00, 'effective_from' => '2026-01-01'],
-            ['salary_min' => 15251, 'salary_max' => 16250, 'employee_percentage' => 5.00, 'employer_percentage' => 10.00, 'effective_from' => '2026-01-01'],
-            ['salary_min' => 16251, 'salary_max' => 17250, 'employee_percentage' => 5.00, 'employer_percentage' => 10.00, 'effective_from' => '2026-01-01'],
-            ['salary_min' => 17251, 'salary_max' => 18250, 'employee_percentage' => 5.00, 'employer_percentage' => 10.00, 'effective_from' => '2026-01-01'],
-            ['salary_min' => 18251, 'salary_max' => 19250, 'employee_percentage' => 5.00, 'employer_percentage' => 10.00, 'effective_from' => '2026-01-01'],
-            ['salary_min' => 19251, 'salary_max' => 20000, 'employee_percentage' => 5.00, 'employer_percentage' => 10.00, 'effective_from' => '2026-01-01'],
-        ];
+        SssContributionBracket::truncate();
 
-        foreach ($brackets as $bracket) {
-            SssContributionBracket::firstOrCreate(
-                ['salary_min' => $bracket['salary_min']],
-                $bracket,
-            );
+        $brackets = [];
+
+        // Regular SS brackets: MSC 5,000 – 20,000 (step 500)
+        // EC = ₱10 for MSC < 15,000; ₱30 for MSC ≥ 15,000
+        $salaryMins = array_merge([0], range(5250, 19750, 500));
+        $mscValues  = range(5000, 20000, 500);
+
+        foreach ($mscValues as $i => $msc) {
+            $salaryMin = $salaryMins[$i];
+            $salaryMax = isset($salaryMins[$i + 1]) ? ($salaryMins[$i + 1] - 0.01) : 20249.99;
+            $ec        = $msc >= 15000 ? 30 : 10;
+
+            $brackets[] = [
+                'salary_min'             => $salaryMin,
+                'salary_max'             => $salaryMax,
+                'employee_percentage'    => 5.00,
+                'employer_percentage'    => 10.00,
+                'employee_contribution'  => $msc * 0.05,
+                'employer_contribution'  => $msc * 0.10 + $ec,
+                'effective_from'         => '2025-01-01',
+            ];
         }
+
+        // MPF brackets: salary 20,250 – 34,750+ (step 500)
+        // Regular SS is capped at MSC 20,000; MPF covers the remainder up to 35,000.
+        // EC stays at ₱30.
+        $mpfSalaryMins = range(20250, 34750, 500);
+
+        foreach ($mpfSalaryMins as $i => $salaryMin) {
+            $mpf       = ($i + 1) * 500;
+            $salaryMax = $salaryMin < 34750 ? ($salaryMin + 499.99) : null;
+
+            $brackets[] = [
+                'salary_min'             => $salaryMin,
+                'salary_max'             => $salaryMax,
+                'employee_percentage'    => 5.00,
+                'employer_percentage'    => 10.00,
+                'employee_contribution'  => 1000 + $mpf * 0.05,
+                'employer_contribution'  => 2000 + $mpf * 0.10 + 30,
+                'effective_from'         => '2025-01-01',
+            ];
+        }
+
+        SssContributionBracket::insert($brackets);
     }
 }

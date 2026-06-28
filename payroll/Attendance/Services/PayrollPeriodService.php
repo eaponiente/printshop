@@ -350,6 +350,10 @@ class PayrollPeriodService
             return 0;
         }
 
+        if ($bracket->employee_contribution !== null) {
+            return round((float) $bracket->employee_contribution / 4, 2);
+        }
+
         return round($monthlySalary * (float) $bracket->employee_percentage / 100 / 4, 2);
     }
 
@@ -380,6 +384,10 @@ class PayrollPeriodService
 
         if (! $bracket) {
             return 0;
+        }
+
+        if ($bracket->employer_contribution !== null) {
+            return round((float) $bracket->employer_contribution / 4, 2);
         }
 
         return round($monthlySalary * (float) $bracket->employer_percentage / 100 / 4, 2);

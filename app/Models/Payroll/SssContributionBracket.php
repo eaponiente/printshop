@@ -17,6 +17,8 @@ class SssContributionBracket extends Model
             'salary_max' => 'decimal:2',
             'employee_percentage' => 'decimal:2',
             'employer_percentage' => 'decimal:2',
+            'employee_contribution' => 'decimal:2',
+            'employer_contribution' => 'decimal:2',
             'effective_from' => 'date:Y-m-d',
         ];
     }
