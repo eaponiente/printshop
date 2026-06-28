@@ -954,6 +954,30 @@ it('net_pay equals gross_pay + deminimis minus statutory and cash advance only',
     expect((float) $item->gross_pay)->toBeLessThan(510 * 5);
 });
 
+// ──────────── SSS: divide by actual payrolls in month ────────────
+
+it('SSS is divided by 5 in a month with 5 payroll periods', function () {
+    // June 2026 starts on a Monday — it has 5 Mondays (1, 8, 15, 22, 29).
+    createEmployeeWithAttendance($this->branchA, 'FiveWeek', 510, ['sss' => '123', 'phic' => null, 'pagibig' => null], 0);
+
+    $period = app(PayrollPeriodService::class)->generate($this->branchA, '2026-06-29', '2026-07-04');
+    $item = PayrollPeriodItem::where('payroll_period_id', $period->id)->first();
+
+    // monthly salary = 510*26 = 13,260 → 13,260 * 5% = 663 → 663 / 5 = 132.60
+    expect((float) $item->sss_deduction)->toBe(132.60);
+});
+
+it('SSS is divided by 4 in a month with 4 payroll periods', function () {
+    // July 2026 starts on Wednesday — it has 4 Mondays (6, 13, 20, 27).
+    createEmployeeWithAttendance($this->branchA, 'FourWeek', 510, ['sss' => '123', 'phic' => null, 'pagibig' => null], 0);
+
+    $period = app(PayrollPeriodService::class)->generate($this->branchA, '2026-07-06', '2026-07-11');
+    $item = PayrollPeriodItem::where('payroll_period_id', $period->id)->first();
+
+    // monthly salary = 510*26 = 13,260 → 13,260 * 5% = 663 → 663 / 4 = 165.75
+    expect((float) $item->sss_deduction)->toBe(165.75);
+});
+
 // ──────────── Batch: Query count guard for generate() ────────────
 
 it('generate runs a bounded number of queries regardless of employee count', function () {
