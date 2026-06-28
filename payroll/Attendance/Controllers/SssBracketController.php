@@ -26,6 +26,8 @@ class SssBracketController extends Controller
         $validated = $request->validate([
             'salary_min' => ['required', 'numeric', 'min:0'],
             'salary_max' => ['nullable', 'numeric', 'gt:salary_min'],
+            'employee_contribution' => ['nullable', 'numeric', 'min:0'],
+            'employer_contribution' => ['nullable', 'numeric', 'min:0'],
             'employee_percentage' => ['required', 'numeric', 'min:0', 'max:100'],
             'employer_percentage' => ['required', 'numeric', 'min:0', 'max:100'],
             'effective_from' => ['required', 'date'],
@@ -41,6 +43,8 @@ class SssBracketController extends Controller
         $validated = $request->validate([
             'salary_min' => ['required', 'numeric', 'min:0'],
             'salary_max' => ['nullable', 'numeric', 'gt:salary_min'],
+            'employee_contribution' => ['nullable', 'numeric', 'min:0'],
+            'employer_contribution' => ['nullable', 'numeric', 'min:0'],
             'employee_percentage' => ['required', 'numeric', 'min:0', 'max:100'],
             'employer_percentage' => ['required', 'numeric', 'min:0', 'max:100'],
             'effective_from' => ['required', 'date'],

@@ -36,8 +36,14 @@ type Bracket = {
     salary_max: number | null;
     employee_percentage: number;
     employer_percentage: number;
+    employee_contribution: number | null;
+    employer_contribution: number | null;
     effective_from: string;
 };
+
+function fmt(n: number) {
+    return `₱${Number(n).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+}
 
 export default function SssBrackets({ brackets }: { brackets: Bracket[] }) {
     return (
@@ -50,8 +56,8 @@ export default function SssBrackets({ brackets }: { brackets: Bracket[] }) {
                             SSS Contribution Brackets
                         </h1>
                         <p className="text-sm text-muted-foreground">
-                            Configure SSS contribution brackets per salary
-                            range.
+                            Monthly fixed contributions per salary range (SSS
+                            Circular 2024-006, effective Jan 2025).
                         </p>
                     </div>
                     <BracketDialog>
@@ -68,16 +74,13 @@ export default function SssBrackets({ brackets }: { brackets: Bracket[] }) {
                             <tr className="border-b bg-muted/50">
                                 <th className="px-3 py-2 text-left">#</th>
                                 <th className="px-3 py-2 text-left">
-                                    Salary Min
+                                    Salary Range
                                 </th>
-                                <th className="px-3 py-2 text-left">
-                                    Salary Max
+                                <th className="px-3 py-2 text-right">
+                                    Employee / mo
                                 </th>
-                                <th className="px-3 py-2 text-left">
-                                    Employee %
-                                </th>
-                                <th className="px-3 py-2 text-left">
-                                    Employer %
+                                <th className="px-3 py-2 text-right">
+                                    Employer / mo
                                 </th>
                                 <th className="px-3 py-2 text-left">
                                     Effective From
@@ -89,80 +92,92 @@ export default function SssBrackets({ brackets }: { brackets: Bracket[] }) {
                         </thead>
                         <tbody>
                             {brackets.map((b, i) => (
-                                <tr key={b.id} className="border-b">
-                                    <td className="px-3 py-2 font-medium">
+                                <tr
+                                    key={b.id}
+                                    className="border-b last:border-0"
+                                >
+                                    <td className="px-3 py-2 text-muted-foreground">
                                         {i + 1}
                                     </td>
-                                    <td className="px-3 py-2 font-mono">
-                                        ₱
-                                        {Number(b.salary_min).toLocaleString(
-                                            undefined,
-                                            { minimumFractionDigits: 2 },
+                                    <td className="px-3 py-2 font-mono text-xs">
+                                        {fmt(b.salary_min)} –{' '}
+                                        {b.salary_max
+                                            ? fmt(b.salary_max)
+                                            : 'Over'}
+                                    </td>
+                                    <td className="px-3 py-2 text-right tabular-nums">
+                                        {b.employee_contribution != null ? (
+                                            fmt(b.employee_contribution)
+                                        ) : (
+                                            <span className="text-muted-foreground">
+                                                {b.employee_percentage}%
+                                            </span>
                                         )}
                                     </td>
-                                    <td className="px-3 py-2 font-mono">
-                                        {b.salary_max
-                                            ? `₱${Number(b.salary_max).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
-                                            : 'No limit'}
+                                    <td className="px-3 py-2 text-right tabular-nums">
+                                        {b.employer_contribution != null ? (
+                                            fmt(b.employer_contribution)
+                                        ) : (
+                                            <span className="text-muted-foreground">
+                                                {b.employer_percentage}%
+                                            </span>
+                                        )}
                                     </td>
-                                    <td className="px-3 py-2">
-                                        {b.employee_percentage}%
-                                    </td>
-                                    <td className="px-3 py-2">
-                                        {b.employer_percentage}%
-                                    </td>
-                                    <td className="px-3 py-2">
+                                    <td className="px-3 py-2 text-muted-foreground">
                                         {b.effective_from}
                                     </td>
-                                    <td className="flex justify-end gap-1 px-3 py-2">
-                                        <BracketDialog bracket={b}>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                title="Edit"
-                                            >
-                                                <Pencil className="h-4 w-4" />
-                                            </Button>
-                                        </BracketDialog>
-                                        <AlertDialog>
-                                            <AlertDialogTrigger asChild>
+                                    <td className="px-3 py-2 text-right">
+                                        <div className="flex justify-end gap-1">
+                                            <BracketDialog bracket={b}>
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
-                                                    title="Delete"
+                                                    title="Edit"
                                                 >
-                                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                                    <Pencil className="h-4 w-4" />
                                                 </Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                    <AlertDialogTitle>
-                                                        Delete bracket #{i + 1}?
-                                                    </AlertDialogTitle>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel>
-                                                        Cancel
-                                                    </AlertDialogCancel>
-                                                    <AlertDialogAction
-                                                        onClick={() =>
-                                                            router.delete(
-                                                                `/payroll/sss-brackets/${b.id}`,
-                                                                {
-                                                                    onSuccess:
-                                                                        () =>
-                                                                            toast.success(
-                                                                                'Deleted.',
-                                                                            ),
-                                                                },
-                                                            )
-                                                        }
+                                            </BracketDialog>
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        title="Delete"
                                                     >
-                                                        Delete
-                                                    </AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
+                                                        <Trash2 className="h-4 w-4 text-red-500" />
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>
+                                                            Delete bracket #
+                                                            {i + 1}?
+                                                        </AlertDialogTitle>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>
+                                                            Cancel
+                                                        </AlertDialogCancel>
+                                                        <AlertDialogAction
+                                                            onClick={() =>
+                                                                router.delete(
+                                                                    `/payroll/sss-brackets/${b.id}`,
+                                                                    {
+                                                                        onSuccess:
+                                                                            () =>
+                                                                                toast.success(
+                                                                                    'Deleted.',
+                                                                                ),
+                                                                    },
+                                                                )
+                                                            }
+                                                        >
+                                                            Delete
+                                                        </AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -201,36 +216,85 @@ function BracketDialog({
     return (
         <Dialog>
             <DialogTrigger asChild>{children}</DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>
                         {isEdit ? 'Edit Bracket' : 'Add Bracket'}
                     </DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-3">
-                    <div className="space-y-1">
-                        <Label htmlFor="salary_min">Salary Min</Label>
-                        <Input
-                            id="salary_min"
-                            name="salary_min"
-                            type="number"
-                            step="0.01"
-                            required
-                            defaultValue={bracket?.salary_min}
-                        />
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                            <Label htmlFor="salary_min">Salary Min</Label>
+                            <Input
+                                id="salary_min"
+                                name="salary_min"
+                                type="number"
+                                step="0.01"
+                                required
+                                defaultValue={bracket?.salary_min}
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <Label htmlFor="salary_max">
+                                Salary Max{' '}
+                                <span className="text-muted-foreground">
+                                    (blank = no limit)
+                                </span>
+                            </Label>
+                            <Input
+                                id="salary_max"
+                                name="salary_max"
+                                type="number"
+                                step="0.01"
+                                defaultValue={bracket?.salary_max ?? ''}
+                            />
+                        </div>
                     </div>
-                    <div className="space-y-1">
-                        <Label htmlFor="salary_max">
-                            Salary Max (leave empty for no limit)
-                        </Label>
-                        <Input
-                            id="salary_max"
-                            name="salary_max"
-                            type="number"
-                            step="0.01"
-                            defaultValue={bracket?.salary_max ?? ''}
-                        />
+
+                    <p className="text-xs text-muted-foreground">
+                        Fixed monthly amounts — used directly by payroll. Leave
+                        blank to fall back to percentage.
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                            <Label htmlFor="employee_contribution">
+                                Employee / mo (₱)
+                            </Label>
+                            <Input
+                                id="employee_contribution"
+                                name="employee_contribution"
+                                type="number"
+                                step="0.01"
+                                placeholder="e.g. 675.00"
+                                defaultValue={
+                                    bracket?.employee_contribution ?? ''
+                                }
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <Label htmlFor="employer_contribution">
+                                Employer / mo (₱)
+                            </Label>
+                            <Input
+                                id="employer_contribution"
+                                name="employer_contribution"
+                                type="number"
+                                step="0.01"
+                                placeholder="e.g. 1360.00"
+                                defaultValue={
+                                    bracket?.employer_contribution ?? ''
+                                }
+                            />
+                        </div>
                     </div>
+
+                    <p className="text-xs text-muted-foreground">
+                        Fallback percentages — only used when amounts above are
+                        blank.
+                    </p>
+
                     <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
                             <Label htmlFor="employee_percentage">
@@ -261,6 +325,7 @@ function BracketDialog({
                             />
                         </div>
                     </div>
+
                     <div className="space-y-1">
                         <Label htmlFor="effective_from">Effective From</Label>
                         <Input

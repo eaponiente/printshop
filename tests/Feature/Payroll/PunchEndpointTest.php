@@ -112,7 +112,7 @@ it('stores geolocation on overtime punches', function () {
     expect($log->note)->toContain('Test Branch');
 });
 
-it('ignores custom timestamp from non-superadmin even when feature is enabled', function () {
+it('accepts custom timestamp from any user when feature is enabled', function () {
     config()->set('app.enable_custom_punch_time', true);
     $backdate = now()->subDays(3)->setTime(8, 0, 0);
 
@@ -125,7 +125,7 @@ it('ignores custom timestamp from non-superadmin even when feature is enabled', 
     $log = TimeLog::where('employee_id', $this->employee->id)->first();
 
     expect($log)->not->toBeNull();
-    expect($log->timestamp->toDateString())->toBe(now()->toDateString());
+    expect($log->timestamp->format('Y-m-d H:i:s'))->toBe($backdate->format('Y-m-d H:i:s'));
 });
 
 it('accepts custom timestamp from superadmin when feature is enabled', function () {
