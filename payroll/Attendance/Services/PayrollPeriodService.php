@@ -466,7 +466,7 @@ class PayrollPeriodService
 
     private function countMondaysInMonth(string $periodStart): int
     {
-        $date    = CarbonImmutable::parse($periodStart);
+        $date = CarbonImmutable::parse($periodStart);
         $ordinal = (int) ceil($date->day / 7);
 
         return $ordinal + (int) floor(($date->daysInMonth - $date->day) / 7);

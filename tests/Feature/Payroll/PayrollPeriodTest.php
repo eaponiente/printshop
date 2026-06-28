@@ -961,7 +961,7 @@ it('SSS is divided by 5 in a month with 5 payroll periods', function () {
     createEmployeeWithAttendance($this->branchA, 'FiveWeek', 510, ['sss' => '123', 'phic' => null, 'pagibig' => null], 0);
 
     $period = app(PayrollPeriodService::class)->generate($this->branchA, '2026-06-29', '2026-07-04');
-    $item   = PayrollPeriodItem::where('payroll_period_id', $period->id)->first();
+    $item = PayrollPeriodItem::where('payroll_period_id', $period->id)->first();
 
     // monthly salary = 510*26 = 13,260 → 13,260 * 5% = 663 → 663 / 5 = 132.60
     expect((float) $item->sss_deduction)->toBe(132.60);
@@ -972,7 +972,7 @@ it('SSS is divided by 4 in a month with 4 payroll periods', function () {
     createEmployeeWithAttendance($this->branchA, 'FourWeek', 510, ['sss' => '123', 'phic' => null, 'pagibig' => null], 0);
 
     $period = app(PayrollPeriodService::class)->generate($this->branchA, '2026-07-06', '2026-07-11');
-    $item   = PayrollPeriodItem::where('payroll_period_id', $period->id)->first();
+    $item = PayrollPeriodItem::where('payroll_period_id', $period->id)->first();
 
     // monthly salary = 510*26 = 13,260 → 13,260 * 5% = 663 → 663 / 4 = 165.75
     expect((float) $item->sss_deduction)->toBe(165.75);
