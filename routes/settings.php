@@ -16,6 +16,7 @@ use App\Http\Controllers\Users\BranchController;
 use App\Http\Controllers\Users\CustomerController;
 use App\Http\Controllers\Users\EndorsementController;
 use App\Http\Controllers\Users\UserController;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 use Payroll\Attendance\Controllers\AttendanceSheetController;
 use Payroll\Attendance\Controllers\CashAdvanceController;
@@ -186,6 +187,17 @@ Route::middleware(['auth'])->group(function () {
         // Payroll Settings
         Route::get('settings', [PayrollSettingController::class, 'index'])->name('settings.index');
         Route::put('settings', [PayrollSettingController::class, 'update'])->name('settings.update');
+
+        // Admin maintenance commands (superadmin only)
+        Route::post('admin/fix-no-break-fine', function () {
+            if (! auth()->user()->isSuperAdmin()) {
+                abort(403);
+            }
+
+            Artisan::call('attendance:fix-no-break-fine');
+
+            return back()->with('success', 'No-break fine fix applied to existing attendance sheets.');
+        })->name('admin.fix-no-break-fine');
     });
 
     Route::prefix('api')->group(function () {
