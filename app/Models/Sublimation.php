@@ -38,7 +38,8 @@ class Sublimation extends Model
 
     public function tags()
     {
-        return $this->belongsToMany(Tag::class, 'sublimation_tag', 'sublimation_id', 'tag_id');
+        return $this->belongsToMany(Tag::class, 'sublimation_tag', 'sublimation_id', 'tag_id')
+            ->withPivot('quantity');
     }
 
     public function images(): MorphMany

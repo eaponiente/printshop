@@ -44,10 +44,9 @@ it('creates a sublimation with user_id', function () {
         'description' => 'Team Jersey',
         'notes' => 'Test notes',
         'branch_id' => $this->branch->id,
-        'quantity' => 10,
         'customer_id' => $this->customer->id,
         'amount_total' => 1000,
-        'tag_ids' => [$this->tag->id],
+        'tag_ids' => [['id' => $this->tag->id, 'quantity' => 1]],
         'user_id' => $this->staffA->id,
     ]);
 
@@ -66,10 +65,9 @@ it('creates a sublimation without user_id', function () {
         'description' => 'Team Jersey',
         'notes' => 'Test notes',
         'branch_id' => $this->branch->id,
-        'quantity' => 10,
         'customer_id' => $this->customer->id,
         'amount_total' => 1000,
-        'tag_ids' => [$this->tag->id],
+        'tag_ids' => [['id' => $this->tag->id, 'quantity' => 1]],
         'user_id' => '',
     ]);
 
@@ -98,11 +96,10 @@ it('updates a sublimation user_id', function () {
         'description' => 'Team Jersey Updated',
         'branch_id' => $this->branch->id,
         'customer_id' => $this->customer->id,
-        'quantity' => 20,
         'amount_total' => 2000,
         'transaction_type' => 'retail',
         'production_authorized' => false,
-        'tag_ids' => [$this->tag->id],
+        'tag_ids' => [['id' => $this->tag->id, 'quantity' => 1]],
         'user_id' => $this->staffB->id,
     ]);
 
@@ -121,10 +118,9 @@ it('rejects invalid user_id on sublimation create', function () {
         'description' => 'Team Jersey',
         'notes' => 'Test notes',
         'branch_id' => $this->branch->id,
-        'quantity' => 10,
         'customer_id' => $this->customer->id,
         'amount_total' => 1000,
-        'tag_ids' => [$this->tag->id],
+        'tag_ids' => [['id' => $this->tag->id, 'quantity' => 1]],
         'user_id' => 99999,
     ]);
 

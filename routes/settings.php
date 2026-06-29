@@ -59,6 +59,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/sublimations/{sublimation}/duplicate', [SublimationController::class, 'duplicate'])->name('sublimations.duplicate');
     Route::post('/sublimations/{sublimation}/tags', [SublimationTagController::class, 'addTag'])->name('sublimations.tags.add');
     Route::delete('/sublimations/{sublimation}/tags/{tag}', [SublimationTagController::class, 'removeTag'])->name('sublimations.tags.remove');
+    Route::patch('/sublimations/{sublimation}/tags/{tag}', [SublimationTagController::class, 'updateQuantity'])->name('sublimations.tags.update-quantity');
 
     Route::get('/sublimations/{sublimation}/images', [SublimationImageController::class, 'index'])->name('sublimations.images.index');
     Route::post('/sublimations/{sublimation}/images', [SublimationImageController::class, 'store'])->name('sublimations.images.store');
@@ -198,6 +199,16 @@ Route::middleware(['auth'])->group(function () {
 
             return back()->with('success', 'No-break fine fix applied to existing attendance sheets.');
         })->name('admin.fix-no-break-fine');
+
+        Route::get('admin/recalculate-late-deductions', function () {
+            if (! auth()->user()->isSuperAdmin()) {
+                abort(403);
+            }
+
+            Artisan::call('attendance:recalculate-late');
+
+            return back()->with('success', 'Late deductions recalculated for all unlocked attendance sheets.');
+        })->name('admin.recalculate-late-deductions');
     });
 
     Route::prefix('api')->group(function () {

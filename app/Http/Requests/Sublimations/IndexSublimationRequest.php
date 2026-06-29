@@ -27,7 +27,7 @@ class IndexSublimationRequest extends FormRequest
             'status' => 'nullable',
             'include_completed' => 'nullable',
             'user_id' => 'nullable|string', // string for 'unassigned' and integer for user_id
-            'sort_field' => 'nullable|string|in:due_at,user_id',
+            'sort_field' => 'nullable|string|in:due_at,user_id,created_at',
             'sort_direction' => 'nullable|string|in:asc,desc',
         ];
     }

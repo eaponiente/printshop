@@ -25,8 +25,8 @@ export default function SewedItemDialog({
 }: SewedItemDialogProps) {
     const tags = sublimation.tags ?? [];
 
-    const [quantities, setQuantities] = useState<Record<number, string>>(
-        Object.fromEntries(tags.map((t) => [t.id, '0'])),
+    const quantities: Record<number, string> = Object.fromEntries(
+        tags.map((t) => [t.id, String(t.pivot?.quantity ?? 1)]),
     );
 
     const [prices, setPrices] = useState<Record<number, string>>(
@@ -136,17 +136,8 @@ export default function SewedItemDialog({
                                                         value={
                                                             quantities[tag.id]
                                                         }
-                                                        onChange={(e) =>
-                                                            setQuantities(
-                                                                (prev) => ({
-                                                                    ...prev,
-                                                                    [tag.id]:
-                                                                        e.target
-                                                                            .value,
-                                                                }),
-                                                            )
-                                                        }
-                                                        className="h-8 w-full text-sm"
+                                                        readOnly
+                                                        className="h-8 w-full bg-muted text-sm"
                                                     />
                                                 </td>
                                                 <td className="px-3 py-2">

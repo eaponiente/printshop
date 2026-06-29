@@ -70,6 +70,7 @@ import type { PaginatedResponse } from '@/types/pagination';
 import type { Tag } from '@/types/settings';
 import type { Sublimation } from '@/types/sublimations';
 import type { User } from '@/types/user';
+import { toManilaTime } from '@/utils/dateHelper';
 import { getCustomerDisplayName } from '@/utils/formatters';
 import { getAvatarColor, sortBy } from '@/utils/helpers';
 import { EditableDateCell } from './components/editable-date-cell';
@@ -103,9 +104,24 @@ export default function SublimationIndex({
     const [zoomedImage, setZoomedImage] = useState<UploadedImage | null>(null);
 
     const [duplicateTarget, setDuplicateTarget] = useState<Sublimation | null>(null);
-    const [duplicateQty, setDuplicateQty] = useState('');
+    const [duplicateTagQtys, setDuplicateTagQtys] = useState<Record<number, string>>({});
     const [duplicateAmount, setDuplicateAmount] = useState('');
     const [duplicating, setDuplicating] = useState(false);
+
+    const openDuplicateDialog = (sub: Sublimation) => {
+        setDuplicateTarget(sub);
+        setDuplicateTagQtys(
+            Object.fromEntries(
+                (sub.tags ?? []).map((t) => [t.id, String(t.pivot?.quantity ?? 1)]),
+            ),
+        );
+        setDuplicateAmount('');
+    };
+
+    const duplicateTotalQty = Object.values(duplicateTagQtys).reduce(
+        (sum, q) => sum + (Number(q) || 0),
+        0,
+    );
 
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
     const [gallerySublimation, setGallerySublimation] =
@@ -247,6 +263,32 @@ export default function SublimationIndex({
             ),
         },
         {
+            accessorKey: 'created_at',
+            header: () => {
+                const isSorted = filters.sort_field === 'created_at';
+
+                return (
+                    <Button
+                        variant="ghost"
+                        onClick={() =>
+                            sortBy('created_at', filters, 'sublimations.index')
+                        }
+                        className="p-0 hover:bg-transparent"
+                    >
+                        Created At
+                        <ArrowUpDown
+                            className={`ml-2 h-4 w-4 ${isSorted ? 'text-primary' : 'text-muted-foreground/50'}`}
+                        />
+                    </Button>
+                );
+            },
+            cell: ({ row }: CellContext<any, any>) => (
+                <span className="text-sm tabular-nums">
+                    {toManilaTime(row.original.created_at)}
+                </span>
+            ),
+        },
+        {
             accessorKey: 'status',
             header: 'Status',
             cell: ({ row }) => (
@@ -263,10 +305,7 @@ export default function SublimationIndex({
                         type="button"
                         title="Duplicate with new quantity"
                         className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                        onClick={() => {
-                            setDuplicateTarget(row.original);
-                            setDuplicateQty('');
-                        }}
+                        onClick={() => openDuplicateDialog(row.original)}
                     >
                         <Plus className="h-3 w-3" />
                     </button>
@@ -915,10 +954,10 @@ setDuplicateTarget(null);
             >
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Duplicate Sublimation</DialogTitle>
+                        <DialogTitle>Add Items to Existing Sublimation</DialogTitle>
                         <DialogDescription>
-                            Enter a quantity for the new sublimation. All other
-                            fields will be copied from the original.
+                            Set a quantity per category for the new sublimation.
+                            All other fields will be copied from the original.
                         </DialogDescription>
                     </DialogHeader>
                     <form
@@ -926,13 +965,25 @@ setDuplicateTarget(null);
                             e.preventDefault();
 
                             if (!duplicateTarget || duplicating) {
-return;
-}
+                                return;
+                            }
+
+                            const tagPayload = (duplicateTarget.tags ?? [])
+                                .filter((t) => Number(duplicateTagQtys[t.id]) > 0)
+                                .map((t) => ({
+                                    id: t.id,
+                                    quantity: Number(duplicateTagQtys[t.id]),
+                                }));
+
+                            if (tagPayload.length === 0) {
+                                toast.error('Enter at least one category quantity', { position: 'top-center' });
+                                return;
+                            }
 
                             setDuplicating(true);
                             router.post(
                                 route('sublimations.duplicate', duplicateTarget.id),
-                                { quantity: Number(duplicateQty), amount_total: Number(duplicateAmount) },
+                                { tag_ids: tagPayload, amount_total: Number(duplicateAmount) },
                                 {
                                     preserveScroll: true,
                                     onSuccess: () => {
@@ -941,7 +992,7 @@ return;
                                     },
                                     onError: (errors) => {
                                         toast.error(
-                                            errors.quantity ?? errors.amount_total ?? errors.message ?? 'Failed to duplicate.',
+                                            errors['tag_ids'] ?? errors.amount_total ?? errors.message ?? 'Failed to duplicate.',
                                             { position: 'top-center' },
                                         );
                                     },
@@ -951,21 +1002,67 @@ return;
                         }}
                         className="space-y-4 pt-2"
                     >
-                        <div className="space-y-1">
+                        <div className="space-y-2">
                             <label className="text-sm font-medium">
-                                Quantity
+                                Quantity per Category
                             </label>
-                            <input
-                                type="number"
-                                min={1}
-                                max={999999}
-                                value={duplicateQty}
-                                onChange={(e) => setDuplicateQty(e.target.value)}
-                                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                                placeholder="e.g. 50"
-                                autoFocus
-                                required
-                            />
+                            {(duplicateTarget?.tags ?? []).length === 0 ? (
+                                <p className="text-sm text-muted-foreground">
+                                    No categories on this sublimation.
+                                </p>
+                            ) : (
+                                <div className="overflow-hidden rounded-md border">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="border-b bg-muted/50">
+                                                <th className="px-3 py-2 text-left font-medium">
+                                                    Category
+                                                </th>
+                                                <th className="w-28 px-3 py-2 text-left font-medium">
+                                                    Quantity
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {(duplicateTarget?.tags ?? []).map((tag) => (
+                                                <tr key={tag.id} className="border-b last:border-0">
+                                                    <td className="px-3 py-2">
+                                                        <span className="inline-flex items-center gap-1.5">
+                                                            <span
+                                                                className="inline-block h-3 w-3 rounded-full"
+                                                                style={{ backgroundColor: tag.color }}
+                                                            />
+                                                            {tag.name}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-3 py-2">
+                                                        <input
+                                                            type="number"
+                                                            min={1}
+                                                            max={999999}
+                                                            value={duplicateTagQtys[tag.id] ?? ''}
+                                                            onChange={(e) =>
+                                                                setDuplicateTagQtys((prev) => ({
+                                                                    ...prev,
+                                                                    [tag.id]: e.target.value,
+                                                                }))
+                                                            }
+                                                            className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                                            required
+                                                        />
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                        <tfoot>
+                                            <tr className="border-t bg-muted/30 font-medium">
+                                                <td className="px-3 py-2">Total Qty</td>
+                                                <td className="px-3 py-2 tabular-nums">{duplicateTotalQty}</td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            )}
                         </div>
                         <div className="space-y-1">
                             <label className="text-sm font-medium">
@@ -992,7 +1089,12 @@ return;
                             </Button>
                             <Button
                                 type="submit"
-                                disabled={!duplicateQty || Number(duplicateQty) < 1 || !duplicateAmount || Number(duplicateAmount) < 1 || duplicating}
+                                disabled={
+                                    duplicateTotalQty < 1 ||
+                                    !duplicateAmount ||
+                                    Number(duplicateAmount) < 1 ||
+                                    duplicating
+                                }
                             >
                                 {duplicating ? 'Duplicating…' : 'Duplicate'}
                             </Button>

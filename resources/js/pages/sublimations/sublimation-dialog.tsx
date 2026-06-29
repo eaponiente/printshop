@@ -53,12 +53,14 @@ export default function SublimationDialog({
         production_authorized: sublimation?.production_authorized ?? false,
         amount_total: sublimation?.amount_total ?? '',
         amount_paid: sublimation?.amount_paid ?? '',
-        quantity: sublimation?.quantity ?? '',
         description: sublimation?.description ?? '',
         notes: sublimation?.notes ?? '',
         branch_id: sublimation?.branch_id ?? (auth.user as any).branch_id ?? '',
         customer_id: sublimation?.customer_id ?? '',
-        tag_ids: (sublimation?.tags?.map((t) => t.id) ?? []) as number[],
+        tag_ids: (sublimation?.tags?.map((t) => ({
+            id: t.id,
+            quantity: t.pivot?.quantity ?? 1,
+        })) ?? []) as { id: number; quantity: number }[],
         user_id: sublimation?.user_id ?? '',
     });
 
@@ -75,15 +77,22 @@ export default function SublimationDialog({
         useState<Tag[]>(availableTags);
 
     const addTag = (tagId: number) => {
-        if (!data.tag_ids.includes(tagId)) {
-            setData('tag_ids', [...data.tag_ids, tagId]);
+        if (!data.tag_ids.some((t) => t.id === tagId)) {
+            setData('tag_ids', [...data.tag_ids, { id: tagId, quantity: 1 }]);
         }
     };
 
     const removeTag = (tagId: number) => {
         setData(
             'tag_ids',
-            data.tag_ids.filter((id) => id !== tagId),
+            data.tag_ids.filter((t) => t.id !== tagId),
+        );
+    };
+
+    const updateTagQuantity = (tagId: number, qty: number) => {
+        setData(
+            'tag_ids',
+            data.tag_ids.map((t) => (t.id === tagId ? { ...t, quantity: qty } : t)),
         );
     };
 
@@ -271,36 +280,20 @@ export default function SublimationDialog({
                             )}
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            {/* Quantity */}
-                            <div className="grid gap-2">
-                                <Label htmlFor="quantity">Quantity</Label>
-                                <Input
-                                    id="quantity"
-                                    value={data.quantity}
-                                    onChange={(e) =>
-                                        setData('quantity', e.target.value)
-                                    }
-                                />
-                                <InputError message={errors.quantity} />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="amount_total">
-                                    Total Amount
-                                </Label>
-                                <Input
-                                    disabled={
-                                        isEdit &&
-                                        !prePaymentKeys.includes(data.status)
-                                    }
-                                    id="amount_total"
-                                    value={data.amount_total}
-                                    onChange={(e) =>
-                                        setData('amount_total', e.target.value)
-                                    }
-                                />
-                                <InputError message={errors.amount_total} />
-                            </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="amount_total">Total Amount</Label>
+                            <Input
+                                disabled={
+                                    isEdit &&
+                                    !prePaymentKeys.includes(data.status)
+                                }
+                                id="amount_total"
+                                value={data.amount_total}
+                                onChange={(e) =>
+                                    setData('amount_total', e.target.value)
+                                }
+                            />
+                            <InputError message={errors.amount_total} />
                         </div>
 
                         {/* Tags */}
@@ -308,11 +301,15 @@ export default function SublimationDialog({
                             <Label>Tags</Label>
                             <div className="rounded-md border p-3">
                                 <TagSelector
-                                    selectedTagIds={data.tag_ids}
+                                    selectedTagIds={data.tag_ids.map((t) => t.id)}
                                     availableTags={availableTagsState}
                                     onAdd={addTag}
                                     onRemove={removeTag}
                                     layout="row"
+                                    quantities={Object.fromEntries(
+                                        data.tag_ids.map((t) => [t.id, t.quantity]),
+                                    )}
+                                    onQuantityChange={updateTagQuantity}
                                     onTagCreated={(tag) =>
                                         setAvailableTagsState((prev) => [
                                             ...prev,
