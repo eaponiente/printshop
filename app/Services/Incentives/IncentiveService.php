@@ -55,7 +55,8 @@ class IncentiveService
             $expenses = (float) Expense::query()
                 ->where('branch_id', $branch->id)
                 ->where('status', ExpenseStatus::PAID->value)
-                ->whereBetween('expense_date', [$date->format('Y-m-d'), $monthEnd->format('Y-m-d')])
+                ->whereDate('expense_date', '>=', $date)
+                ->whereDate('expense_date', '<=', $monthEnd)
                 ->sum('amount');
 
             $cashOnHand = (float) CashOnHand::query()
@@ -111,7 +112,8 @@ class IncentiveService
             $expenses = (float) Expense::query()
                 ->where('branch_id', $branchId)
                 ->where('status', ExpenseStatus::PAID->value)
-                ->whereBetween('expense_date', [$date->format('Y-m-d'), $monthEnd->format('Y-m-d')])
+                ->whereDate('expense_date', '>=', $date)
+                ->whereDate('expense_date', '<=', $monthEnd)
                 ->sum('amount');
 
             $netIncome = $revenue - $expenses;
