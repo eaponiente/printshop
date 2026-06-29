@@ -318,8 +318,9 @@ class AttendanceService
         // Daily wage
         $fineDeduction = Fine::where('employee_id', $employee->id)->where('date', $date)->sum('amount');
 
-        // Break fine when employee is present but has no lunch-break punches (not applicable to half-days)
-        if ($isPresent && ! $isRestDay && ! $hasFullDayLeave && (! $lunchOut || ! $lunchIn) && ! $isMorningHalf && ! $isAfternoonHalf) {
+        // Break fine when employee completed their day (punched out) but skipped lunch punches.
+        // Skipped when punch-out is absent — day is still in progress, lunch may come later.
+        if ($isPresent && $outPunch && ! $isRestDay && ! $hasFullDayLeave && (! $lunchOut || ! $lunchIn) && ! $isMorningHalf && ! $isAfternoonHalf) {
             $noBreakFine = (float) app(PayrollSettingService::class)->get('no_break_fine', config('payroll.no_break_fine'));
             $fineDeduction += $noBreakFine;
         }
