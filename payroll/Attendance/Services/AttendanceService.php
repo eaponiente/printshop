@@ -70,7 +70,7 @@ class AttendanceService
 
         // Unpaid tail only applies to schedules whose paid work would exceed 8h.
         // Excess over 480 paid minutes (assuming a 60-min lunch) caps the tail.
-        $scheduledPaidMinutes = abs($scheduleStart->diffInMinutes($scheduleEnd)) - 60;
+        $scheduledPaidMinutes = (int) abs($scheduleStart->diffInMinutes($scheduleEnd)) - 60;
         $excessOver8h = max(0, $scheduledPaidMinutes - 480);
         $unpaidTailMinutes = min($configuredTail, $excessOver8h);
         $paidEndTime = $scheduleEnd->copy()->subMinutes($unpaidTailMinutes);
@@ -113,7 +113,7 @@ class AttendanceService
 
                 // Tardy: based on actual punch vs schedule start (suppressed for afternoon half)
                 if ($rawInTime->gt($scheduleStart) && ! $isAfternoonHalf) {
-                    $lateMinutes = abs($rawInTime->diffInMinutes($scheduleStart));
+                    $lateMinutes = (int) abs($rawInTime->diffInMinutes($scheduleStart));
                 }
 
                 $perMinute = (float) (app(PayrollSettingService::class)->get('late_deduction_per_minute', config('payroll.late_deduction_per_minute')));
@@ -134,13 +134,13 @@ class AttendanceService
                 // Lunch computation
                 $lunchDeductionMinutes = 0;
                 if ($lunchOut && $lunchIn) {
-                    $actualLunch = $lunchOut->timestamp->diffInMinutes($lunchIn->timestamp);
+                    $actualLunch = (int) $lunchOut->timestamp->diffInMinutes($lunchIn->timestamp);
                     if ($actualLunch > 60) {
                         $lunchDeductionMinutes = $actualLunch - 60;
                     }
                 } elseif (! $lunchOut || ! $lunchIn) {
                     $rawDuration = $outPunch
-                        ? $outPunch->timestamp->diffInMinutes($inPunch->timestamp)
+                        ? (int) $outPunch->timestamp->diffInMinutes($inPunch->timestamp)
                         : 0;
                     if ($rawDuration >= 300) {
                         $wStart = $inPunch->timestamp->hour * 60 + $inPunch->timestamp->minute;
@@ -158,7 +158,7 @@ class AttendanceService
                 if ($outPunch) {
                     $outTimeRaw = Carbon::parse($outPunch->timestamp);
                     if (! $isRestDay && $outTimeRaw->lt($paidEndTime)) {
-                        $undertimeMinutes += abs($paidEndTime->diffInMinutes($outTimeRaw));
+                        $undertimeMinutes += (int) abs($paidEndTime->diffInMinutes($outTimeRaw));
                     }
                 }
                 $undertimeDeduction = round(($undertimeMinutes / 60) * $hourlyRate, 2);
@@ -173,7 +173,7 @@ class AttendanceService
                         $outTimeForHalf = $paidEndTime->copy();
                     }
                     $halfStartTime = $isMorningHalf ? $scheduleStart : $inTime;
-                    $halfWorkedMinutes = $halfStartTime->diffInMinutes($outTimeForHalf);
+                    $halfWorkedMinutes = (int) $halfStartTime->diffInMinutes($outTimeForHalf);
                     $fullDayMinutes = $scheduledPaidMinutes - $unpaidTailMinutes;
                     $undertimeMinutes = max(0, $fullDayMinutes - $halfWorkedMinutes);
                     $undertimeDeduction = round(($undertimeMinutes / 60) * $hourlyRate, 2);
@@ -189,13 +189,13 @@ class AttendanceService
                     $morningEnd = $lunchOut->timestamp->lt($endTime)
                         ? Carbon::parse($lunchOut->timestamp)
                         : $endTime;
-                    $morningMins = abs($inTime->diffInMinutes($morningEnd));
+                    $morningMins = (int) abs($inTime->diffInMinutes($morningEnd));
                     $afternoonMins = $lunchIn->timestamp->lt($endTime)
-                        ? abs($lunchIn->timestamp->diffInMinutes($endTime))
+                        ? (int) abs($lunchIn->timestamp->diffInMinutes($endTime))
                         : 0;
                     $hoursWorked = max(0, round(($morningMins + $afternoonMins) / 60, 2));
                 } else {
-                    $rawMinutes = abs($inTime->diffInMinutes($endTime)) - $lunchDeductionMinutes;
+                    $rawMinutes = (int) abs($inTime->diffInMinutes($endTime)) - $lunchDeductionMinutes;
                     $hoursWorked = max(0, round($rawMinutes / 60, 2));
                 }
 
@@ -205,7 +205,7 @@ class AttendanceService
                 $shiftType = 'regular_day';
 
                 if ($otInPunch && $otOutPunch) {
-                    $otMins = abs(
+                    $otMins = (int) abs(
                         Carbon::parse($otInPunch->timestamp)->diffInMinutes(Carbon::parse($otOutPunch->timestamp))
                     );
                 } else {
@@ -227,9 +227,9 @@ class AttendanceService
                     $overtimePay = round(($otMins / 60) * $hourlyRate * $multiplier, 2);
                 } elseif ($isRestDay && $outPunch) {
                     // Working on rest day — count the in-to-out span (minus lunch) as OT-rate hours
-                    $restDayMinutes = abs($inTime->diffInMinutes($outPunch->timestamp));
+                    $restDayMinutes = (int) abs($inTime->diffInMinutes($outPunch->timestamp));
                     if ($lunchOut && $lunchIn) {
-                        $lunchTaken = abs($lunchOut->timestamp->diffInMinutes($lunchIn->timestamp));
+                        $lunchTaken = (int) abs($lunchOut->timestamp->diffInMinutes($lunchIn->timestamp));
                         $restDayMinutes -= min($lunchTaken, 60);
                     } else {
                         $restDayMinutes -= 60;

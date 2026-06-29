@@ -63,8 +63,8 @@ type Props = {
 
 const PUNCH_TYPES = [
     { value: 'in', label: 'Punch In' },
-    { value: 'lunch_out', label: 'Lunch Out' },
-    { value: 'lunch_in', label: 'Lunch In' },
+    { value: 'lunch_out', label: 'Start Break' },
+    { value: 'lunch_in', label: 'End Break' },
     { value: 'out', label: 'Punch Out' },
     { value: 'overtime_in', label: 'OT In' },
     { value: 'overtime_out', label: 'OT Out' },
@@ -468,8 +468,8 @@ function statusClass(sheet: NonNullable<Props['sheet']>) {
 function typeLabel(type: string) {
     const map: Record<string, string> = {
         in: 'Punch In',
-        lunch_out: 'Lunch Out',
-        lunch_in: 'Lunch In',
+        lunch_out: 'Start Break',
+        lunch_in: 'End Break',
         out: 'Punch Out',
         overtime_in: 'OT In',
         overtime_out: 'OT Out',

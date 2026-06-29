@@ -111,16 +111,30 @@ export default function PaymentDialog({
                     </div>
 
                     <div className="grid grid-cols-1 gap-4 border-t border-border/30 pt-2">
-                        <div className="flex flex-col text-sm">
-                            {/* Row 1: Description */}
+                        <div className="flex flex-col gap-1 text-sm">
                             <div className="text-foreground/80">
                                 {transaction.description}
                             </div>
 
-                            {/* Row 2: Sublimation Quantity */}
-                            {transaction.sublimation && (
-                                <div className="mt-0.5 text-[14px] font-medium text-muted-foreground">
-                                    Quantity: {transaction.sublimation.quantity}
+                            {transaction.sublimation?.tags?.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                    {transaction.sublimation.tags.map(
+                                        (tag: any) => (
+                                            <span
+                                                key={tag.id}
+                                                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium text-white"
+                                                style={{
+                                                    backgroundColor: tag.color,
+                                                }}
+                                            >
+                                                {tag.name}
+                                                <span className="opacity-80">
+                                                    ×
+                                                    {tag.pivot?.quantity ?? 1}
+                                                </span>
+                                            </span>
+                                        ),
+                                    )}
                                 </div>
                             )}
                         </div>

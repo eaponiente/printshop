@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { FileText, Pencil, Search, X } from 'lucide-react';
+import { FileText, Pencil, Search, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { route } from 'ziggy-js';
@@ -547,17 +547,32 @@ export default function SewedItemsIndex({
                                         {item.notes || '—'}
                                     </td>
                                     <td className="px-3 py-2 text-center">
-                                        {userCanEdit(item) && (
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={() =>
-                                                    openEditDialog(item)
-                                                }
-                                            >
-                                                <Pencil className="h-4 w-4" />
-                                            </Button>
-                                        )}
+                                        <div className="flex items-center justify-center gap-1">
+                                            {userCanEdit(item) && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() =>
+                                                        openEditDialog(item)
+                                                    }
+                                                >
+                                                    <Pencil className="h-4 w-4" />
+                                                </Button>
+                                            )}
+                                            {(isSuperAdmin || isAdmin) && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="text-destructive hover:text-destructive"
+                                                    onClick={() => {
+                                                        if (!confirm('Delete this sewed item? This cannot be undone.')) return;
+                                                        router.delete(route('payroll.sewed-items.destroy', item.id), { preserveScroll: true });
+                                                    }}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))}

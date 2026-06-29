@@ -142,6 +142,7 @@ class AttendanceSheetController extends Controller
             $this->audit('admin_correction_added', $log, [], [
                 'type' => $validated['type'],
                 'timestamp' => $timestamp,
+                'employee_id' => $log->employee_id,
             ]);
         });
 
@@ -163,12 +164,17 @@ class AttendanceSheetController extends Controller
         }
 
         $date = Carbon::parse($log->timestamp)->toDateString();
-        $before = ['type' => $log->type->value, 'timestamp' => $log->timestamp->toDateTimeString()];
+        $before = [
+            'type' => $log->type->value,
+            'timestamp' => $log->timestamp->toDateTimeString(),
+            'employee_id' => $log->employee_id,
+        ];
+        $after = ['type' => null, 'timestamp' => null, 'employee_id' => null];
 
-        DB::transaction(function () use ($employee, $log, $date, $before, $service) {
+        DB::transaction(function () use ($employee, $log, $date, $before, $after, $service) {
             $log->delete();
             $this->reprocessSheet($employee, $date, $service);
-            $this->audit('admin_correction_removed', $log, $before, []);
+            $this->audit('admin_correction_removed', $log, $before, $after);
         });
 
         return back()->with('success', 'Punch removed and attendance reprocessed.');

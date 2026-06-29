@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import { Plus, X, Loader2 } from 'lucide-react';
+import { Plus, X, Loader2, Check } from 'lucide-react';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -39,6 +39,84 @@ interface TagSelectorProps {
     onTagCreated?: (tag: Tag) => void;
     loading?: boolean;
     layout?: 'row' | 'col';
+    quantities?: Record<number, number>;
+    onQuantityChange?: (tagId: number, qty: number) => void;
+}
+
+function QuantityPopover({
+    tagId,
+    quantity,
+    onConfirm,
+}: {
+    tagId: number;
+    quantity: number;
+    onConfirm: (tagId: number, qty: number) => void;
+}) {
+    const [open, setOpen] = useState(false);
+    const [draft, setDraft] = useState(String(quantity));
+
+    const handleConfirm = () => {
+        const parsed = parseInt(draft, 10);
+
+        if (!isNaN(parsed) && parsed >= 1) {
+            onConfirm(tagId, parsed);
+            setOpen(false);
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleConfirm();
+        }
+    };
+
+    return (
+        <Popover
+            open={open}
+            onOpenChange={(o) => {
+                setOpen(o);
+
+                if (o) {
+                    setDraft(String(quantity));
+                }
+            }}
+        >
+            <PopoverTrigger asChild>
+                <button
+                    type="button"
+                    className="rounded px-0.5 text-xs font-semibold opacity-80 hover:opacity-100"
+                >
+                    ×{quantity}
+                </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-36 p-2" align="start">
+                <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+                    Quantity
+                </p>
+                <div className="flex items-center gap-1">
+                    <Input
+                        type="number"
+                        min={1}
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        className="h-7 w-full text-xs"
+                        autoFocus
+                    />
+                    <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        className="h-7 w-7 shrink-0"
+                        onClick={handleConfirm}
+                    >
+                        <Check className="h-3 w-3" />
+                    </Button>
+                </div>
+            </PopoverContent>
+        </Popover>
+    );
 }
 
 export default function TagSelector({
@@ -49,6 +127,8 @@ export default function TagSelector({
     onTagCreated,
     loading = false,
     layout = 'row',
+    quantities,
+    onQuantityChange,
 }: TagSelectorProps) {
     const [open, setOpen] = useState(false);
     const [newTagName, setNewTagName] = useState('');
@@ -116,6 +196,8 @@ export default function TagSelector({
                     return null;
                 }
 
+                const qty = quantities?.[tag.id] ?? 1;
+
                 return (
                     <Badge
                         key={tag.id}
@@ -123,6 +205,17 @@ export default function TagSelector({
                         style={{ backgroundColor: tag.color }}
                     >
                         {tag.name}
+                        {quantities !== undefined && onQuantityChange ? (
+                            <QuantityPopover
+                                tagId={tag.id}
+                                quantity={qty}
+                                onConfirm={onQuantityChange}
+                            />
+                        ) : quantities !== undefined ? (
+                            <span className="text-xs font-semibold opacity-80">
+                                ×{qty}
+                            </span>
+                        ) : null}
                         <button
                             type="button"
                             disabled={loading}

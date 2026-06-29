@@ -10,6 +10,7 @@ export type AuditLog = {
     ip_address: string;
     user_agent: string | null;
     created_at: string;
+    self_correction?: boolean;
     user: {
         id: number;
         first_name: string;

@@ -19,6 +19,8 @@ const actionBadge = (action: string) => {
         updated: 'bg-blue-100 text-blue-700 border-blue-200',
         deleted: 'bg-red-100 text-red-700 border-red-200',
         rehired: 'bg-amber-100 text-amber-700 border-amber-200',
+        admin_correction_added: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+        admin_correction_removed: 'bg-rose-100 text-rose-700 border-rose-200',
     };
 
     return map[action] ?? 'bg-gray-100 text-gray-700 border-gray-200';
@@ -39,7 +41,9 @@ function formatChanges(
     const keys = [
         ...Object.keys(before ?? {}),
         ...Object.keys(after ?? {}),
-    ].filter((k, i, arr) => arr.indexOf(k) === i);
+    ].filter(
+        (k, i, arr) => arr.indexOf(k) === i && k !== 'employee_id',
+    );
 
     return (
         <div className="space-y-0.5">
@@ -135,11 +139,21 @@ export default function AuditLogIndex({ logs }: AuditLogsList) {
             accessorKey: 'action',
             header: 'Action',
             cell: ({ row }: CellContext<any, any>) => (
-                <span
-                    className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium capitalize ${actionBadge(row.original.action)}`}
-                >
-                    {row.original.action}
-                </span>
+                <div className="flex flex-wrap items-center gap-1">
+                    <span
+                        className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium capitalize ${actionBadge(row.original.action)}`}
+                    >
+                        {String(row.original.action).replaceAll('_', ' ')}
+                    </span>
+                    {row.original.self_correction && (
+                        <span
+                            title="This admin corrected their own attendance"
+                            className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-amber-800 uppercase"
+                        >
+                            ⚠ Self
+                        </span>
+                    )}
+                </div>
             ),
         },
         {
