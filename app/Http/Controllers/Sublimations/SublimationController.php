@@ -37,6 +37,11 @@ class SublimationController extends Controller
             $query->withCount('payments');
         }]);
 
+        // Staff default to seeing only their own assigned sublimations unless they pick another filter.
+        if (auth()->user()->role === UserRole::STAFF->value && ! $request->has('user_id')) {
+            $request->merge(['user_id' => (string) auth()->id()]);
+        }
+
         $filters = $request->all();
 
         $specialBranches = ['Peñaplata', 'Babak', 'Tibungco'];
@@ -94,9 +99,15 @@ class SublimationController extends Controller
             }
         });
 
-        $sortDirection = $request->query('sort_direction', 'desc');
+        $sortDirection = in_array($request->query('sort_direction'), ['asc', 'desc'])
+            ? $request->query('sort_direction')
+            : 'desc';
 
-        $query->orderBy($request->query('sort_field', 'due_at'), $sortDirection);
+        $sortField = in_array($request->query('sort_field'), ['due_at', 'created_at', 'user_id'])
+            ? $request->query('sort_field')
+            : 'due_at';
+
+        $query->orderBy($sortField, $sortDirection);
 
         if (auth()->user()->isSuperAdmin()) {
             $branches = Branch::get(['id', 'name']);
@@ -127,10 +138,16 @@ class SublimationController extends Controller
     public function store(StoreSublimationRequest $request): RedirectResponse
     {
         try {
-            $sublimation = Sublimation::query()->create($request->validated());
+            $tagIds = $request->input('tag_ids', []);
+
+            $sublimation = Sublimation::query()->create(
+                collect($request->validated())->except('tag_ids')
+                    ->merge(['quantity' => collect($tagIds)->sum('quantity')])
+                    ->all()
+            );
 
             if ($request->has('tag_ids')) {
-                $sublimation->tags()->sync($request->tag_ids);
+                $sublimation->tags()->sync($this->tagSyncPayload($tagIds));
             }
 
             return redirect()->back()->with('success', 'Sublimation created successfully.');
@@ -144,7 +161,13 @@ class SublimationController extends Controller
     public function update(UpdateSublimationRequest $request, Sublimation $sublimation): RedirectResponse
     {
         try {
-            $sublimation->fill($request->validated());
+            $tagIds = $request->input('tag_ids', []);
+
+            $sublimation->fill(
+                collect($request->validated())->except('tag_ids')
+                    ->merge(['quantity' => collect($tagIds)->sum('quantity')])
+                    ->all()
+            );
 
             if ($sublimation->isDirty('amount_total')) {
                 $hasTransaction = $sublimation->transaction()->exists();
@@ -163,7 +186,7 @@ class SublimationController extends Controller
             $sublimation->save();
 
             if ($request->has('tag_ids')) {
-                $sublimation->tags()->sync($request->tag_ids);
+                $sublimation->tags()->sync($this->tagSyncPayload($tagIds));
             }
 
             return redirect()->back()->with('success', 'Sublimation updated successfully.');
@@ -172,6 +195,13 @@ class SublimationController extends Controller
 
             return redirect()->back()->withErrors(['message' => 'An error occurred while updating the sublimation.']);
         }
+    }
+
+    private function tagSyncPayload(array $tagIds): array
+    {
+        return collect($tagIds)
+            ->mapWithKeys(fn ($t) => [(int) $t['id'] => ['quantity' => (int) $t['quantity']]])
+            ->all();
     }
 
     public function destroy(Sublimation $sublimation): RedirectResponse
@@ -205,11 +235,15 @@ class SublimationController extends Controller
     public function duplicate(Request $request, Sublimation $sublimation): RedirectResponse
     {
         $validated = $request->validate([
-            'quantity' => ['required', 'integer', 'min:1', 'max:999999'],
+            'tag_ids' => ['required', 'array', 'min:1'],
+            'tag_ids.*.id' => ['required', 'integer', 'exists:tags,id'],
+            'tag_ids.*.quantity' => ['required', 'integer', 'min:1'],
             'amount_total' => ['required', 'numeric', 'min:1', 'max:99999999.99'],
         ]);
 
         try {
+            $totalQuantity = collect($validated['tag_ids'])->sum('quantity');
+
             $copy = Sublimation::create([
                 'description' => $sublimation->description,
                 'notes' => $sublimation->notes,
@@ -218,11 +252,11 @@ class SublimationController extends Controller
                 'amount_total' => $validated['amount_total'],
                 'user_id' => $sublimation->user_id,
                 'due_at' => $sublimation->due_at,
-                'quantity' => $validated['quantity'],
+                'quantity' => $totalQuantity,
                 'status' => 'for_approval',
             ]);
 
-            $copy->tags()->sync($sublimation->tags->pluck('id'));
+            $copy->tags()->sync($this->tagSyncPayload($validated['tag_ids']));
 
             return back()->with('success', 'Sublimation duplicated successfully.');
         } catch (\Exception $e) {

@@ -18,7 +18,7 @@ class SalesService
     public function getTransactionQuery(array $filters): Builder
     {
         $query = Transaction::query()
-            ->with(['user:id,first_name,last_name', 'branch:id,name', 'customer', 'payments', 'sublimation'])
+            ->with(['user:id,first_name,last_name', 'branch:id,name', 'customer', 'payments', 'sublimation.tags'])
             ->dateFiltered($filters)
             ->branchFilters($filters)
             ->when(auth()->user()->role === UserRole::STAFF->value, function ($q) {
@@ -73,7 +73,7 @@ class SalesService
         $query = Payment::query()
             ->with([
                 'transaction' => function ($q) {
-                    $q->with(['user:id,first_name,last_name', 'branch:id,name', 'customer', 'payments', 'sublimation']);
+                    $q->with(['user:id,first_name,last_name', 'branch:id,name', 'customer', 'payments', 'sublimation.tags']);
                 },
                 'staff:id,first_name,last_name',
             ])

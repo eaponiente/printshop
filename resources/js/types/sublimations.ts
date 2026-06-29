@@ -30,10 +30,11 @@ export type Sublimation = {
     transaction_type: 'retail' | 'purchase_order' | string;
     production_authorized: boolean;
     due_at: string;
+    created_at: string;
     branch?: Branch;
     user?: User;
     customer?: Customer;
-    tags?: Tag[];
+    tags?: Array<Tag & { pivot?: { quantity: number } }>;
     transaction: Transaction;
     sewed_item?: {
         id: number;
