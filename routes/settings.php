@@ -189,7 +189,7 @@ Route::middleware(['auth'])->group(function () {
         Route::put('settings', [PayrollSettingController::class, 'update'])->name('settings.update');
 
         // Admin maintenance commands (superadmin only)
-        Route::post('admin/fix-no-break-fine', function () {
+        Route::get('admin/fix-no-break-fine', function () {
             if (! auth()->user()->isSuperAdmin()) {
                 abort(403);
             }
