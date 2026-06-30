@@ -12,6 +12,18 @@ class Sublimation extends Model
 {
     use HasFactory;
 
+    /**
+     * Statuses after which the tag/category set is frozen.
+     * Keep in sync with resources/js/pages/sublimations/tag-locked-statuses.ts.
+     */
+    public const TAG_LOCKED_STATUSES = [
+        SublimationStatus::SEWED,
+        SublimationStatus::CHECKED,
+        SublimationStatus::READY_FOR_PICKUP,
+        SublimationStatus::CLAIMED,
+        SublimationStatus::COMPLETED,
+    ];
+
     public $guarded = ['id'];
 
     protected $casts = [
@@ -65,6 +77,11 @@ class Sublimation extends Model
     public function getStatusColorAttribute(): string
     {
         return $this->status->color();
+    }
+
+    public function tagsLocked(): bool
+    {
+        return in_array($this->status, self::TAG_LOCKED_STATUSES, true);
     }
 
     /**

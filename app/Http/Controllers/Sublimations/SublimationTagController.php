@@ -17,6 +17,10 @@ class SublimationTagController extends Controller
 
     public function addTag(AddSublimationTagRequest $request, Sublimation $sublimation): RedirectResponse
     {
+        if ($sublimation->tagsLocked()) {
+            return back()->withErrors(['error' => 'Categories are locked for this sublimation status.']);
+        }
+
         try {
             $sublimation->tags()->syncWithoutDetaching([$request->tag_id => ['quantity' => 1]]);
 
@@ -30,6 +34,10 @@ class SublimationTagController extends Controller
 
     public function removeTag(Sublimation $sublimation, Tag $tag): RedirectResponse
     {
+        if ($sublimation->tagsLocked()) {
+            return back()->withErrors(['error' => 'Categories are locked for this sublimation status.']);
+        }
+
         try {
             $sublimation->tags()->detach($tag->id);
 
@@ -43,6 +51,10 @@ class SublimationTagController extends Controller
 
     public function updateQuantity(Request $request, Sublimation $sublimation, Tag $tag): RedirectResponse
     {
+        if ($sublimation->tagsLocked()) {
+            return back()->withErrors(['error' => 'Categories are locked for this sublimation status.']);
+        }
+
         $data = $request->validate(['quantity' => ['required', 'integer', 'min:1']]);
 
         try {
