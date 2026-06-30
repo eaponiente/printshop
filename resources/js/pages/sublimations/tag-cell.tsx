@@ -2,6 +2,7 @@ import { router } from '@inertiajs/react';
 import { useState } from 'react';
 import { route } from 'ziggy-js';
 import TagSelector from '@/components/shared/tag-selector';
+import { tagsLocked } from '@/pages/sublimations/tag-locked-statuses';
 
 export const TagCell = ({
     sublimation,
@@ -11,6 +12,7 @@ export const TagCell = ({
     allTags: any[];
 }) => {
     const [loading, setLoading] = useState(false);
+    const readOnly = tagsLocked(sublimation.status);
 
     const handleAdd = (tagId: number) => {
         setLoading(true);
@@ -63,6 +65,7 @@ export const TagCell = ({
             loading={loading}
             quantities={quantities}
             onQuantityChange={handleQuantityChange}
+            readOnly={readOnly}
         />
     );
 };
