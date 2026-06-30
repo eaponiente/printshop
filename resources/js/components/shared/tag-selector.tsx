@@ -41,6 +41,7 @@ interface TagSelectorProps {
     layout?: 'row' | 'col';
     quantities?: Record<number, number>;
     onQuantityChange?: (tagId: number, qty: number) => void;
+    readOnly?: boolean;
 }
 
 function QuantityPopover({
@@ -129,6 +130,7 @@ export default function TagSelector({
     layout = 'row',
     quantities,
     onQuantityChange,
+    readOnly = false,
 }: TagSelectorProps) {
     const [open, setOpen] = useState(false);
     const [newTagName, setNewTagName] = useState('');
@@ -205,7 +207,7 @@ export default function TagSelector({
                         style={{ backgroundColor: tag.color }}
                     >
                         {tag.name}
-                        {quantities !== undefined && onQuantityChange ? (
+                        {quantities !== undefined && onQuantityChange && !readOnly ? (
                             <QuantityPopover
                                 tagId={tag.id}
                                 quantity={qty}
@@ -216,18 +218,21 @@ export default function TagSelector({
                                 ×{qty}
                             </span>
                         ) : null}
-                        <button
-                            type="button"
-                            disabled={loading}
-                            onClick={() => onRemove(tag.id)}
-                            className="hover:bg-red/20 rounded-full"
-                        >
-                            <X className="h-3 w-3" />
-                        </button>
+                        {!readOnly && (
+                            <button
+                                type="button"
+                                disabled={loading}
+                                onClick={() => onRemove(tag.id)}
+                                className="hover:bg-red/20 rounded-full"
+                            >
+                                <X className="h-3 w-3" />
+                            </button>
+                        )}
                     </Badge>
                 );
             })}
 
+            {!readOnly && (
             <Popover open={open} onOpenChange={setOpen}>
                 <PopoverTrigger asChild>
                     <button
@@ -301,6 +306,7 @@ export default function TagSelector({
                     </Command>
                 </PopoverContent>
             </Popover>
+            )}
         </div>
     );
 }

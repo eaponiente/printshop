@@ -105,7 +105,7 @@ class SublimationController extends Controller
 
         $sortField = in_array($request->query('sort_field'), ['due_at', 'created_at', 'user_id'])
             ? $request->query('sort_field')
-            : 'due_at';
+            : 'created_at';
 
         $query->orderBy($sortField, $sortDirection);
 
@@ -185,7 +185,7 @@ class SublimationController extends Controller
 
             $sublimation->save();
 
-            if ($request->has('tag_ids')) {
+            if ($request->has('tag_ids') && ! $sublimation->tagsLocked()) {
                 $sublimation->tags()->sync($this->tagSyncPayload($tagIds));
             }
 
@@ -235,6 +235,7 @@ class SublimationController extends Controller
     public function duplicate(Request $request, Sublimation $sublimation): RedirectResponse
     {
         $validated = $request->validate([
+            'description' => ['required', 'string', 'max:255'],
             'tag_ids' => ['required', 'array', 'min:1'],
             'tag_ids.*.id' => ['required', 'integer', 'exists:tags,id'],
             'tag_ids.*.quantity' => ['required', 'integer', 'min:1'],
@@ -245,7 +246,7 @@ class SublimationController extends Controller
             $totalQuantity = collect($validated['tag_ids'])->sum('quantity');
 
             $copy = Sublimation::create([
-                'description' => $sublimation->description,
+                'description' => $validated['description'],
                 'notes' => $sublimation->notes,
                 'branch_id' => $sublimation->branch_id,
                 'customer_id' => $sublimation->customer_id,
@@ -258,11 +259,11 @@ class SublimationController extends Controller
 
             $copy->tags()->sync($this->tagSyncPayload($validated['tag_ids']));
 
-            return back()->with('success', 'Sublimation duplicated successfully.');
+            return back()->with('success', 'Additional items added to order.');
         } catch (\Exception $e) {
-            Log::error('Failed to duplicate sublimation: '.$e->getMessage());
+            Log::error('Failed to add items to sublimation: '.$e->getMessage());
 
-            return back()->withErrors(['message' => 'An error occurred while duplicating the sublimation.']);
+            return back()->withErrors(['message' => 'An error occurred while adding items to the order.']);
         }
     }
 

@@ -5,6 +5,7 @@ import InputError from '@/components/input-error';
 import SearchCustomersField from '@/components/shared/search-customers-field';
 import { submitFormOptions } from '@/components/shared/submit-form-options';
 import TagSelector from '@/components/shared/tag-selector';
+import { tagsLocked } from '@/pages/sublimations/tag-locked-statuses';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -316,6 +317,7 @@ export default function SublimationDialog({
                                             tag,
                                         ])
                                     }
+                                    readOnly={tagsLocked(sublimation?.status)}
                                 />
                             </div>
                             <InputError message={errors.tag_ids} />
