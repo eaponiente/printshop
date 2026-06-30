@@ -148,7 +148,7 @@ class EmployeeController extends Controller
     {
         $this->authorize('update', $employee);
 
-        $employee->load(['branch', 'salaries']);
+        $employee->load(['branch', 'salaries', 'user']);
 
         $branches = auth()->user()->isSuperAdmin()
             ? Branch::orderBy('name')->get()

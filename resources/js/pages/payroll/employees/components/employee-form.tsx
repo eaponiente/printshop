@@ -42,6 +42,10 @@ export type EmployeeFormData = {
     pagibig_number: string;
     tin_number: string;
     notes: string;
+    username: string;
+    password: string;
+    password_confirmation: string;
+    role: string;
 };
 
 type Option = { key: string; value: string };
@@ -55,6 +59,7 @@ type Props = {
     submitLabel: string;
     cancelHref?: string;
     includeBranchPlaceholder?: boolean;
+    isEdit?: boolean;
 };
 
 export function EmployeeForm({
@@ -66,6 +71,7 @@ export function EmployeeForm({
     submitLabel,
     cancelHref,
     includeBranchPlaceholder = false,
+    isEdit = false,
 }: Props) {
     const { data, setData, processing, errors } = form;
 
@@ -313,6 +319,90 @@ export function EmployeeForm({
                                 }
                             />
                             <InputError message={errors.paid_leave_balance} />
+                        </Field>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Login Account</CardTitle>
+                    <CardDescription>
+                        {isEdit
+                            ? 'Update the login account for this employee. Leave password blank to keep current.'
+                            : 'Every employee gets a login account. Set their credentials and role.'}
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <Field label="Username" htmlFor="username" required>
+                            <Input
+                                id="username"
+                                autoComplete="off"
+                                value={data.username}
+                                onChange={(e) =>
+                                    setData('username', e.target.value)
+                                }
+                            />
+                            <InputError message={errors.username} />
+                        </Field>
+                        <Field label="Role" htmlFor="role" required>
+                            <NativeSelect
+                                id="role"
+                                value={data.role}
+                                onChange={(e) =>
+                                    setData('role', e.target.value)
+                                }
+                            >
+                                <NativeSelectOption value="staff">
+                                    Staff
+                                </NativeSelectOption>
+                                <NativeSelectOption value="admin">
+                                    Admin
+                                </NativeSelectOption>
+                            </NativeSelect>
+                            <InputError message={errors.role} />
+                        </Field>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <Field
+                            label={isEdit ? 'New Password' : 'Password'}
+                            htmlFor="password"
+                            required={!isEdit}
+                            hint={
+                                isEdit
+                                    ? 'Leave blank to keep current password.'
+                                    : 'Minimum 6 characters.'
+                            }
+                        >
+                            <Input
+                                id="password"
+                                type="password"
+                                autoComplete="new-password"
+                                value={data.password}
+                                onChange={(e) =>
+                                    setData('password', e.target.value)
+                                }
+                            />
+                            <InputError message={errors.password} />
+                        </Field>
+                        <Field
+                            label="Confirm Password"
+                            htmlFor="password_confirmation"
+                            required={!isEdit}
+                        >
+                            <Input
+                                id="password_confirmation"
+                                type="password"
+                                autoComplete="new-password"
+                                value={data.password_confirmation}
+                                onChange={(e) =>
+                                    setData(
+                                        'password_confirmation',
+                                        e.target.value,
+                                    )
+                                }
+                            />
                         </Field>
                     </div>
                 </CardContent>

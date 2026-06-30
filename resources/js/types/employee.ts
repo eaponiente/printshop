@@ -44,6 +44,11 @@ export type Employee = {
     branch: Branch;
     salaries?: Salary[];
     active_schedule?: EmployeeSchedule | null;
+    user?: {
+        id: number;
+        username: string;
+        role: 'admin' | 'staff' | 'superadmin';
+    } | null;
     [key: string]: unknown;
 };
 

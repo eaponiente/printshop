@@ -38,6 +38,16 @@ class UpdateEmployeeRequest extends FormRequest
             'paid_leave_balance' => ['nullable', 'numeric', 'min:0'],
             'can_edit_sewed_items' => ['boolean'],
             'notes' => ['nullable', 'string', 'max:2000'],
+
+            // Login account on the linked user
+            'username' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('users')->ignore($this->employee->user?->id)->whereNull('deleted_at'),
+            ],
+            'password' => ['nullable', 'string', 'min:6', 'confirmed'],
+            'role' => ['required', Rule::in(['admin', 'staff'])],
         ];
     }
 }

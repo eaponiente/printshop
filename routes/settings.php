@@ -15,7 +15,6 @@ use App\Http\Controllers\Sublimations\SublimationTagController;
 use App\Http\Controllers\Users\BranchController;
 use App\Http\Controllers\Users\CustomerController;
 use App\Http\Controllers\Users\EndorsementController;
-use App\Http\Controllers\Users\UserController;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 use Payroll\Attendance\Controllers\AttendanceSheetController;
@@ -42,12 +41,6 @@ Route::middleware(['auth'])->group(function () {
     Route::get('settings/profile', [ProfileController::class, 'edit'])->name('profile.edit');
 
     Route::patch('settings/profile', [ProfileController::class, 'update'])->name('profile.update');
-
-    // users
-    Route::get('users', [UserController::class, 'index'])->name('users.index');
-    Route::post('users', [UserController::class, 'store'])->name('users.store');
-    Route::put('users/{user}', [UserController::class, 'update'])->name('users.update');
-    Route::delete('users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
 
     Route::resource('branches', BranchController::class);
     Route::resource('tags', TagController::class);

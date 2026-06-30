@@ -50,6 +50,10 @@ it('creates audit log when employee is created via controller', function () {
             'position' => EmployeePosition::REGULAR->value,
             'status' => EmployeeStatus::ACTIVE->value,
             'daily_rate' => 500,
+            'username' => 'audit_created',
+            'password' => 'secret123',
+            'password_confirmation' => 'secret123',
+            'role' => 'staff',
         ]);
 
     $employee = Employee::where('first_name', 'Audit')->first();

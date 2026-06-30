@@ -38,6 +38,16 @@ class StoreEmployeeRequest extends FormRequest
             'paid_leave_balance' => ['nullable', 'numeric', 'min:0'],
             'can_edit_sewed_items' => ['boolean'],
             'notes' => ['nullable', 'string', 'max:2000'],
+
+            // Login account (every employee gets a User)
+            'username' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('users')->whereNull('deleted_at'),
+            ],
+            'password' => ['required', 'string', 'min:6', 'confirmed'],
+            'role' => ['required', Rule::in(['admin', 'staff'])],
         ];
     }
 }

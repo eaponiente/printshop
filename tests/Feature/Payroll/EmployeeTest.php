@@ -4,9 +4,27 @@ use App\Models\Branch;
 use App\Models\Payroll\Employee;
 use App\Models\Payroll\Salary;
 use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 use Payroll\Audit\Models\AuditLog;
 use Payroll\Employee\Enums\EmployeePosition;
 use Payroll\Employee\Enums\EmployeeStatus;
+
+/**
+ * Returns the login-account fields now required by Store/UpdateEmployeeRequest.
+ */
+function loginFields(?string $username = null, string $role = 'staff', ?string $password = 'secret123'): array
+{
+    $fields = [
+        'username' => $username ?? 'user_'.bin2hex(random_bytes(3)),
+        'role' => $role,
+    ];
+    if ($password !== null) {
+        $fields['password'] = $password;
+        $fields['password_confirmation'] = $password;
+    }
+
+    return $fields;
+}
 
 beforeEach(function () {
     $this->branchA = Branch::factory()->create(['name' => 'Branch A']);
@@ -53,7 +71,7 @@ it('denies staff access to create employee', function () {
 
 it('allows admin to create employee', function () {
     $response = $this->actingAs($this->adminA)
-        ->post(route('payroll.employees.store'), [
+        ->post(route('payroll.employees.store'), array_merge([
             'first_name' => 'Juan',
             'last_name' => 'Dela Cruz',
             'hire_date' => now()->toDateString(),
@@ -61,7 +79,7 @@ it('allows admin to create employee', function () {
             'position' => EmployeePosition::REGULAR->value,
             'status' => EmployeeStatus::ACTIVE->value,
             'daily_rate' => 500,
-        ]);
+        ], loginFields('juan.delacruz', 'staff', 'pass1234')));
 
     $response->assertRedirect(route('payroll.employees.index'));
     $response->assertSessionHas('success');
@@ -76,6 +94,13 @@ it('allows admin to create employee', function () {
     $salary = $employee->salaries()->first();
     expect($salary)->not->toBeNull();
     expect((float) $salary->daily_rate)->toBe(500.0);
+
+    // Linked User created with the provided credentials (not random)
+    $user = User::where('employee_id', $employee->id)->first();
+    expect($user)->not->toBeNull();
+    expect($user->username)->toBe('juan.delacruz');
+    expect($user->role)->toBe('staff');
+    expect(Hash::check('pass1234', $user->password))->toBeTrue();
 });
 
 it('auto-generates employee number on create', function () {
@@ -101,7 +126,7 @@ it('auto-generates employee number on create', function () {
 
 it('creates salary record on employee creation', function () {
     $this->actingAs($this->adminA)
-        ->post(route('payroll.employees.store'), [
+        ->post(route('payroll.employees.store'), array_merge([
             'first_name' => 'With',
             'last_name' => 'Salary',
             'hire_date' => '2025-01-15',
@@ -109,7 +134,7 @@ it('creates salary record on employee creation', function () {
             'position' => EmployeePosition::PROBATION->value,
             'status' => EmployeeStatus::ACTIVE->value,
             'daily_rate' => 750,
-        ]);
+        ], loginFields()));
 
     $employee = Employee::where('first_name', 'With')->first();
     $salary = $employee->salaries()->first();
@@ -132,7 +157,7 @@ it('creates new salary record when daily rate changes on update', function () {
     expect($employee->salaries()->count())->toBe(1);
 
     $this->actingAs($this->adminA)
-        ->put(route('payroll.employees.update', $employee), [
+        ->put(route('payroll.employees.update', $employee), array_merge([
             'first_name' => 'Rate',
             'last_name' => 'Change',
             'hire_date' => '2024-06-01',
@@ -140,7 +165,7 @@ it('creates new salary record when daily rate changes on update', function () {
             'position' => EmployeePosition::REGULAR->value,
             'status' => EmployeeStatus::ACTIVE->value,
             'daily_rate' => 650,
-        ]);
+        ], loginFields(password: null)));
 
     $employee->refresh();
     expect((float) $employee->current_daily_rate)->toBe(650.0);
@@ -161,7 +186,7 @@ it('does not create duplicate salary record when daily rate unchanged', function
     Salary::createForEmployee($employee, 500, '2024-06-01');
 
     $this->actingAs($this->adminA)
-        ->put(route('payroll.employees.update', $employee), [
+        ->put(route('payroll.employees.update', $employee), array_merge([
             'first_name' => 'Same',
             'last_name' => 'Rate',
             'hire_date' => '2024-06-01',
@@ -169,7 +194,7 @@ it('does not create duplicate salary record when daily rate unchanged', function
             'position' => EmployeePosition::REGULAR->value,
             'status' => EmployeeStatus::ACTIVE->value,
             'daily_rate' => 500,
-        ]);
+        ], loginFields(password: null)));
 
     expect($employee->salaries()->count())->toBe(1);
 });
@@ -250,7 +275,7 @@ it('admin can update employee in same branch', function () {
     Salary::createForEmployee($employee, 500, '2020-01-01');
 
     $this->actingAs($this->adminA)
-        ->put(route('payroll.employees.update', $employee), [
+        ->put(route('payroll.employees.update', $employee), array_merge([
             'first_name' => 'Updated',
             'last_name' => 'Changed',
             'middle_name' => 'New',
@@ -268,7 +293,7 @@ it('admin can update employee in same branch', function () {
             'pagibig_number' => '9999-9999-9999',
             'tin_number' => '999-999-999-999',
             'notes' => 'Updated notes',
-        ])
+        ], loginFields(password: null)))
         ->assertRedirect();
 
     $employee->refresh();
@@ -456,7 +481,7 @@ it('deactivated employee cannot log in', function () {
 
 it('stores government IDs', function () {
     $this->actingAs($this->adminA)
-        ->post(route('payroll.employees.store'), [
+        ->post(route('payroll.employees.store'), array_merge([
             'first_name' => 'Govt',
             'last_name' => 'IDs',
             'hire_date' => now()->toDateString(),
@@ -468,7 +493,7 @@ it('stores government IDs', function () {
             'philhealth_number' => '12-345678901-2',
             'pagibig_number' => '1234-5678-9012',
             'tin_number' => '123-456-789-000',
-        ]);
+        ], loginFields()));
 
     $employee = Employee::where('first_name', 'Govt')->first();
     expect($employee->sss_number)->toBe('12-3456789-0');
@@ -489,7 +514,129 @@ it('validates required fields on store', function () {
         'position',
         'status',
         'daily_rate',
+        'username',
+        'password',
+        'role',
     ]);
+});
+
+it('rejects employee create when username already taken', function () {
+    User::factory()->create(['username' => 'taken_handle', 'branch_id' => $this->branchA->id]);
+
+    $response = $this->actingAs($this->adminA)
+        ->post(route('payroll.employees.store'), array_merge([
+            'first_name' => 'Dup',
+            'last_name' => 'User',
+            'hire_date' => now()->toDateString(),
+            'branch_id' => $this->branchA->id,
+            'position' => EmployeePosition::REGULAR->value,
+            'status' => EmployeeStatus::ACTIVE->value,
+            'daily_rate' => 500,
+        ], loginFields('taken_handle')));
+
+    $response->assertSessionHasErrors(['username']);
+});
+
+it('rejects employee create when password and confirmation differ', function () {
+    $response = $this->actingAs($this->adminA)
+        ->post(route('payroll.employees.store'), [
+            'first_name' => 'Bad',
+            'last_name' => 'Pass',
+            'hire_date' => now()->toDateString(),
+            'branch_id' => $this->branchA->id,
+            'position' => EmployeePosition::REGULAR->value,
+            'status' => EmployeeStatus::ACTIVE->value,
+            'daily_rate' => 500,
+            'username' => 'badpass_user',
+            'password' => 'secret123',
+            'password_confirmation' => 'different',
+            'role' => 'staff',
+        ]);
+
+    $response->assertSessionHasErrors(['password']);
+});
+
+it('rejects employee create when role is not admin or staff', function () {
+    $response = $this->actingAs($this->adminA)
+        ->post(route('payroll.employees.store'), array_merge([
+            'first_name' => 'Role',
+            'last_name' => 'Reject',
+            'hire_date' => now()->toDateString(),
+            'branch_id' => $this->branchA->id,
+            'position' => EmployeePosition::REGULAR->value,
+            'status' => EmployeeStatus::ACTIVE->value,
+            'daily_rate' => 500,
+        ], loginFields('roletest', 'superadmin')));
+
+    $response->assertSessionHasErrors(['role']);
+});
+
+it('updates linked user role and password when employee is edited', function () {
+    $employee = Employee::create([
+        'first_name' => 'Login',
+        'last_name' => 'Edit',
+        'hire_date' => '2024-01-01',
+        'branch_id' => $this->branchA->id,
+        'current_daily_rate' => 500,
+    ]);
+    $user = User::factory()->create([
+        'employee_id' => $employee->id,
+        'branch_id' => $this->branchA->id,
+        'role' => 'staff',
+        'username' => 'oldhandle',
+        'password' => bcrypt('oldpass'),
+    ]);
+
+    $this->actingAs($this->adminA)
+        ->put(route('payroll.employees.update', $employee), array_merge([
+            'first_name' => 'Login',
+            'last_name' => 'Edit',
+            'hire_date' => '2024-01-01',
+            'branch_id' => $this->branchA->id,
+            'position' => EmployeePosition::REGULAR->value,
+            'status' => EmployeeStatus::ACTIVE->value,
+            'daily_rate' => 500,
+        ], loginFields('newhandle', 'admin', 'newpass123')))
+        ->assertRedirect();
+
+    $user->refresh();
+    expect($user->username)->toBe('newhandle');
+    expect($user->role)->toBe('admin');
+    expect(Hash::check('newpass123', $user->password))->toBeTrue();
+});
+
+it('keeps existing password when blank on update', function () {
+    $employee = Employee::create([
+        'first_name' => 'Keep',
+        'last_name' => 'Password',
+        'hire_date' => '2024-01-01',
+        'branch_id' => $this->branchA->id,
+        'current_daily_rate' => 500,
+    ]);
+    $originalHash = bcrypt('original_pw');
+    $user = User::factory()->create([
+        'employee_id' => $employee->id,
+        'branch_id' => $this->branchA->id,
+        'role' => 'staff',
+        'username' => 'keepme',
+        'password' => $originalHash,
+    ]);
+
+    $this->actingAs($this->adminA)
+        ->put(route('payroll.employees.update', $employee), array_merge([
+            'first_name' => 'Keep',
+            'last_name' => 'Password',
+            'hire_date' => '2024-01-01',
+            'branch_id' => $this->branchA->id,
+            'position' => EmployeePosition::REGULAR->value,
+            'status' => EmployeeStatus::ACTIVE->value,
+            'daily_rate' => 500,
+        ], loginFields('keepme', 'staff', null)))
+        ->assertRedirect();
+
+    $user->refresh();
+    expect($user->password)->toBe($originalHash);
+    expect(Hash::check('original_pw', $user->password))->toBeTrue();
 });
 
 it('admin can view employee in same branch', function () {

@@ -49,6 +49,10 @@ export default function EmployeeEdit({
         pagibig_number: employee.pagibig_number ?? '',
         tin_number: employee.tin_number ?? '',
         notes: employee.notes ?? '',
+        username: employee.user?.username ?? '',
+        password: '',
+        password_confirmation: '',
+        role: employee.user?.role ?? 'staff',
     });
 
     const submit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -85,6 +89,7 @@ export default function EmployeeEdit({
                     onSubmit={submit}
                     submitLabel="Save Changes"
                     cancelHref={route('payroll.employees.show', employee.id)}
+                    isEdit
                 />
             </div>
         </PayrollLayout>

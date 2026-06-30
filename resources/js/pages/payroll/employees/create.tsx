@@ -40,6 +40,10 @@ export default function EmployeeCreate({
         pagibig_number: '',
         tin_number: '',
         notes: '',
+        username: '',
+        password: '',
+        password_confirmation: '',
+        role: 'staff',
     });
 
     const submit = (e: React.FormEvent<HTMLFormElement>) => {

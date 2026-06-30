@@ -2,6 +2,8 @@
 
 namespace Payroll\Employee\Services;
 
+use App\Enums\Sales\TransactionStatus;
+use App\Enums\Sublimations\SublimationStatus;
 use App\Models\Payroll\Employee;
 use App\Models\Payroll\EmployeeSchedule;
 use App\Models\Payroll\Salary;
@@ -12,11 +14,16 @@ class EmployeeService
 {
     public function create(array $data): Employee
     {
+        $username = $data['username'];
+        $password = $data['password'];
+        $role = $data['role'];
+        unset($data['username'], $data['password'], $data['password_confirmation'], $data['role']);
+
         $dailyRate = $data['daily_rate'];
         unset($data['daily_rate']);
         $data['current_daily_rate'] = $dailyRate;
 
-        return DB::transaction(function () use ($data, $dailyRate) {
+        return DB::transaction(function () use ($data, $dailyRate, $username, $password, $role) {
             $employee = Employee::create($data);
             $employee->update([
                 'default_paid_leave_days' => $data['default_paid_leave_days'] ?? 5,
@@ -30,16 +37,12 @@ class EmployeeService
                 'Initial salary on hire'
             );
 
-            $username = strtolower(
-                $employee->first_name.$employee->last_name.bin2hex(random_bytes(2))
-            );
-
             User::create([
                 'first_name' => $employee->first_name,
                 'last_name' => $employee->last_name,
                 'username' => $username,
-                'password' => bcrypt(bin2hex(random_bytes(8))),
-                'role' => 'staff',
+                'password' => bcrypt($password),
+                'role' => $role,
                 'branch_id' => $employee->branch_id,
                 'employee_id' => $employee->id,
             ]);
@@ -50,11 +53,16 @@ class EmployeeService
 
     public function update(Employee $employee, array $data): void
     {
+        $username = $data['username'] ?? null;
+        $password = $data['password'] ?? null;
+        $role = $data['role'] ?? null;
+        unset($data['username'], $data['password'], $data['password_confirmation'], $data['role']);
+
         $dailyRate = $data['daily_rate'];
         unset($data['daily_rate']);
         $data['current_daily_rate'] = $dailyRate;
 
-        DB::transaction(function () use ($employee, $data, $dailyRate) {
+        DB::transaction(function () use ($employee, $data, $dailyRate, $username, $password, $role) {
             $salaryChanged = (float) $dailyRate !== (float) $employee->current_daily_rate;
 
             $employee->update($data);
@@ -67,12 +75,51 @@ class EmployeeService
                     'Salary adjusted via employee update'
                 );
             }
+
+            if ($username !== null || $role !== null || ! empty($password)) {
+                $user = $employee->user;
+
+                if ($user) {
+                    $updates = [];
+                    if ($username !== null) {
+                        $updates['username'] = $username;
+                    }
+                    if ($role !== null) {
+                        $updates['role'] = $role;
+                    }
+                    if (! empty($password)) {
+                        $updates['password'] = bcrypt($password);
+                    }
+                    // Keep the user's branch in sync with the employee's branch.
+                    $updates['branch_id'] = $employee->branch_id;
+                    $updates['first_name'] = $employee->first_name;
+                    $updates['last_name'] = $employee->last_name;
+
+                    $user->update($updates);
+                } elseif ($username && ! empty($password) && $role) {
+                    // Legacy employee with no linked user — create one now.
+                    User::create([
+                        'first_name' => $employee->first_name,
+                        'last_name' => $employee->last_name,
+                        'username' => $username,
+                        'password' => bcrypt($password),
+                        'role' => $role,
+                        'branch_id' => $employee->branch_id,
+                        'employee_id' => $employee->id,
+                    ]);
+                }
+            }
         });
     }
 
     public function delete(Employee $employee): void
     {
-        $employee->delete();
+        DB::transaction(function () use ($employee) {
+            if ($user = $employee->user) {
+                $user->delete();
+            }
+            $employee->delete();
+        });
     }
 
     public function deactivate(Employee $employee): void
@@ -82,7 +129,7 @@ class EmployeeService
 
     public function hasRelatedRecords(Employee $employee): bool
     {
-        return $employee->timeLogs()->exists()
+        $hasPayrollRecords = $employee->timeLogs()->exists()
             || $employee->attendanceSheets()->exists()
             || $employee->payrollPeriodItems()->exists()
             || $employee->leaveRequests()->exists()
@@ -93,6 +140,21 @@ class EmployeeService
             || $employee->salaries()->exists()
             || $employee->schedules()->exists()
             || $employee->benefits()->exists();
+
+        if ($hasPayrollRecords) {
+            return true;
+        }
+
+        // The linked login user may have active sales/sublimations even though
+        // the employee record itself has no payroll history.
+        if ($user = $employee->user) {
+            if ($user->transactions()->where('status', '!=', TransactionStatus::PAID->value)->exists()
+                || $user->sublimations()->where('status', '!=', SublimationStatus::COMPLETED->value)->exists()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function rehire(Employee $employee, array $data): void
