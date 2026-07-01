@@ -10,7 +10,7 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import PayrollLayout from '@/layouts/payroll/payroll-layout';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { formatCurrency, numberToWords } from '@/utils/formatters';
 
@@ -128,7 +128,7 @@ export default function Payslip({
           ];
 
     return (
-        <PayrollLayout breadcrumbs={breadcrumbs}>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Payslip" />
             <div className="payslip-page mx-auto flex w-full max-w-3xl flex-col gap-4 p-4 sm:p-6">
                 <ActionBar
@@ -159,7 +159,7 @@ export default function Payslip({
 
                 <SignatureFooter period={period} />
             </div>
-        </PayrollLayout>
+        </AppLayout>
     );
 }
 

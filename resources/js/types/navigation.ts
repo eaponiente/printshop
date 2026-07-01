@@ -18,3 +18,9 @@ export type NavItem = {
         url: string;
     }[];
 };
+
+export type NavGroup = {
+    label?: string; // omit for the top (Dashboard) group
+    items: NavItem[];
+    visible?: boolean; // defaults to visible when omitted
+};

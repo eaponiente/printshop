@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import PayrollLayout from '@/layouts/payroll/payroll-layout';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -61,7 +61,7 @@ export default function CompanyConfig({ configs }: Props) {
     };
 
     return (
-        <PayrollLayout breadcrumbs={breadcrumbs}>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Company Configuration" />
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <div>
@@ -83,6 +83,6 @@ export default function CompanyConfig({ configs }: Props) {
                     <Button type="submit">Save Configuration</Button>
                 </form>
             </div>
-        </PayrollLayout>
+        </AppLayout>
     );
 }

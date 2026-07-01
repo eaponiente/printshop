@@ -3,7 +3,7 @@ import { ArrowLeft, Plus, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import PayrollLayout from '@/layouts/payroll/payroll-layout';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { formatCurrency, formatTime } from '@/utils/formatters';
 import SheetFinesCard from './components/SheetFinesCard';
@@ -121,7 +121,7 @@ return;
     const showPunchesCard = timeLogs.length > 0 || canEdit;
 
     return (
-        <PayrollLayout breadcrumbs={breadcrumbs}>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Sheet — ${employee.full_name}`} />
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <div className="flex items-center gap-3">
@@ -410,7 +410,7 @@ return;
                     )}
                 </div>
             </div>
-        </PayrollLayout>
+        </AppLayout>
     );
 }
 

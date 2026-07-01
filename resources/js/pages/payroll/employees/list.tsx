@@ -42,7 +42,7 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import PayrollLayout from '@/layouts/payroll/payroll-layout';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { EmployeeSchedule, EmployeesList } from '@/types/employee';
 import { formatCurrency } from '@/utils/formatters';
@@ -351,7 +351,7 @@ export default function EmployeeIndex({
     ];
 
     return (
-        <PayrollLayout breadcrumbs={breadcrumbs}>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Employees" />
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <div className="flex items-center justify-between">
@@ -503,6 +503,6 @@ export default function EmployeeIndex({
                     </DialogContent>
                 </Dialog>
             </div>
-        </PayrollLayout>
+        </AppLayout>
     );
 }

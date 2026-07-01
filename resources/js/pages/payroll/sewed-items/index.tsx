@@ -18,7 +18,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import PayrollLayout from '@/layouts/payroll/payroll-layout';
+import AppLayout from '@/layouts/app-layout';
 import EditSewedItemDialog from '@/pages/payroll/sewed-items/components/edit-sewed-item-dialog';
 import PayslipDialog from '@/pages/payroll/sewed-items/components/payslip-dialog';
 import type { BreadcrumbItem } from '@/types';
@@ -208,7 +208,7 @@ export default function SewedItemsIndex({
     };
 
     return (
-        <PayrollLayout breadcrumbs={breadcrumbs}>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Sewed Items" />
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <div className="flex items-center justify-between">
@@ -631,6 +631,6 @@ export default function SewedItemsIndex({
                 generatedBy={auth?.user?.fullname ?? '—'}
                 payslipId={flash?.payslip_id ?? null}
             />
-        </PayrollLayout>
+        </AppLayout>
     );
 }

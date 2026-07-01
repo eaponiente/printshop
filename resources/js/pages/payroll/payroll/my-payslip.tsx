@@ -3,7 +3,7 @@ import type { CellContext, ColumnDef } from '@tanstack/react-table';
 import { Eye } from 'lucide-react';
 import { DataTable } from '@/components/data-table';
 import { Button } from '@/components/ui/button';
-import PayrollLayout from '@/layouts/payroll/payroll-layout';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { PaginatedResponse } from '@/types/pagination';
 import { formatCurrency } from '@/utils/formatters';
@@ -94,7 +94,7 @@ export default function MyPayslips({ payslips }: Props) {
     ];
 
     return (
-        <PayrollLayout breadcrumbs={breadcrumbs}>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="My Payslips" />
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <div>
@@ -104,6 +104,6 @@ export default function MyPayslips({ payslips }: Props) {
                     <DataTable columns={columns} pagination={payslips} />
                 </div>
             </div>
-        </PayrollLayout>
+        </AppLayout>
     );
 }

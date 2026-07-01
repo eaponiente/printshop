@@ -13,7 +13,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import PayrollLayout from '@/layouts/payroll/payroll-layout';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { PaginatedResponse } from '@/types/pagination';
 
@@ -226,7 +226,7 @@ return;
     ];
 
     return (
-        <PayrollLayout breadcrumbs={breadcrumbs}>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Attendance Geo" />
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <div>
@@ -322,6 +322,6 @@ return;
                     </div>
                 )}
             </div>
-        </PayrollLayout>
+        </AppLayout>
     );
 }

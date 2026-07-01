@@ -6,6 +6,16 @@
         ".cursor/rules/*.mdc",
         "docs/attendance-flows-and-use-cases.md"
     ],
+    "mcp": {
+        "notion": {
+            "type": "local",
+            "command": ["npx", "-y", "@suekou/mcp-notion-server"],
+            "enabled": true,
+            "environment": {
+                "NOTION_API_TOKEN": "{env:NOTION_API_TOKEN}"
+            }
+        }
+    },
     "formatter": {
         "pint": {
             "command": ["./vendor/bin/pint", "$FILE"],

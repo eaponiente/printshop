@@ -31,7 +31,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import PayrollLayout from '@/layouts/payroll/payroll-layout';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { PaginatedResponse } from '@/types/pagination';
 
@@ -143,7 +143,7 @@ export default function HolidayIndex({ holidays, types }: Props) {
     ];
 
     return (
-        <PayrollLayout breadcrumbs={breadcrumbs}>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Holidays" />
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <div className="flex items-center justify-between">
@@ -167,7 +167,7 @@ export default function HolidayIndex({ holidays, types }: Props) {
                     <DataTable columns={columns} pagination={holidays} />
                 </div>
             </div>
-        </PayrollLayout>
+        </AppLayout>
     );
 }
 
