@@ -74,7 +74,7 @@ class SewedItemController extends Controller
             $query->whereNull('completed_at');
         }
 
-        $sewedItems = $query->orderBy('sewed_date', 'desc')->paginate(20)->appends(array_filter($filters));
+        $sewedItems = $query->orderBy('created_at', 'desc')->paginate(20)->appends(array_filter($filters));
 
         $branches = [];
         $staff = [];
