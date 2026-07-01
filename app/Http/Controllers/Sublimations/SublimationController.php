@@ -117,13 +117,22 @@ class SublimationController extends Controller
             $branches = Branch::where('id', auth()->user()->branch_id)->get(['id', 'name']);
         }
 
-        if (auth()->user()->role === 'superadmin') {
-            $users = User::whereIn('role', ['admin', 'staff'])->get();
-        } else {
-            $users = User::whereIn('branch_id', $branches->pluck('id')->toArray())
-                ->whereIn('role', ['admin', 'staff'])
-                ->get();
+        $usersQuery = User::whereIn('role', ['admin', 'staff'])
+            ->orderBy('first_name');
+
+        // Non-superadmins only see users within their accessible branches.
+        if (auth()->user()->role !== 'superadmin') {
+            $usersQuery->whereIn('branch_id', $branches->pluck('id')->toArray());
         }
+
+        // When a branch is selected in the filter, scope the users list to it.
+        $selectedBranchIds = array_filter((array) ($filters['branch_id'] ?? []));
+
+        if (! empty($selectedBranchIds)) {
+            $usersQuery->whereIn('branch_id', $selectedBranchIds);
+        }
+
+        $users = $usersQuery->get();
 
         return Inertia::render('sublimations/list', [
             'sublimations' => $query->paginate(30)->withQueryString(),
