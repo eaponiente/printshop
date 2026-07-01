@@ -24,6 +24,8 @@ class SublimationForApprovalSeeder extends Seeder
         }
 
         for ($i = 0; $i < 15; $i++) {
+            $createdAt = fake()->dateTimeBetween('-3 days', '+3 days');
+
             Sublimation::factory()->create([
                 'branch_id' => $branches->random()->id,
                 'customer_id' => $customers->random()->id,
@@ -31,6 +33,8 @@ class SublimationForApprovalSeeder extends Seeder
                 'status' => SublimationStatus::FOR_APPROVAL,
                 'production_authorized' => false,
                 'due_at' => now()->addDays(fake()->numberBetween(3, 14)),
+                'created_at' => $createdAt,
+                'updated_at' => $createdAt,
             ]);
         }
     }
