@@ -1,6 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import { toast } from 'sonner';
-import PayrollLayout from '@/layouts/payroll/payroll-layout';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { EmployeesList } from '@/types/employee';
 import { EmployeeForm } from './components/employee-form';
@@ -53,7 +53,7 @@ export default function EmployeeCreate({
     };
 
     return (
-        <PayrollLayout breadcrumbs={breadcrumbs}>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Create Employee" />
             <div className="mx-auto w-full max-w-4xl flex-1 px-4 py-6 sm:px-6">
                 <header className="mb-6">
@@ -76,6 +76,6 @@ export default function EmployeeCreate({
                     includeBranchPlaceholder
                 />
             </div>
-        </PayrollLayout>
+        </AppLayout>
     );
 }

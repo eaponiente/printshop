@@ -8,7 +8,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import PayrollLayout from '@/layouts/payroll/payroll-layout';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { formatCurrency } from '@/utils/formatters';
 
@@ -165,7 +165,7 @@ export default function AttendanceSheets({
     };
 
     return (
-        <PayrollLayout breadcrumbs={breadcrumbs}>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Attendance Sheets" />
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -373,6 +373,6 @@ export default function AttendanceSheets({
                     </div>
                 )}
             </div>
-        </PayrollLayout>
+        </AppLayout>
     );
 }

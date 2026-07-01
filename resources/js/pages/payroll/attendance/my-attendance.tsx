@@ -36,7 +36,7 @@ import {
     SheetTitle,
 } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
-import PayrollLayout from '@/layouts/payroll/payroll-layout';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { PaginatedResponse } from '@/types/pagination';
 import { toDateInput } from '@/utils/dateHelper';
@@ -112,19 +112,19 @@ export default function MyAttendance(props: Props) {
 
     if (!employee) {
         return (
-            <PayrollLayout breadcrumbs={breadcrumbs}>
+            <AppLayout breadcrumbs={breadcrumbs}>
                 <Head title="My Attendance" />
                 <div className="flex h-full flex-1 flex-col items-center justify-center gap-4 p-4">
                     <p className="text-lg text-muted-foreground">
                         No employee record linked to your account.
                     </p>
                 </div>
-            </PayrollLayout>
+            </AppLayout>
         );
     }
 
     return (
-        <PayrollLayout breadcrumbs={breadcrumbs}>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="My Attendance" />
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <div className="flex items-start justify-between gap-3">
@@ -172,7 +172,7 @@ export default function MyAttendance(props: Props) {
                     </SheetContent>
                 </Sheet>
             </div>
-        </PayrollLayout>
+        </AppLayout>
     );
 }
 

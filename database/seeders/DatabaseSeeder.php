@@ -17,14 +17,14 @@ class DatabaseSeeder extends Seeder
                 BranchSeeder::class,
                 UsersSeeder::class,
                 CustomerSeeder::class,
-                // TransactionSeeder::class,
-                // PurchaseOrderSeeder::class,
-                // ExpenseSeeder::class,
                 HolidaySeeder::class,
                 SssBracketSeeder::class,
                 // AttendanceDemoSeeder::class,
                 // EmployeeScenarioSeeder::class,
                 // DemoSeeder::class,
+                GarmentTagsSeeder::class,
+                SublimationForApprovalSeeder::class,
+                AttendanceDemoSeeder::class,
             ]);
         } else {
             $this->call([

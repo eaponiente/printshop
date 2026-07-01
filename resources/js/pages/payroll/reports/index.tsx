@@ -17,7 +17,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import PayrollLayout from '@/layouts/payroll/payroll-layout';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -65,7 +65,7 @@ return;
     };
 
     return (
-        <PayrollLayout breadcrumbs={breadcrumbs}>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Payroll Reports" />
             <div className="mx-auto flex h-full max-w-lg flex-col gap-6 p-4">
                 <div>
@@ -188,6 +188,6 @@ return;
                     </Card>
                 )}
             </div>
-        </PayrollLayout>
+        </AppLayout>
     );
 }

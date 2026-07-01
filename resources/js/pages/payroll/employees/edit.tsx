@@ -1,6 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import { toast } from 'sonner';
-import PayrollLayout from '@/layouts/payroll/payroll-layout';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { Employee } from '@/types/employee';
 import { toDateInput } from '@/utils/dateHelper';
@@ -62,7 +62,7 @@ export default function EmployeeEdit({
     };
 
     return (
-        <PayrollLayout breadcrumbs={breadcrumbs}>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Edit ${employee.full_name}`} />
             <div className="mx-auto w-full max-w-4xl flex-1 px-4 py-6 sm:px-6">
                 <header className="mb-6">
@@ -87,6 +87,6 @@ export default function EmployeeEdit({
                     cancelHref={route('payroll.employees.show', employee.id)}
                 />
             </div>
-        </PayrollLayout>
+        </AppLayout>
     );
 }

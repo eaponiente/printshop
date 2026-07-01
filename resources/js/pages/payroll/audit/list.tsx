@@ -2,7 +2,7 @@ import { Head } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
 import dayjs from 'dayjs';
 import { DataTable } from '@/components/data-table';
-import PayrollLayout from '@/layouts/payroll/payroll-layout';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { AuditLogsList } from '@/types/audit-log';
 import { toManilaTime } from '@/utils/dateHelper';
@@ -182,7 +182,7 @@ export default function AuditLogIndex({ logs }: AuditLogsList) {
     ];
 
     return (
-        <PayrollLayout breadcrumbs={breadcrumbs}>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Audit Logs" />
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <div>
@@ -195,6 +195,6 @@ export default function AuditLogIndex({ logs }: AuditLogsList) {
                     <DataTable columns={columns} pagination={logs} />
                 </div>
             </div>
-        </PayrollLayout>
+        </AppLayout>
     );
 }

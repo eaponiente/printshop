@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
-import PayrollLayout from '@/layouts/payroll/payroll-layout';
+import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { formatCurrency } from '@/utils/formatters';
 
@@ -117,14 +117,14 @@ export default function BranchPayables({
 
     if (!isAuthorized) {
         return (
-            <PayrollLayout breadcrumbs={breadcrumbs}>
+            <AppLayout breadcrumbs={breadcrumbs}>
                 <Head title="Branch Payables" />
                 <div className="flex h-full items-center justify-center p-4">
                     <p className="text-sm text-muted-foreground">
                         You do not have permission to view this page.
                     </p>
                 </div>
-            </PayrollLayout>
+            </AppLayout>
         );
     }
 
@@ -152,7 +152,7 @@ return;
     const hasResults = results.length > 0;
 
     return (
-        <PayrollLayout breadcrumbs={breadcrumbs}>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Branch Payables" />
             <div className="flex h-full flex-1 flex-col gap-6 p-4">
                 <div>
@@ -461,6 +461,6 @@ return;
                     </Card>
                 )}
             </div>
-        </PayrollLayout>
+        </AppLayout>
     );
 }
