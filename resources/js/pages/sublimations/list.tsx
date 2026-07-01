@@ -130,11 +130,7 @@ export default function SublimationIndex({
         setDuplicateDescription(
             computeNextAdditionalDescription(sub.description ?? ''),
         );
-        setDuplicateTagQtys(
-            Object.fromEntries(
-                (sub.tags ?? []).map((t) => [t.id, String(t.pivot?.quantity ?? 1)]),
-            ),
-        );
+        setDuplicateTagQtys({});
         setDuplicateAmount('');
     };
 
