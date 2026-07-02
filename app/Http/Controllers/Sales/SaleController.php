@@ -50,8 +50,8 @@ class SaleController extends Controller
             : collect();
 
         // Partial and Unpaid tabs list transactions by their settlement status.
-        if (in_array($tab, ['partial', 'unpaid'], true)) {
-            $status = $tab === 'unpaid' ? 'pending' : 'partial';
+        if (in_array($tab, ['paid', 'partial', 'unpaid'], true)) {
+            $status = $tab === 'unpaid' ? 'pending' : ($tab === 'paid' ? 'paid' : 'partial');
             $query = $this->salesService->getTransactionQuery(array_merge($filters, ['status' => $status]));
 
             return Inertia::render('sales/list', [

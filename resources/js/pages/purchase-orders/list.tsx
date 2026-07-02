@@ -18,7 +18,7 @@ import {
     UserPlus,
     XCircle,
 } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { route } from 'ziggy-js';
 import { DataTable } from '@/components/data-table';
@@ -102,8 +102,6 @@ export default function PurchaseOrderIndex({
     ) => {
         const params = { ...filters };
 
-        console.log('params', params);
-
         if (type === 'branch_id') {
             params.branch_id = value;
         } else if (type === 'mode') {
@@ -139,6 +137,20 @@ export default function PurchaseOrderIndex({
     const clearFilters = () => {
         router.get(route('purchase-orders.index'), {}, { replace: true });
     };
+
+    // Debounced PO number search so we only hit the server after typing pauses.
+    const [poSearch, setPoSearch] = useState(filters.po_number || '');
+
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            if ((poSearch || '') !== (filters.po_number || '')) {
+                handleFilterChange(poSearch, 'po_number');
+            }
+        }, 400);
+
+        return () => clearTimeout(timeout);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [poSearch]);
 
     const showMakeTransactionDialog = (po: PurchaseOrder) => {
         setPurchaseOrder(po);
@@ -692,13 +704,8 @@ export default function PurchaseOrderIndex({
                             <Input
                                 placeholder="Search PO Number..."
                                 className="h-10 w-[200px] bg-white text-sm shadow-sm"
-                                value={filters.po_number || ''}
-                                onChange={(e) =>
-                                    handleFilterChange(
-                                        e.target.value,
-                                        'po_number',
-                                    )
-                                }
+                                value={poSearch}
+                                onChange={(e) => setPoSearch(e.target.value)}
                             />
                         </div>
 

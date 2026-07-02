@@ -55,7 +55,8 @@ class PurchaseOrderController extends Controller
                     $query->where('branch_id', $filterId);
                 }
             })
-            ->when($request->input('po_number'), function ($q, $po) {
+            ->when($request->filled('po_number'), function ($q) use ($request) {
+                $po = trim((string) $request->input('po_number'));
                 $q->where('po_number', 'like', "%{$po}%");
             })
             ->when(

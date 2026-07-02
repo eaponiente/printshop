@@ -284,6 +284,22 @@ export default function SaleIndex({
                 cell: ({ row }: CellContext<any, any>) => {
                     const tx = getTx(row.original);
 
+                    if (tx.sublimation) {
+                        return (
+                            <a
+                                href={route('sublimations.index', {
+                                    id: tx.sublimation.id,
+                                })}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block max-w-[110px] truncate text-indigo-600 hover:underline"
+                                title={tx.particular}
+                            >
+                                {tx.particular}
+                            </a>
+                        );
+                    }
+
                     return (
                         <div
                             className="max-w-[110px] truncate"

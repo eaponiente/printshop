@@ -28,10 +28,7 @@ class SalesService
                 if ($s !== 'all') {
                     $q->where(function ($query) use ($s) {
                         $query->where('invoice_number', 'like', "%{$s}%")
-                            ->orWhereHas('customer', function ($sq) use ($s) {
-                                $sq->where('first_name', 'like', "%{$s}%")
-                                    ->orWhere('last_name', 'like', "%{$s}%");
-                            });
+                            ->orWhereHas('customer', fn ($sq) => $this->applyCustomerNameSearch($sq, $s));
                     });
                 }
             })
@@ -103,10 +100,7 @@ class SalesService
             ->when($filters['search'] ?? null, function ($q, $s) {
                 $q->whereHas('transaction', function ($sq) use ($s) {
                     $sq->where('invoice_number', 'like', "%{$s}%")
-                        ->orWhereHas('customer', function ($sq2) use ($s) {
-                            $sq2->where('first_name', 'like', "%{$s}%")
-                                ->orWhere('last_name', 'like', "%{$s}%");
-                        });
+                        ->orWhereHas('customer', fn ($sq2) => $this->applyCustomerNameSearch($sq2, $s));
                 });
             });
 
@@ -168,6 +162,28 @@ class SalesService
             'cash_net_amount' => $cashNet,
             'gcash_net_amount' => $gcashNet,
         ];
+    }
+
+    /**
+     * Search a customer query by first name, last name, or full name.
+     *
+     * The term is tokenized on whitespace and each token must match either
+     * first_name or last_name, so "John Doe" matches a customer whose first
+     * name is John and last name is Doe. Avoids DB-specific CONCAT so the
+     * SQLite test suite keeps working.
+     *
+     * @param  \Illuminate\Contracts\Database\Eloquent\Builder|Builder  $query
+     */
+    private function applyCustomerNameSearch($query, string $search): void
+    {
+        $terms = preg_split('/\s+/', trim($search), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        foreach ($terms as $term) {
+            $query->where(function ($q) use ($term) {
+                $q->where('first_name', 'like', "%{$term}%")
+                    ->orWhere('last_name', 'like', "%{$term}%");
+            });
+        }
     }
 
     private function getExpenseTotalForType(string $paymentType, array $filters): float
