@@ -16,22 +16,8 @@ A summary of recent improvements to the Projects (Sales), Sublimations, and Purc
 
 ## Projects (Sales)
 
-### Tabs split by settlement status
-The list tabs now let you jump straight to a settlement status. Each tab lists the projects in that state:
-
-- **Paid** — projects that are fully paid.
-- **Partial** — projects that have been partially paid.
-- **Unpaid** — projects with no payment yet.
-
-### Status filter removed
-- The **Status** dropdown in the filter bar has been removed. The three tabs above now cover that, so there's no longer a redundant status filter to set.
-- All other filters (Search, Frequency, Date, Branch, Staff, Payment type) are unchanged.
-
 ### Smarter customer search
 - The Search box now finds a customer by **first name, last name, or full name**. Typing a full name like "Juan Dela Cruz" matches even when the words span the first and last name.
-
-### Jump to a sublimation from its project
-- For sublimation-backed projects, the **Particular** column is now a link that opens the related sublimation in a new tab.
 
 ---
 

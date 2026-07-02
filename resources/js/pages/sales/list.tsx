@@ -14,7 +14,6 @@ import {
     Paperclip,
     Receipt,
     AlertCircle,
-    CircleDashed,
     Printer,
 } from 'lucide-react';
 import { useState, useCallback, useMemo, Suspense, lazy } from 'react';
@@ -198,7 +197,7 @@ export default function SaleIndex({
     );
 
     const [mode, setMode] = useState(filters.mode || 'daily');
-    const [activeTab, setActiveTab] = useState(filters.tab || 'paid');
+    const [activeTab, setActiveTab] = useState(filters.tab || 'payments');
 
     const handleTabChange = useCallback(
         (tab: string) => {
@@ -217,6 +216,7 @@ export default function SaleIndex({
         type:
             | 'mode'
             | 'date'
+            | 'status'
             | 'branch_id'
             | 'staff_id'
             | 'payment_type'
@@ -230,6 +230,8 @@ export default function SaleIndex({
             setMode(value);
             params.mode = value;
             params.date = '';
+        } else if (type === 'status') {
+            params.status = value;
         } else if (type === 'payment_type') {
             params.payment_type = value;
         } else if (type === 'branch_id') {
@@ -283,22 +285,6 @@ export default function SaleIndex({
                 header: 'Particular',
                 cell: ({ row }: CellContext<any, any>) => {
                     const tx = getTx(row.original);
-
-                    if (tx.sublimation) {
-                        return (
-                            <a
-                                href={route('sublimations.index', {
-                                    id: tx.sublimation.id,
-                                })}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="block max-w-[110px] truncate text-indigo-600 hover:underline"
-                                title={tx.particular}
-                            >
-                                {tx.particular}
-                            </a>
-                        );
-                    }
 
                     return (
                         <div
@@ -658,32 +644,19 @@ export default function SaleIndex({
 
                     <div className="flex gap-1 px-4 pb-2">
                         <Button
-                            variant={activeTab === 'paid' ? 'default' : 'ghost'}
+                            variant={
+                                activeTab === 'payments' ? 'default' : 'ghost'
+                            }
                             size="sm"
-                            onClick={() => handleTabChange('paid')}
+                            onClick={() => handleTabChange('payments')}
                             className={
-                                activeTab === 'paid'
+                                activeTab === 'payments'
                                     ? 'bg-indigo-600 hover:bg-indigo-700'
                                     : ''
                             }
                         >
                             <Receipt className="mr-1.5 h-3.5 w-3.5" />
-                            Paid
-                        </Button>
-                        <Button
-                            variant={
-                                activeTab === 'partial' ? 'default' : 'ghost'
-                            }
-                            size="sm"
-                            onClick={() => handleTabChange('partial')}
-                            className={
-                                activeTab === 'partial'
-                                    ? 'bg-blue-500 hover:bg-blue-600'
-                                    : ''
-                            }
-                        >
-                            <CircleDashed className="mr-1.5 h-3.5 w-3.5" />
-                            Partial
+                            Payments
                         </Button>
                         <Button
                             variant={
@@ -700,7 +673,7 @@ export default function SaleIndex({
                             <AlertCircle className="mr-1.5 h-3.5 w-3.5" />
                             Unpaid
                         </Button>
-                        {activeTab === 'paid' &&
+                        {activeTab === 'payments' &&
                             auth.user.role === 'superadmin' && (
                                 <div className="ml-auto">
                                     <Button
@@ -711,7 +684,7 @@ export default function SaleIndex({
                                                 'Sales Report',
                                                 route('sales.print', {
                                                     ...filters,
-                                                    tab: 'paid',
+                                                    tab: 'payments',
                                                 }),
                                             )
                                         }

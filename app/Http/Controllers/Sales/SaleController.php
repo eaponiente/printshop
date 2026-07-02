@@ -34,10 +34,10 @@ class SaleController extends Controller
         $filters = array_merge([
             'date' => now()->toDateString(),
             'mode' => 'daily',
-            'tab' => 'paid',
+            'tab' => 'payments',
         ], $request->validated());
 
-        $tab = $filters['tab'] ?? 'paid';
+        $isUnpaidTab = ($filters['tab'] ?? 'payments') === 'unpaid';
 
         $cashOnHand = $this->salesService->getCashOnHandTotal($request->input('branch_id', auth()->user()->branch_id));
 
@@ -49,10 +49,8 @@ class SaleController extends Controller
             ? User::whereIn('role', ['admin', 'staff'])->select('id', 'first_name', 'last_name', 'branch_id')->orderBy('first_name')->get()
             : collect();
 
-        // Partial and Unpaid tabs list transactions by their settlement status.
-        if (in_array($tab, ['paid', 'partial', 'unpaid'], true)) {
-            $status = $tab === 'unpaid' ? 'pending' : ($tab === 'paid' ? 'paid' : 'partial');
-            $query = $this->salesService->getTransactionQuery(array_merge($filters, ['status' => $status]));
+        if ($isUnpaidTab) {
+            $query = $this->salesService->getTransactionQuery(array_merge($filters, ['status' => 'pending']));
 
             return Inertia::render('sales/list', [
                 'filters' => $filters,
@@ -85,7 +83,7 @@ class SaleController extends Controller
         $filters = array_merge([
             'date' => now()->toDateString(),
             'mode' => 'daily',
-            'tab' => 'paid',
+            'tab' => 'payments',
         ], $request->all());
 
         $paymentQuery = $this->salesService->getPaymentQuery($filters);

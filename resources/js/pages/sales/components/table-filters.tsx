@@ -19,6 +19,7 @@ interface SalesTableFiltersProps {
     filters: {
         search?: string;
         date?: string;
+        status?: string;
         branch_id?: string;
         staff_id?: string;
         payment_type?: string;
@@ -28,6 +29,7 @@ interface SalesTableFiltersProps {
         type:
             | 'mode'
             | 'date'
+            | 'status'
             | 'branch_id'
             | 'staff_id'
             | 'payment_type'
@@ -176,6 +178,27 @@ const SalesTableFilters = React.memo(
                             </select>
                         )}
                     </div>
+                </div>
+
+                {/* Status Filter */}
+                <div className="space-y-1.5">
+                    <label className="ml-1 text-xs font-semibold text-muted-foreground uppercase">
+                        Status
+                    </label>
+                    <Select
+                        value={filters.status || 'all'}
+                        onValueChange={(v) => handleFilterChange(v, 'status')}
+                    >
+                        <SelectTrigger className="w-[140px] bg-white text-sm">
+                            <SelectValue placeholder="All Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Status</SelectItem>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="paid">Paid</SelectItem>
+                            <SelectItem value="partial">Partial</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
 
                 {/* Branch Filter */}
