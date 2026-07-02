@@ -14,6 +14,8 @@ import {
     Paperclip,
     Receipt,
     AlertCircle,
+    CircleDashed,
+    ExternalLink,
     Printer,
 } from 'lucide-react';
 import { useState, useCallback, useMemo, Suspense, lazy } from 'react';
@@ -95,6 +97,7 @@ interface SaleIndexProps {
     cash_on_hand_amount: number;
     total_expenses: number;
     is_payment_view: boolean;
+    show_summary: boolean;
 }
 
 /** Extract the parent Transaction from a row, regardless of payment or transaction view */
@@ -121,6 +124,7 @@ export default function SaleIndex({
     cash_on_hand_amount = 0,
     total_expenses = 0,
     is_payment_view = false,
+    show_summary = false,
 }: SaleIndexProps) {
     const [getTransaction, setTransaction] = useState<Transaction | null>(null);
     const { auth } = usePage<{
@@ -197,7 +201,7 @@ export default function SaleIndex({
     );
 
     const [mode, setMode] = useState(filters.mode || 'daily');
-    const [activeTab, setActiveTab] = useState(filters.tab || 'payments');
+    const [activeTab, setActiveTab] = useState(filters.tab || 'partial');
 
     const handleTabChange = useCallback(
         (tab: string) => {
@@ -216,7 +220,6 @@ export default function SaleIndex({
         type:
             | 'mode'
             | 'date'
-            | 'status'
             | 'branch_id'
             | 'staff_id'
             | 'payment_type'
@@ -230,8 +233,6 @@ export default function SaleIndex({
             setMode(value);
             params.mode = value;
             params.date = '';
-        } else if (type === 'status') {
-            params.status = value;
         } else if (type === 'payment_type') {
             params.payment_type = value;
         } else if (type === 'branch_id') {
@@ -272,10 +273,19 @@ export default function SaleIndex({
                 cell: ({ row }: CellContext<any, any>) => {
                     const tx = getTx(row.original);
                     const name = getCustomerDisplayName(tx.customer);
+                    const isLink = !!tx.sublimation;
 
                     return (
-                        <div className="max-w-[120px] truncate" title={name}>
-                            {name}
+                        <div
+                            className={`flex max-w-[150px] items-center gap-1 ${
+                                isLink ? 'font-medium text-indigo-600' : ''
+                            }`}
+                            title={name}
+                        >
+                            <span className="truncate">{name}</span>
+                            {isLink && (
+                                <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                            )}
                         </div>
                     );
                 },
@@ -550,14 +560,10 @@ export default function SaleIndex({
         ],
     );
 
-    // On the payments view, make the cells from Customer Name up to Date link
-    // to the related sublimation (new tab), only for sublimation transactions.
-    // The Collection and Actions columns stay interactive (not linked).
+    // Make the cells from Customer Name up to Date link to the related
+    // sublimation (new tab), only for sublimation transactions. The Collection
+    // and Actions columns stay interactive (not linked).
     const linkedColumns = useMemo(() => {
-        if (!is_payment_view) {
-            return columns;
-        }
-
         const wrap =
             (render: (ctx: CellContext<any, any>) => any) =>
             (ctx: CellContext<any, any>) => {
@@ -575,7 +581,7 @@ export default function SaleIndex({
                         })}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="block cursor-pointer hover:text-indigo-600"
+                        className="block cursor-pointer hover:text-indigo-600 hover:underline"
                         title="View sublimation"
                     >
                         {content}
@@ -595,7 +601,7 @@ export default function SaleIndex({
 
             return { ...col, cell: wrap(cell as (ctx: CellContext<any, any>) => any) };
         });
-    }, [columns, is_payment_view]);
+    }, [columns]);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -618,7 +624,7 @@ export default function SaleIndex({
                 </div>
 
                 {['superadmin', 'admin'].includes(auth.user.role) &&
-                    is_payment_view && (
+                    show_summary && (
                         <div className="w-full">
                             <Collapsible
                                 open={isSalesSummaryOpen}
@@ -692,18 +698,31 @@ export default function SaleIndex({
                     <div className="flex gap-1 px-4 pb-2">
                         <Button
                             variant={
-                                activeTab === 'payments' ? 'default' : 'ghost'
+                                activeTab === 'partial' ? 'default' : 'ghost'
                             }
                             size="sm"
-                            onClick={() => handleTabChange('payments')}
+                            onClick={() => handleTabChange('partial')}
                             className={
-                                activeTab === 'payments'
-                                    ? 'bg-indigo-600 hover:bg-indigo-700'
+                                activeTab === 'partial'
+                                    ? 'bg-blue-500 hover:bg-blue-600'
+                                    : ''
+                            }
+                        >
+                            <CircleDashed className="mr-1.5 h-3.5 w-3.5" />
+                            Partial
+                        </Button>
+                        <Button
+                            variant={activeTab === 'paid' ? 'default' : 'ghost'}
+                            size="sm"
+                            onClick={() => handleTabChange('paid')}
+                            className={
+                                activeTab === 'paid'
+                                    ? 'bg-green-600 hover:bg-green-700'
                                     : ''
                             }
                         >
                             <Receipt className="mr-1.5 h-3.5 w-3.5" />
-                            Payments
+                            Paid
                         </Button>
                         <Button
                             variant={
@@ -720,7 +739,7 @@ export default function SaleIndex({
                             <AlertCircle className="mr-1.5 h-3.5 w-3.5" />
                             Unpaid
                         </Button>
-                        {activeTab === 'payments' &&
+                        {show_summary &&
                             auth.user.role === 'superadmin' && (
                                 <div className="ml-auto">
                                     <Button
@@ -731,7 +750,7 @@ export default function SaleIndex({
                                                 'Sales Report',
                                                 route('sales.print', {
                                                     ...filters,
-                                                    tab: 'payments',
+                                                    tab: activeTab,
                                                 }),
                                             )
                                         }

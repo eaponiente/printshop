@@ -16,11 +16,16 @@ A summary of recent improvements to the Projects (Sales), Sublimations, and Purc
 
 ## Projects (Sales)
 
+### Status tabs: Partial, Paid, Unpaid
+- The Projects list now has three tabs by settlement status — **Partial**, **Paid**, **Unpaid** (in that order) — and opens on **Partial** so unsettled projects are surfaced first. Each tab lists the projects in that state.
+- The old **Status** dropdown in the filter bar has been removed since the tabs now cover it.
+- The **payment breakdown** (Projects Summary Overview) is fixed to **Partial + Paid** collections — it stays the same when you switch between the Partial and Paid tabs and only changes with the Date/Frequency, Branch, and Staff filters. It is hidden on the **Unpaid** tab.
+
 ### Smarter customer search
 - The Search box now finds a customer by **first name, last name, or full name**. Typing a full name like "Juan Dela Cruz" matches even when the words span the first and last name.
 
-### Open a sublimation from the Payments table
-- On the **Payments** view, the row cells from **Customer Name** through **Date** are now clickable for sublimation-backed rows and open the related sublimation (in a new tab). The **Collection** and **Actions** buttons stay unaffected.
+### Open a sublimation from the table
+- On the Projects table, the row cells from **Customer Name** through **Date** are clickable for sublimation-backed rows and open the related sublimation (in a new tab). Those rows show a link cue on the customer name. The **Collection** and **Actions** buttons stay unaffected.
 
 ---
 
