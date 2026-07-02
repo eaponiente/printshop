@@ -9,11 +9,12 @@ import {
     Images,
     Pencil,
     Plus,
+    Scissors,
     Trash2,
     UserPlus,
     X,
 } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { route } from 'ziggy-js';
 import { DataTable } from '@/components/data-table';
@@ -53,6 +54,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import {
     Popover,
     PopoverContent,
@@ -211,7 +213,13 @@ export default function SublimationIndex({
     const handleFilterChange = (
         // Update value to accept string or string array
         value: string | string[] | boolean,
-        type: 'date' | 'status' | 'branch_id' | 'include_completed' | 'user_id',
+        type:
+            | 'date'
+            | 'status'
+            | 'branch_id'
+            | 'include_completed'
+            | 'user_id'
+            | 'search',
     ) => {
         // Clone filters
         const params = { ...filters };
@@ -231,6 +239,20 @@ export default function SublimationIndex({
     const clearFilters = () => {
         router.get(route('sublimations.index'), {}, { replace: true });
     };
+
+    // Debounced free-text search (description / customer name).
+    const [searchTerm, setSearchTerm] = useState(filters.search || '');
+
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            if ((searchTerm || '') !== (filters.search || '')) {
+                handleFilterChange(searchTerm, 'search');
+            }
+        }, 400);
+
+        return () => clearTimeout(timeout);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchTerm]);
 
     const columns: ColumnDef<any>[] = [
         {
@@ -579,9 +601,9 @@ export default function SublimationIndex({
                                         href={route('sales.index', {
                                             search: transaction.invoice_number,
                                             tab:
-                                                transaction?.amount_paid > 0
-                                                    ? 'payments'
-                                                    : 'unpaid',
+                                                transaction?.status === 'pending'
+                                                    ? 'unpaid'
+                                                    : transaction?.status,
                                             mode: 'yearly',
                                         })}
                                         target="_blank"
@@ -643,6 +665,18 @@ export default function SublimationIndex({
                                 <Plus className="mr-2 h-4 w-4" />
                                 Add Items
                             </DropdownMenuItem>
+                            {row.original.sewed_item && (
+                                <DropdownMenuItem asChild className="cursor-pointer">
+                                    <a
+                                        href={route('payroll.sewed-items.index', {
+                                            id: row.original.sewed_item.id,
+                                        })}
+                                    >
+                                        <Scissors className="mr-2 h-4 w-4" />
+                                        View Sewed Item
+                                    </a>
+                                </DropdownMenuItem>
+                            )}
                             {canDelete && (
                                 <>
                                     <DropdownMenuSeparator />
@@ -686,6 +720,21 @@ export default function SublimationIndex({
                 <div className="rounded-md border border-sidebar-border bg-sidebar p-1">
                     <div className="mb-6 flex flex-wrap items-end gap-3 rounded-lg bg-slate-50/50">
                         <div className="mb-1 flex flex-wrap items-end gap-3 rounded-lg bg-slate-50/50 p-4">
+                            {/* Search Filter */}
+                            <div className="flex flex-col gap-1.5">
+                                <label className="ml-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+                                    Search
+                                </label>
+                                <Input
+                                    value={searchTerm}
+                                    onChange={(e) =>
+                                        setSearchTerm(e.target.value)
+                                    }
+                                    placeholder="Description or customer..."
+                                    className="h-10 w-[220px] bg-white text-sm"
+                                />
+                            </div>
+
                             {/* Branch Filter */}
                             <div className="flex flex-col gap-1.5">
                                 <label className="ml-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">

@@ -99,6 +99,22 @@ class SublimationController extends Controller
             }
         });
 
+        // Backend-only filter by a specific sublimation id (used by deep links).
+        $query->when($request->filled('id'), fn ($q) => $q->where('id', $request->integer('id')));
+
+        // Free-text search across the sublimation description and customer name.
+        $query->when($request->filled('search'), function ($q) use ($request) {
+            $search = $request->string('search');
+
+            $q->where(function ($sub) use ($search) {
+                $sub->where('description', 'like', "%{$search}%")
+                    ->orWhereHas('customer', function ($c) use ($search) {
+                        $c->where('first_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%");
+                    });
+            });
+        });
+
         $sortDirection = in_array($request->query('sort_direction'), ['asc', 'desc'])
             ? $request->query('sort_direction')
             : 'desc';

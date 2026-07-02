@@ -23,6 +23,8 @@ class IndexSublimationRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'id' => 'nullable|integer', // backend-only filter (deep links)
+            'search' => 'nullable|string', // matches description or customer name
             'branch_id' => 'nullable|exists:branches,id',
             'status' => 'nullable',
             'include_completed' => 'nullable',
