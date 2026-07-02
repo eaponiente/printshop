@@ -21,8 +21,7 @@ class GetTransactionsRequest extends FormRequest
         return [
             'date' => 'nullable|string',
             'mode' => 'nullable|in:daily,weekly,monthly,yearly',
-            'tab' => 'nullable|in:payments,unpaid',
-            'status' => 'nullable|string',
+            'tab' => 'nullable|in:partial,paid,unpaid',
             'search' => 'nullable|string',
             'branch_id' => 'nullable',
             'payment_type' => ['nullable', 'string', 'in:'.implode(',', array_merge(array_map(fn ($c) => $c->value, TransactionTypeOfPaymentEnum::cases()), ['all']))],

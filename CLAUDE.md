@@ -125,3 +125,4 @@ Invariants the test suite enforces — do not break:
 `config('app.timezone') = 'Asia/Manila'`. `Date::use(CarbonImmutable::class)` is set. Always use `toManilaTime()` on the frontend per AGENTS.md.
 
 Implement with Sonnet.
+Update docs/* and create a release notes for each day with a new update.

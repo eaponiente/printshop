@@ -49,7 +49,7 @@ it('allows staff to access the sale index', function () {
 });
 
 // ── Role: Superadmin sees all branches ──────────────────────────
-it('superadmin sees transactions from all branches in payments tab', function () {
+it('superadmin sees transactions from all branches in paid tab', function () {
     $txA = Transaction::factory()->create([
         'branch_id' => $this->branchA->id,
         'amount_total' => 100,
@@ -63,13 +63,13 @@ it('superadmin sees transactions from all branches in payments tab', function ()
     $txB->recordPayment(200, 'cash');
 
     $response = $this->actingAs($this->superadmin)
-        ->get(route('sales.index', ['date' => now()->toDateString(), 'mode' => 'daily']));
+        ->get(route('sales.index', ['tab' => 'paid', 'date' => now()->toDateString(), 'mode' => 'daily']));
 
     $response->assertOk();
     $transactions = $response->inertiaProps('transactions');
 
     $data = $transactions['data'];
-    $branchIds = collect($data)->map(fn ($item) => $item['transaction']['branch_id'] ?? null)->unique()->filter()->values();
+    $branchIds = collect($data)->pluck('branch_id')->unique()->filter()->values();
 
     expect($branchIds->toArray())->toEqualCanonicalizing([$this->branchA->id, $this->branchB->id]);
 });
@@ -110,7 +110,7 @@ it('admin only sees their own branch in branch list', function () {
     expect($branches[0]['id'])->toBe($this->branchA->id);
 });
 
-it('admin does not see other branch transactions in payments tab', function () {
+it('admin does not see other branch transactions in paid tab', function () {
     $txA = Transaction::factory()->create([
         'branch_id' => $this->branchA->id,
         'amount_total' => 100,
@@ -124,14 +124,14 @@ it('admin does not see other branch transactions in payments tab', function () {
     $txB->recordPayment(200, 'cash');
 
     $response = $this->actingAs($this->adminA)
-        ->get(route('sales.index', ['date' => now()->toDateString(), 'mode' => 'daily']));
+        ->get(route('sales.index', ['tab' => 'paid', 'date' => now()->toDateString(), 'mode' => 'daily']));
 
     $response->assertOk();
     $transactions = $response->inertiaProps('transactions');
     $data = $transactions['data'];
 
     foreach ($data as $item) {
-        expect($item['transaction']['branch_id'])->toBe($this->branchA->id);
+        expect($item['branch_id'])->toBe($this->branchA->id);
     }
 });
 
@@ -171,7 +171,7 @@ it('staff only sees their own branch in branch list', function () {
     expect($branches[0]['id'])->toBe($this->branchA->id);
 });
 
-it('staff only sees their own transactions in payments tab', function () {
+it('staff only sees their own transactions in paid tab', function () {
     $txA = Transaction::factory()->create([
         'branch_id' => $this->branchA->id,
         'staff_id' => $this->staffA->id,
@@ -187,14 +187,14 @@ it('staff only sees their own transactions in payments tab', function () {
     $txB->recordPayment(200, 'cash');
 
     $response = $this->actingAs($this->staffA)
-        ->get(route('sales.index', ['date' => now()->toDateString(), 'mode' => 'daily']));
+        ->get(route('sales.index', ['tab' => 'paid', 'date' => now()->toDateString(), 'mode' => 'daily']));
 
     $response->assertOk();
     $transactions = $response->inertiaProps('transactions');
     $data = $transactions['data'];
 
     foreach ($data as $item) {
-        expect($item['transaction']['staff_id'])->toBe($this->staffA->id);
+        expect($item['staff_id'])->toBe($this->staffA->id);
     }
 });
 
@@ -250,7 +250,7 @@ it('unpaid tab shows only pending transactions', function () {
 });
 
 // ── Branch filter works for superadmin ──────────────────────────
-it('superadmin can filter by branch in payments tab', function () {
+it('superadmin can filter by branch in paid tab', function () {
     $txA = Transaction::factory()->create([
         'branch_id' => $this->branchA->id,
         'amount_total' => 100,
@@ -265,6 +265,7 @@ it('superadmin can filter by branch in payments tab', function () {
 
     $response = $this->actingAs($this->superadmin)
         ->get(route('sales.index', [
+            'tab' => 'paid',
             'date' => now()->toDateString(),
             'mode' => 'daily',
             'branch_id' => $this->branchA->id,
@@ -275,7 +276,7 @@ it('superadmin can filter by branch in payments tab', function () {
     $data = $transactions['data'];
 
     foreach ($data as $item) {
-        expect($item['transaction']['branch_id'])->toBe($this->branchA->id);
+        expect($item['branch_id'])->toBe($this->branchA->id);
     }
 });
 
@@ -339,7 +340,7 @@ it('filters transactions by monthly mode', function () {
 });
 
 // ── Response structure ──────────────────────────────────────────
-it('returns expected inertia props for payments tab including net amounts', function () {
+it('returns expected inertia props for the default partial tab including net amounts', function () {
     $response = $this->actingAs($this->superadmin)
         ->get(route('sales.index'));
 
@@ -353,7 +354,8 @@ it('returns expected inertia props for payments tab including net amounts', func
             ->has('cash_on_hand_amount')
             ->has('cash_net_amount')
             ->has('gcash_net_amount')
-            ->where('is_payment_view', true);
+            ->where('is_payment_view', false)
+            ->where('show_summary', true);
     });
 });
 
@@ -370,7 +372,42 @@ it('returns expected inertia props for unpaid tab without finance summary', func
             ->has('types_of_payment')
             ->has('cash_on_hand_amount')
             ->where('is_payment_view', false)
+            ->where('show_summary', false)
             ->missing('total_expenses')
             ->missing('net_income');
     });
+});
+
+// ── Breakdown is fixed to Partial+Paid ──────────────────────────
+it('shows the same partial+paid breakdown on the partial and paid tabs and none on unpaid', function () {
+    // A fully paid transaction and a partially paid one, both today.
+    $paid = Transaction::factory()->create([
+        'branch_id' => $this->branchA->id,
+        'amount_total' => 100,
+    ]);
+    $paid->recordPayment(100, 'cash');
+
+    $partial = Transaction::factory()->create([
+        'branch_id' => $this->branchA->id,
+        'amount_total' => 200,
+    ]);
+    $partial->recordPayment(50, 'cash');
+
+    $date = now()->toDateString();
+
+    $partialTotal = $this->actingAs($this->superadmin)
+        ->get(route('sales.index', ['tab' => 'partial', 'date' => $date, 'mode' => 'daily']))
+        ->inertiaProps('total_sales');
+
+    $paidTotal = $this->actingAs($this->superadmin)
+        ->get(route('sales.index', ['tab' => 'paid', 'date' => $date, 'mode' => 'daily']))
+        ->inertiaProps('total_sales');
+
+    // 100 (paid) + 50 (partial) collected today, identical regardless of tab.
+    expect((float) $partialTotal)->toBe(150.0)
+        ->and((float) $paidTotal)->toBe(150.0);
+
+    $this->actingAs($this->superadmin)
+        ->get(route('sales.index', ['tab' => 'unpaid', 'date' => $date, 'mode' => 'daily']))
+        ->assertInertia(fn ($page) => $page->where('show_summary', false)->missing('total_sales'));
 });
