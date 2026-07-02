@@ -19,6 +19,9 @@ A summary of recent improvements to the Projects (Sales), Sublimations, and Purc
 ### Smarter customer search
 - The Search box now finds a customer by **first name, last name, or full name**. Typing a full name like "Juan Dela Cruz" matches even when the words span the first and last name.
 
+### Open a sublimation from the Payments table
+- On the **Payments** view, the row cells from **Customer Name** through **Date** are now clickable for sublimation-backed rows and open the related sublimation (in a new tab). The **Collection** and **Actions** buttons stay unaffected.
+
 ---
 
 ## Purchase Orders

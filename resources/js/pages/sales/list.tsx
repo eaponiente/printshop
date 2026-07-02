@@ -550,6 +550,53 @@ export default function SaleIndex({
         ],
     );
 
+    // On the payments view, make the cells from Customer Name up to Date link
+    // to the related sublimation (new tab), only for sublimation transactions.
+    // The Collection and Actions columns stay interactive (not linked).
+    const linkedColumns = useMemo(() => {
+        if (!is_payment_view) {
+            return columns;
+        }
+
+        const wrap =
+            (render: (ctx: CellContext<any, any>) => any) =>
+            (ctx: CellContext<any, any>) => {
+                const tx = getTx(ctx.row.original);
+                const content = render(ctx);
+
+                if (!tx.sublimation) {
+                    return content;
+                }
+
+                return (
+                    <a
+                        href={route('sublimations.index', {
+                            id: tx.sublimation.id,
+                        })}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block cursor-pointer hover:text-indigo-600"
+                        title="View sublimation"
+                    >
+                        {content}
+                    </a>
+                );
+            };
+
+        return columns.map((col) => {
+            const id = (col as { id?: string }).id;
+            const header = (col as { header?: unknown }).header;
+            const cell = (col as { cell?: unknown }).cell;
+
+            // Leave the Collection and Actions columns interactive.
+            if (id === 'payment' || header === 'Actions' || typeof cell !== 'function') {
+                return col;
+            }
+
+            return { ...col, cell: wrap(cell as (ctx: CellContext<any, any>) => any) };
+        });
+    }, [columns, is_payment_view]);
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Projects" />
@@ -697,7 +744,7 @@ export default function SaleIndex({
                     </div>
 
                     <DataTable
-                        columns={columns}
+                        columns={linkedColumns}
                         tableId="sales-table"
                         pagination={transactions}
                     />
