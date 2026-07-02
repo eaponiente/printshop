@@ -14,6 +14,7 @@ import {
     Paperclip,
     Receipt,
     AlertCircle,
+    CircleDashed,
     Printer,
 } from 'lucide-react';
 import { useState, useCallback, useMemo, Suspense, lazy } from 'react';
@@ -197,7 +198,7 @@ export default function SaleIndex({
     );
 
     const [mode, setMode] = useState(filters.mode || 'daily');
-    const [activeTab, setActiveTab] = useState(filters.tab || 'payments');
+    const [activeTab, setActiveTab] = useState(filters.tab || 'paid');
 
     const handleTabChange = useCallback(
         (tab: string) => {
@@ -216,7 +217,6 @@ export default function SaleIndex({
         type:
             | 'mode'
             | 'date'
-            | 'status'
             | 'branch_id'
             | 'staff_id'
             | 'payment_type'
@@ -230,8 +230,6 @@ export default function SaleIndex({
             setMode(value);
             params.mode = value;
             params.date = '';
-        } else if (type === 'status') {
-            params.status = value;
         } else if (type === 'payment_type') {
             params.payment_type = value;
         } else if (type === 'branch_id') {
@@ -644,19 +642,32 @@ export default function SaleIndex({
 
                     <div className="flex gap-1 px-4 pb-2">
                         <Button
-                            variant={
-                                activeTab === 'payments' ? 'default' : 'ghost'
-                            }
+                            variant={activeTab === 'paid' ? 'default' : 'ghost'}
                             size="sm"
-                            onClick={() => handleTabChange('payments')}
+                            onClick={() => handleTabChange('paid')}
                             className={
-                                activeTab === 'payments'
+                                activeTab === 'paid'
                                     ? 'bg-indigo-600 hover:bg-indigo-700'
                                     : ''
                             }
                         >
                             <Receipt className="mr-1.5 h-3.5 w-3.5" />
-                            Payments
+                            Paid
+                        </Button>
+                        <Button
+                            variant={
+                                activeTab === 'partial' ? 'default' : 'ghost'
+                            }
+                            size="sm"
+                            onClick={() => handleTabChange('partial')}
+                            className={
+                                activeTab === 'partial'
+                                    ? 'bg-blue-500 hover:bg-blue-600'
+                                    : ''
+                            }
+                        >
+                            <CircleDashed className="mr-1.5 h-3.5 w-3.5" />
+                            Partial
                         </Button>
                         <Button
                             variant={
@@ -673,7 +684,7 @@ export default function SaleIndex({
                             <AlertCircle className="mr-1.5 h-3.5 w-3.5" />
                             Unpaid
                         </Button>
-                        {activeTab === 'payments' &&
+                        {activeTab === 'paid' &&
                             auth.user.role === 'superadmin' && (
                                 <div className="ml-auto">
                                     <Button
@@ -684,7 +695,7 @@ export default function SaleIndex({
                                                 'Sales Report',
                                                 route('sales.print', {
                                                     ...filters,
-                                                    tab: 'payments',
+                                                    tab: 'paid',
                                                 }),
                                             )
                                         }
