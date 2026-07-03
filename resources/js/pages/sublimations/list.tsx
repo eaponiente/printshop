@@ -3,19 +3,22 @@ import type { CellContext, ColumnDef } from '@tanstack/react-table';
 import {
     ArrowUpDown,
     Check,
+    ChevronDown,
     ChevronsUpDown,
     ExternalLink,
     Images,
     Pencil,
     Plus,
+    Scissors,
     Trash2,
     UserPlus,
     X,
 } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { route } from 'ziggy-js';
 import { DataTable } from '@/components/data-table';
+import TagSelector from '@/components/shared/tag-selector';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -25,7 +28,6 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-    AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -45,6 +47,14 @@ import {
     DialogTitle,
     DialogDescription,
 } from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import {
     Popover,
     PopoverContent,
@@ -76,6 +86,14 @@ import { getAvatarColor, sortBy } from '@/utils/helpers';
 import { EditableDateCell } from './components/editable-date-cell';
 import { TagCell } from './tag-cell';
 
+function computeNextAdditionalDescription(description: string): string {
+    const m = description.match(/^(.*) \(Addtl\. (\d+)\)$/);
+    if (m) {
+        return `${m[1]} (Addtl. ${parseInt(m[2], 10) + 1})`;
+    }
+    return `${description} (Addtl. 1)`;
+}
+
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Sublimations', href: '/sublimations' },
@@ -104,24 +122,50 @@ export default function SublimationIndex({
     const [zoomedImage, setZoomedImage] = useState<UploadedImage | null>(null);
 
     const [duplicateTarget, setDuplicateTarget] = useState<Sublimation | null>(null);
+    const [duplicateDescription, setDuplicateDescription] = useState('');
     const [duplicateTagQtys, setDuplicateTagQtys] = useState<Record<number, string>>({});
     const [duplicateAmount, setDuplicateAmount] = useState('');
     const [duplicating, setDuplicating] = useState(false);
 
     const openDuplicateDialog = (sub: Sublimation) => {
         setDuplicateTarget(sub);
-        setDuplicateTagQtys(
-            Object.fromEntries(
-                (sub.tags ?? []).map((t) => [t.id, String(t.pivot?.quantity ?? 1)]),
-            ),
+        setDuplicateDescription(
+            computeNextAdditionalDescription(sub.description ?? ''),
         );
+        setDuplicateTagQtys({});
         setDuplicateAmount('');
     };
+
+    const addDuplicateTag = (tagId: number) =>
+        setDuplicateTagQtys((prev) =>
+            prev[tagId] !== undefined ? prev : { ...prev, [tagId]: '1' },
+        );
+
+    const removeDuplicateTag = (tagId: number) =>
+        setDuplicateTagQtys((prev) => {
+            const next = { ...prev };
+            delete next[tagId];
+            return next;
+        });
+
+    const updateDuplicateTagQty = (tagId: number, qty: number) =>
+        setDuplicateTagQtys((prev) => ({ ...prev, [tagId]: String(qty) }));
+
+    const duplicateSelectedTagIds = Object.keys(duplicateTagQtys).map(Number);
+
+    const duplicateQuantitiesMap: Record<number, number> = Object.fromEntries(
+        Object.entries(duplicateTagQtys).map(([id, qty]) => [
+            Number(id),
+            Number(qty) || 1,
+        ]),
+    );
 
     const duplicateTotalQty = Object.values(duplicateTagQtys).reduce(
         (sum, q) => sum + (Number(q) || 0),
         0,
     );
+
+    const [deleteTarget, setDeleteTarget] = useState<Sublimation | null>(null);
 
     const [isGalleryOpen, setIsGalleryOpen] = useState(false);
     const [gallerySublimation, setGallerySublimation] =
@@ -169,7 +213,13 @@ export default function SublimationIndex({
     const handleFilterChange = (
         // Update value to accept string or string array
         value: string | string[] | boolean,
-        type: 'date' | 'status' | 'branch_id' | 'include_completed' | 'user_id',
+        type:
+            | 'date'
+            | 'status'
+            | 'branch_id'
+            | 'include_completed'
+            | 'user_id'
+            | 'search',
     ) => {
         // Clone filters
         const params = { ...filters };
@@ -189,6 +239,20 @@ export default function SublimationIndex({
     const clearFilters = () => {
         router.get(route('sublimations.index'), {}, { replace: true });
     };
+
+    // Debounced free-text search (description / customer name).
+    const [searchTerm, setSearchTerm] = useState(filters.search || '');
+
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            if ((searchTerm || '') !== (filters.search || '')) {
+                handleFilterChange(searchTerm, 'search');
+            }
+        }, 400);
+
+        return () => clearTimeout(timeout);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchTerm]);
 
     const columns: ColumnDef<any>[] = [
         {
@@ -293,23 +357,6 @@ export default function SublimationIndex({
             header: 'Status',
             cell: ({ row }) => (
                 <StatusCell item={row.original} statuses={statuses} />
-            ),
-        },
-        {
-            accessorKey: 'quantity',
-            header: 'Quantity',
-            cell: ({ row }: CellContext<any, any>) => (
-                <div className="flex items-center gap-1">
-                    <span>{row.original.quantity}</span>
-                    <button
-                        type="button"
-                        title="Duplicate with new quantity"
-                        className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                        onClick={() => openDuplicateDialog(row.original)}
-                    >
-                        <Plus className="h-3 w-3" />
-                    </button>
-                </div>
             ),
         },
         {
@@ -554,9 +601,9 @@ export default function SublimationIndex({
                                         href={route('sales.index', {
                                             search: transaction.invoice_number,
                                             tab:
-                                                transaction?.amount_paid > 0
-                                                    ? 'payments'
-                                                    : 'unpaid',
+                                                transaction?.status === 'pending'
+                                                    ? 'unpaid'
+                                                    : transaction?.status,
                                             mode: 'yearly',
                                         })}
                                         target="_blank"
@@ -584,57 +631,68 @@ export default function SublimationIndex({
                     'waiting_for_dp',
                 ];
 
+                const canDelete = prePaymentKeys.includes(row.original.status);
+
                 return (
-                    <>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openGallery(row.original)}
-                            title="Gallery"
-                        >
-                            <Images className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openEditForm(row.original)}
-                        >
-                            <Pencil className="h-4 w-4" />
-                        </Button>
-                        {prePaymentKeys.includes(row.original.status) && (
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="sm">
-                                        <Trash2 />
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>
-                                            Are you absolutely sure?
-                                        </AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            This action cannot be undone. This
-                                            will permanently delete this
-                                            sublimation.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>
-                                            Cancel
-                                        </AlertDialogCancel>
-                                        <AlertDialogAction
-                                            onClick={() =>
-                                                deleteSublimation(row.original)
-                                            }
-                                        >
-                                            Continue
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        )}
-                    </>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm">
+                                Actions
+                                <ChevronDown className="ml-1 h-4 w-4 opacity-70" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem
+                                onSelect={() => openGallery(row.original)}
+                                className="cursor-pointer"
+                            >
+                                <Images className="mr-2 h-4 w-4" />
+                                Open Gallery
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onSelect={() => openEditForm(row.original)}
+                                className="cursor-pointer"
+                            >
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onSelect={() =>
+                                    openDuplicateDialog(row.original)
+                                }
+                                className="cursor-pointer"
+                            >
+                                <Plus className="mr-2 h-4 w-4" />
+                                Add Items
+                            </DropdownMenuItem>
+                            {row.original.sewed_item && (
+                                <DropdownMenuItem asChild className="cursor-pointer">
+                                    <a
+                                        href={route('payroll.sewed-items.index', {
+                                            id: row.original.sewed_item.id,
+                                        })}
+                                    >
+                                        <Scissors className="mr-2 h-4 w-4" />
+                                        View Sewed Item
+                                    </a>
+                                </DropdownMenuItem>
+                            )}
+                            {canDelete && (
+                                <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                        onSelect={() =>
+                                            setDeleteTarget(row.original)
+                                        }
+                                        className="cursor-pointer text-destructive focus:text-destructive"
+                                    >
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        Delete
+                                    </DropdownMenuItem>
+                                </>
+                            )}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 );
             },
         },
@@ -662,6 +720,21 @@ export default function SublimationIndex({
                 <div className="rounded-md border border-sidebar-border bg-sidebar p-1">
                     <div className="mb-6 flex flex-wrap items-end gap-3 rounded-lg bg-slate-50/50">
                         <div className="mb-1 flex flex-wrap items-end gap-3 rounded-lg bg-slate-50/50 p-4">
+                            {/* Search Filter */}
+                            <div className="flex flex-col gap-1.5">
+                                <label className="ml-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+                                    Search
+                                </label>
+                                <Input
+                                    value={searchTerm}
+                                    onChange={(e) =>
+                                        setSearchTerm(e.target.value)
+                                    }
+                                    placeholder="Description or customer..."
+                                    className="h-10 w-[220px] bg-white text-sm"
+                                />
+                            </div>
+
                             {/* Branch Filter */}
                             <div className="flex flex-col gap-1.5">
                                 <label className="ml-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
@@ -944,20 +1017,55 @@ export default function SublimationIndex({
                     )}
                 </DialogContent>
             </Dialog>
+            <AlertDialog
+                open={!!deleteTarget}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setDeleteTarget(null);
+                    }
+                }}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            Are you absolutely sure?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. This will permanently
+                            delete this sublimation.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                if (deleteTarget) {
+                                    deleteSublimation(deleteTarget);
+                                }
+                                setDeleteTarget(null);
+                            }}
+                        >
+                            Continue
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
             <Dialog
                 open={!!duplicateTarget}
                 onOpenChange={(open) => {
                     if (!open) {
-setDuplicateTarget(null);
-}
+                        setDuplicateTarget(null);
+                    }
                 }}
             >
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Add Items to Existing Sublimation</DialogTitle>
                         <DialogDescription>
-                            Set a quantity per category for the new sublimation.
-                            All other fields will be copied from the original.
+                            Create an additional batch tied to this order. Edit
+                            the description, adjust categories, and set the
+                            amount.
                         </DialogDescription>
                     </DialogHeader>
                     <form
@@ -968,31 +1076,35 @@ setDuplicateTarget(null);
                                 return;
                             }
 
-                            const tagPayload = (duplicateTarget.tags ?? [])
-                                .filter((t) => Number(duplicateTagQtys[t.id]) > 0)
-                                .map((t) => ({
-                                    id: t.id,
-                                    quantity: Number(duplicateTagQtys[t.id]),
+                            const tagPayload = duplicateSelectedTagIds
+                                .filter((id) => Number(duplicateTagQtys[id]) > 0)
+                                .map((id) => ({
+                                    id,
+                                    quantity: Number(duplicateTagQtys[id]),
                                 }));
 
                             if (tagPayload.length === 0) {
-                                toast.error('Enter at least one category quantity', { position: 'top-center' });
+                                toast.error('Select at least one category', { position: 'top-center' });
                                 return;
                             }
 
                             setDuplicating(true);
                             router.post(
                                 route('sublimations.duplicate', duplicateTarget.id),
-                                { tag_ids: tagPayload, amount_total: Number(duplicateAmount) },
+                                {
+                                    description: duplicateDescription,
+                                    tag_ids: tagPayload,
+                                    amount_total: Number(duplicateAmount),
+                                },
                                 {
                                     preserveScroll: true,
                                     onSuccess: () => {
-                                        toast.success('Sublimation duplicated.', { position: 'top-center' });
+                                        toast.success('Additional items added.', { position: 'top-center' });
                                         setDuplicateTarget(null);
                                     },
                                     onError: (errors) => {
                                         toast.error(
-                                            errors['tag_ids'] ?? errors.amount_total ?? errors.message ?? 'Failed to duplicate.',
+                                            errors.description ?? errors['tag_ids'] ?? errors.amount_total ?? errors.message ?? 'Failed to add items.',
                                             { position: 'top-center' },
                                         );
                                     },
@@ -1002,68 +1114,38 @@ setDuplicateTarget(null);
                         }}
                         className="space-y-4 pt-2"
                     >
+                        <div className="space-y-1">
+                            <label className="text-sm font-medium">
+                                Description
+                            </label>
+                            <input
+                                type="text"
+                                value={duplicateDescription}
+                                onChange={(e) => setDuplicateDescription(e.target.value)}
+                                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                placeholder="e.g. Team Jersey (Addtl. 1)"
+                                required
+                            />
+                        </div>
+
                         <div className="space-y-2">
                             <label className="text-sm font-medium">
-                                Quantity per Category
+                                Categories
                             </label>
-                            {(duplicateTarget?.tags ?? []).length === 0 ? (
-                                <p className="text-sm text-muted-foreground">
-                                    No categories on this sublimation.
-                                </p>
-                            ) : (
-                                <div className="overflow-hidden rounded-md border">
-                                    <table className="w-full text-sm">
-                                        <thead>
-                                            <tr className="border-b bg-muted/50">
-                                                <th className="px-3 py-2 text-left font-medium">
-                                                    Category
-                                                </th>
-                                                <th className="w-28 px-3 py-2 text-left font-medium">
-                                                    Quantity
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {(duplicateTarget?.tags ?? []).map((tag) => (
-                                                <tr key={tag.id} className="border-b last:border-0">
-                                                    <td className="px-3 py-2">
-                                                        <span className="inline-flex items-center gap-1.5">
-                                                            <span
-                                                                className="inline-block h-3 w-3 rounded-full"
-                                                                style={{ backgroundColor: tag.color }}
-                                                            />
-                                                            {tag.name}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-3 py-2">
-                                                        <input
-                                                            type="number"
-                                                            min={1}
-                                                            max={999999}
-                                                            value={duplicateTagQtys[tag.id] ?? ''}
-                                                            onChange={(e) =>
-                                                                setDuplicateTagQtys((prev) => ({
-                                                                    ...prev,
-                                                                    [tag.id]: e.target.value,
-                                                                }))
-                                                            }
-                                                            className="flex h-8 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                                                            required
-                                                        />
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                        <tfoot>
-                                            <tr className="border-t bg-muted/30 font-medium">
-                                                <td className="px-3 py-2">Total Qty</td>
-                                                <td className="px-3 py-2 tabular-nums">{duplicateTotalQty}</td>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
-                                </div>
-                            )}
+                            <TagSelector
+                                selectedTagIds={duplicateSelectedTagIds}
+                                availableTags={availableTags}
+                                quantities={duplicateQuantitiesMap}
+                                onAdd={addDuplicateTag}
+                                onRemove={removeDuplicateTag}
+                                onQuantityChange={updateDuplicateTagQty}
+                                layout="row"
+                            />
+                            <div className="flex justify-end pr-1 text-xs tabular-nums text-muted-foreground">
+                                Total Qty: <span className="ml-1 font-medium text-foreground">{duplicateTotalQty}</span>
+                            </div>
                         </div>
+
                         <div className="space-y-1">
                             <label className="text-sm font-medium">
                                 Amount (PHP)
@@ -1090,13 +1172,14 @@ setDuplicateTarget(null);
                             <Button
                                 type="submit"
                                 disabled={
+                                    !duplicateDescription.trim() ||
                                     duplicateTotalQty < 1 ||
                                     !duplicateAmount ||
                                     Number(duplicateAmount) < 1 ||
                                     duplicating
                                 }
                             >
-                                {duplicating ? 'Duplicating…' : 'Duplicate'}
+                                {duplicating ? 'Adding…' : 'Add Items'}
                             </Button>
                         </div>
                     </form>

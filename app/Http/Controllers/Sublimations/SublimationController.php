@@ -99,13 +99,29 @@ class SublimationController extends Controller
             }
         });
 
+        // Backend-only filter by a specific sublimation id (used by deep links).
+        $query->when($request->filled('id'), fn ($q) => $q->where('id', $request->integer('id')));
+
+        // Free-text search across the sublimation description and customer name.
+        $query->when($request->filled('search'), function ($q) use ($request) {
+            $search = $request->string('search');
+
+            $q->where(function ($sub) use ($search) {
+                $sub->where('description', 'like', "%{$search}%")
+                    ->orWhereHas('customer', function ($c) use ($search) {
+                        $c->where('first_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%");
+                    });
+            });
+        });
+
         $sortDirection = in_array($request->query('sort_direction'), ['asc', 'desc'])
             ? $request->query('sort_direction')
             : 'desc';
 
         $sortField = in_array($request->query('sort_field'), ['due_at', 'created_at', 'user_id'])
             ? $request->query('sort_field')
-            : 'due_at';
+            : 'created_at';
 
         $query->orderBy($sortField, $sortDirection);
 
@@ -117,13 +133,22 @@ class SublimationController extends Controller
             $branches = Branch::where('id', auth()->user()->branch_id)->get(['id', 'name']);
         }
 
-        if (auth()->user()->role === 'superadmin') {
-            $users = User::whereIn('role', ['admin', 'staff'])->get();
-        } else {
-            $users = User::whereIn('branch_id', $branches->pluck('id')->toArray())
-                ->whereIn('role', ['admin', 'staff'])
-                ->get();
+        $usersQuery = User::whereIn('role', ['admin', 'staff'])
+            ->orderBy('first_name');
+
+        // Non-superadmins only see users within their accessible branches.
+        if (auth()->user()->role !== 'superadmin') {
+            $usersQuery->whereIn('branch_id', $branches->pluck('id')->toArray());
         }
+
+        // When a branch is selected in the filter, scope the users list to it.
+        $selectedBranchIds = array_filter((array) ($filters['branch_id'] ?? []));
+
+        if (! empty($selectedBranchIds)) {
+            $usersQuery->whereIn('branch_id', $selectedBranchIds);
+        }
+
+        $users = $usersQuery->get();
 
         return Inertia::render('sublimations/list', [
             'sublimations' => $query->paginate(30)->withQueryString(),
@@ -185,7 +210,7 @@ class SublimationController extends Controller
 
             $sublimation->save();
 
-            if ($request->has('tag_ids')) {
+            if ($request->has('tag_ids') && ! $sublimation->tagsLocked()) {
                 $sublimation->tags()->sync($this->tagSyncPayload($tagIds));
             }
 
@@ -235,6 +260,7 @@ class SublimationController extends Controller
     public function duplicate(Request $request, Sublimation $sublimation): RedirectResponse
     {
         $validated = $request->validate([
+            'description' => ['required', 'string', 'max:255'],
             'tag_ids' => ['required', 'array', 'min:1'],
             'tag_ids.*.id' => ['required', 'integer', 'exists:tags,id'],
             'tag_ids.*.quantity' => ['required', 'integer', 'min:1'],
@@ -245,7 +271,7 @@ class SublimationController extends Controller
             $totalQuantity = collect($validated['tag_ids'])->sum('quantity');
 
             $copy = Sublimation::create([
-                'description' => $sublimation->description,
+                'description' => $validated['description'],
                 'notes' => $sublimation->notes,
                 'branch_id' => $sublimation->branch_id,
                 'customer_id' => $sublimation->customer_id,
@@ -258,11 +284,11 @@ class SublimationController extends Controller
 
             $copy->tags()->sync($this->tagSyncPayload($validated['tag_ids']));
 
-            return back()->with('success', 'Sublimation duplicated successfully.');
+            return back()->with('success', 'Additional items added to order.');
         } catch (\Exception $e) {
-            Log::error('Failed to duplicate sublimation: '.$e->getMessage());
+            Log::error('Failed to add items to sublimation: '.$e->getMessage());
 
-            return back()->withErrors(['message' => 'An error occurred while duplicating the sublimation.']);
+            return back()->withErrors(['message' => 'An error occurred while adding items to the order.']);
         }
     }
 

@@ -48,11 +48,17 @@ class SewedItemController extends Controller
         }
 
         $filters = [
+            'id' => $request->query('id'),
             'date_from' => $request->query('date_from'),
             'date_to' => $request->query('date_to'),
             'branch_id' => $request->query('branch_id'),
             'user_id' => $request->query('user_id'),
         ];
+
+        // Backend-only filter by a specific sewed item id (used by deep links).
+        if ($filters['id']) {
+            $query->where('id', $filters['id']);
+        }
 
         if ($filters['date_from']) {
             $query->where('sewed_date', '>=', $filters['date_from']);
@@ -74,7 +80,7 @@ class SewedItemController extends Controller
             $query->whereNull('completed_at');
         }
 
-        $sewedItems = $query->orderBy('sewed_date', 'desc')->paginate(20)->appends(array_filter($filters));
+        $sewedItems = $query->orderBy('created_at', 'desc')->paginate(20)->appends(array_filter($filters));
 
         $branches = [];
         $staff = [];

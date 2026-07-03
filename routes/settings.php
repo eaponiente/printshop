@@ -4,6 +4,7 @@ use App\Http\Controllers\Home\DashboardController;
 use App\Http\Controllers\Incentives\IncentiveController;
 use App\Http\Controllers\Payroll\Settings\PayrollSettingController;
 use App\Http\Controllers\PurchaseOrders\PurchaseOrderController;
+use App\Http\Controllers\ReleaseNotesController;
 use App\Http\Controllers\Sales\ExpenseController;
 use App\Http\Controllers\Sales\SaleController;
 use App\Http\Controllers\Settings\ProfileController;
@@ -38,6 +39,7 @@ Route::middleware(['auth'])->group(function () {
     Route::redirect('settings', '/settings/profile');
 
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('release-notes', [ReleaseNotesController::class, 'index'])->name('release-notes.index');
     Route::get('settings/profile', [ProfileController::class, 'edit'])->name('profile.edit');
 
     Route::patch('settings/profile', [ProfileController::class, 'update'])->name('profile.update');

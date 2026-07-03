@@ -34,10 +34,21 @@ class SaleController extends Controller
         $filters = array_merge([
             'date' => now()->toDateString(),
             'mode' => 'daily',
-            'tab' => 'payments',
+            'tab' => 'partial',
         ], $request->validated());
 
-        $isUnpaidTab = ($filters['tab'] ?? 'payments') === 'unpaid';
+        $tab = $filters['tab'] ?? 'partial';
+
+        // Each tab lists transactions by settlement status.
+        $status = match ($tab) {
+            'paid' => 'paid',
+            'unpaid' => 'pending',
+            default => 'partial',
+        };
+
+        // The breakdown is fixed to Partial+Paid collections and shown on every
+        // tab except Unpaid; it follows the date/branch/staff filters, not status.
+        $showSummary = $tab !== 'unpaid';
 
         $cashOnHand = $this->salesService->getCashOnHandTotal($request->input('branch_id', auth()->user()->branch_id));
 
@@ -49,33 +60,34 @@ class SaleController extends Controller
             ? User::whereIn('role', ['admin', 'staff'])->select('id', 'first_name', 'last_name', 'branch_id')->orderBy('first_name')->get()
             : collect();
 
-        if ($isUnpaidTab) {
-            $query = $this->salesService->getTransactionQuery(array_merge($filters, ['status' => 'pending']));
+        $transactions = $this->salesService
+            ->getTransactionQuery(array_merge($filters, ['status' => $status]))
+            ->paginate(100)
+            ->withQueryString();
 
-            return Inertia::render('sales/list', [
-                'filters' => $filters,
-                'branches' => $branches,
-                'users' => $users,
-                'transactions' => $query->paginate(100)->withQueryString(),
-                'types_of_payment' => TransactionTypeOfPaymentEnum::map(),
-                'cash_on_hand_amount' => $cashOnHand,
-                'is_payment_view' => false,
-            ]);
+        $summary = [];
+
+        if ($showSummary) {
+            // Deliberately pass $filters WITHOUT a status key so the breakdown
+            // always covers partial+paid (getPaymentQuery only sees paid-into
+            // transactions, i.e. amount_paid > 0).
+            $paymentQuery = $this->salesService->getPaymentQuery($filters);
+            $summary = array_merge(
+                $this->salesService->getPaymentAggregatesFromPayments($paymentQuery, $filters),
+                $this->salesService->getFinanceSummaryFromPayments($paymentQuery, $filters),
+            );
         }
-
-        $paymentQuery = $this->salesService->getPaymentQuery($filters);
-        $aggregates = $this->salesService->getPaymentAggregatesFromPayments($paymentQuery, $filters);
-        $financeSummary = $this->salesService->getFinanceSummaryFromPayments($paymentQuery, $filters);
 
         return Inertia::render('sales/list', array_merge([
             'filters' => $filters,
             'branches' => $branches,
             'users' => $users,
-            'transactions' => $paymentQuery->paginate(100)->withQueryString(),
+            'transactions' => $transactions,
             'types_of_payment' => TransactionTypeOfPaymentEnum::map(),
             'cash_on_hand_amount' => $cashOnHand,
-            'is_payment_view' => true,
-        ], $aggregates, $financeSummary));
+            'is_payment_view' => false,
+            'show_summary' => $showSummary,
+        ], $summary));
     }
 
     public function print(Request $request): JsonResponse
@@ -83,7 +95,7 @@ class SaleController extends Controller
         $filters = array_merge([
             'date' => now()->toDateString(),
             'mode' => 'daily',
-            'tab' => 'payments',
+            'tab' => 'partial',
         ], $request->all());
 
         $paymentQuery = $this->salesService->getPaymentQuery($filters);
