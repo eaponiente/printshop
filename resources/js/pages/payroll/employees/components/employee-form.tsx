@@ -41,6 +41,9 @@ export type EmployeeFormData = {
     philhealth_number: string;
     pagibig_number: string;
     tin_number: string;
+    sss_deduction_per_week: number;
+    philhealth_deduction_per_week: number;
+    pagibig_deduction_per_week: number;
     notes: string;
     username: string;
     password: string;
@@ -459,6 +462,87 @@ export function EmployeeForm({
                                 }
                             />
                             <InputError message={errors.tin_number} />
+                        </Field>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Weekly Statutory Deductions</CardTitle>
+                    <CardDescription>
+                        Fixed amount deducted each payroll period. Employer share
+                        is 2× this, and a deduction only applies when the matching
+                        ID number above is set.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                        <Field
+                            label="SSS / week (PHP)"
+                            htmlFor="sss_deduction_per_week"
+                            required={!!data.sss_number}
+                        >
+                            <Input
+                                id="sss_deduction_per_week"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={data.sss_deduction_per_week}
+                                onChange={(e) =>
+                                    setData(
+                                        'sss_deduction_per_week',
+                                        parseFloat(e.target.value) || 0,
+                                    )
+                                }
+                            />
+                            <InputError
+                                message={errors.sss_deduction_per_week}
+                            />
+                        </Field>
+                        <Field
+                            label="PhilHealth / week (PHP)"
+                            htmlFor="philhealth_deduction_per_week"
+                            required={!!data.philhealth_number}
+                        >
+                            <Input
+                                id="philhealth_deduction_per_week"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={data.philhealth_deduction_per_week}
+                                onChange={(e) =>
+                                    setData(
+                                        'philhealth_deduction_per_week',
+                                        parseFloat(e.target.value) || 0,
+                                    )
+                                }
+                            />
+                            <InputError
+                                message={errors.philhealth_deduction_per_week}
+                            />
+                        </Field>
+                        <Field
+                            label="Pag-IBIG / week (PHP)"
+                            htmlFor="pagibig_deduction_per_week"
+                            required={!!data.pagibig_number}
+                        >
+                            <Input
+                                id="pagibig_deduction_per_week"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={data.pagibig_deduction_per_week}
+                                onChange={(e) =>
+                                    setData(
+                                        'pagibig_deduction_per_week',
+                                        parseFloat(e.target.value) || 0,
+                                    )
+                                }
+                            />
+                            <InputError
+                                message={errors.pagibig_deduction_per_week}
+                            />
                         </Field>
                     </div>
                 </CardContent>

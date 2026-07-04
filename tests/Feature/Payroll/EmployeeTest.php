@@ -292,6 +292,9 @@ it('admin can update employee in same branch', function () {
             'philhealth_number' => '99-999999999-9',
             'pagibig_number' => '9999-9999-9999',
             'tin_number' => '999-999-999-999',
+            'sss_deduction_per_week' => 150,
+            'philhealth_deduction_per_week' => 75,
+            'pagibig_deduction_per_week' => 50,
             'notes' => 'Updated notes',
         ], loginFields(password: null)))
         ->assertRedirect();
@@ -493,6 +496,9 @@ it('stores government IDs', function () {
             'philhealth_number' => '12-345678901-2',
             'pagibig_number' => '1234-5678-9012',
             'tin_number' => '123-456-789-000',
+            'sss_deduction_per_week' => 150,
+            'philhealth_deduction_per_week' => 75,
+            'pagibig_deduction_per_week' => 50,
         ], loginFields()));
 
     $employee = Employee::where('first_name', 'Govt')->first();
