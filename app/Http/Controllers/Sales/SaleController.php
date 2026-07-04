@@ -39,13 +39,6 @@ class SaleController extends Controller
 
         $tab = $filters['tab'] ?? 'partial';
 
-        // Each tab lists transactions by settlement status.
-        $status = match ($tab) {
-            'paid' => 'paid',
-            'unpaid' => 'pending',
-            default => 'partial',
-        };
-
         // The breakdown is fixed to Partial+Paid collections and shown on every
         // tab except Unpaid; it follows the date/branch/staff filters, not status.
         $showSummary = $tab !== 'unpaid';
@@ -60,10 +53,23 @@ class SaleController extends Controller
             ? User::whereIn('role', ['admin', 'staff'])->select('id', 'first_name', 'last_name', 'branch_id')->orderBy('first_name')->get()
             : collect();
 
-        $transactions = $this->salesService
-            ->getTransactionQuery(array_merge($filters, ['status' => $status]))
-            ->paginate(100)
-            ->withQueryString();
+        if ($tab === 'unpaid') {
+            // Unpaid = pending transactions; they have no payments to list.
+            $transactions = $this->salesService
+                ->getTransactionQuery(array_merge($filters, ['status' => 'pending']))
+                ->paginate(100)
+                ->withQueryString();
+            $isPaymentView = false;
+        } else {
+            // Partial / Paid: one row per payment (not grouped by transaction),
+            // scoped to that settlement status of the parent transaction.
+            $status = $tab === 'paid' ? 'paid' : 'partial';
+            $transactions = $this->salesService
+                ->getPaymentQuery(array_merge($filters, ['status' => $status]))
+                ->paginate(100)
+                ->withQueryString();
+            $isPaymentView = true;
+        }
 
         $summary = [];
 
@@ -85,7 +91,7 @@ class SaleController extends Controller
             'transactions' => $transactions,
             'types_of_payment' => TransactionTypeOfPaymentEnum::map(),
             'cash_on_hand_amount' => $cashOnHand,
-            'is_payment_view' => false,
+            'is_payment_view' => $isPaymentView,
             'show_summary' => $showSummary,
         ], $summary));
     }
