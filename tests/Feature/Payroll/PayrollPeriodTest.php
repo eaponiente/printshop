@@ -68,6 +68,9 @@ function createEmployeeWithAttendance(
         'sss_number' => $govtIds['sss'] ?? null,
         'philhealth_number' => $govtIds['phic'] ?? null,
         'pagibig_number' => $govtIds['pagibig'] ?? null,
+        'sss_deduction_per_week' => 165.75,
+        'philhealth_deduction_per_week' => 82.88,
+        'pagibig_deduction_per_week' => 50.00,
     ]);
 
     if (! Salary::where('employee_id', $emp->id)->exists()) {
@@ -287,9 +290,12 @@ it('computes SSS deduction only when employee has sss_number', function () {
     $itemWith = PayrollPeriodItem::where('employee_id', $withSSS->id)->first();
     $itemWithout = PayrollPeriodItem::where('employee_id', $withoutSSS->id)->first();
 
-    // SSS: 510 × 26 = 13260, 13260 × 5% / 100 / 4 = 165.75
-    expect((float) $itemWith->sss_deduction)->toBeGreaterThan(0);
+    // Fixed per-employee weekly amount, applied as-is; employer share is 2x.
+    expect((float) $itemWith->sss_deduction)->toEqual(165.75);
+    expect((float) $itemWith->sss_employer)->toEqual(331.50);
+    // Gated off when no sss_number, even though an amount is set.
     expect((float) $itemWithout->sss_deduction)->toEqual(0.0);
+    expect((float) $itemWithout->sss_employer)->toEqual(0.0);
 });
 
 it('computes Pag-IBIG only when employee has pagibig_number', function () {
@@ -306,7 +312,9 @@ it('computes Pag-IBIG only when employee has pagibig_number', function () {
     $itemWithout = PayrollPeriodItem::where('employee_id', $without->id)->first();
 
     expect((float) $itemWith->pagibig_deduction)->toEqual(50.0);
+    expect((float) $itemWith->pagibig_employer)->toEqual(100.0);
     expect((float) $itemWithout->pagibig_deduction)->toEqual(0.0);
+    expect((float) $itemWithout->pagibig_employer)->toEqual(0.0);
 });
 
 it('computes PhilHealth only when employee has philhealth_number', function () {
@@ -322,8 +330,10 @@ it('computes PhilHealth only when employee has philhealth_number', function () {
     $itemWith = PayrollPeriodItem::where('employee_id', $with->id)->first();
     $itemWithout = PayrollPeriodItem::where('employee_id', $without->id)->first();
 
-    expect((float) $itemWith->philhealth_deduction)->toBeGreaterThan(0);
+    expect((float) $itemWith->philhealth_deduction)->toEqual(82.88);
+    expect((float) $itemWith->philhealth_employer)->toEqual(165.76);
     expect((float) $itemWithout->philhealth_deduction)->toEqual(0.0);
+    expect((float) $itemWithout->philhealth_employer)->toEqual(0.0);
 });
 
 it('deducts cash advance up to net receivable', function () {
@@ -954,27 +964,25 @@ it('net_pay equals gross_pay + deminimis minus statutory and cash advance only',
     expect((float) $item->gross_pay)->toBeLessThan(510 * 5);
 });
 
-// ──────────── SSS: divide by actual payrolls in month ────────────
+// ──────────── SSS: fixed weekly amount, no month spreading ────────────
 
-it('SSS is divided by 5 in a month with 5 payroll periods', function () {
-    // June 2026 starts on a Monday — it has 5 Mondays (1, 8, 15, 22, 29).
+it('SSS deducts the fixed weekly amount regardless of Mondays in a 5-Monday month', function () {
+    // June 2026 has 5 Mondays — the fixed weekly amount is applied as-is.
     createEmployeeWithAttendance($this->branchA, 'FiveWeek', 510, ['sss' => '123', 'phic' => null, 'pagibig' => null], 0);
 
     $period = app(PayrollPeriodService::class)->generate($this->branchA, '2026-06-29', '2026-07-04');
     $item = PayrollPeriodItem::where('payroll_period_id', $period->id)->first();
 
-    // monthly salary = 510*26 = 13,260 → 13,260 * 5% = 663 → 663 / 5 = 132.60
-    expect((float) $item->sss_deduction)->toBe(132.60);
+    expect((float) $item->sss_deduction)->toBe(165.75);
 });
 
-it('SSS is divided by 4 in a month with 4 payroll periods', function () {
-    // July 2026 starts on Wednesday — it has 4 Mondays (6, 13, 20, 27).
+it('SSS deducts the same fixed weekly amount in a 4-Monday month', function () {
+    // July 2026 has 4 Mondays — still the same fixed weekly amount (no spreading).
     createEmployeeWithAttendance($this->branchA, 'FourWeek', 510, ['sss' => '123', 'phic' => null, 'pagibig' => null], 0);
 
     $period = app(PayrollPeriodService::class)->generate($this->branchA, '2026-07-06', '2026-07-11');
     $item = PayrollPeriodItem::where('payroll_period_id', $period->id)->first();
 
-    // monthly salary = 510*26 = 13,260 → 13,260 * 5% = 663 → 663 / 4 = 165.75
     expect((float) $item->sss_deduction)->toBe(165.75);
 });
 

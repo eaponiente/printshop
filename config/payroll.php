@@ -29,6 +29,20 @@ return [
 
     'late_deduction_threshold_minutes' => env('PAYROLL_LATE_DEDUCTION_THRESHOLD_MINUTES', 20),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Half-Day Threshold Minutes
+    |--------------------------------------------------------------------------
+    |
+    | Arriving this many minutes (or more) after the schedule start turns the
+    | day into an afternoon-only half day: the morning is unpaid, no late
+    | deduction is applied, and only the afternoon session is paid. Read from
+    | payroll_settings first, falling back to this env value.
+    |
+    */
+
+    'half_day_threshold_minutes' => env('PAYROLL_HALF_DAY_THRESHOLD_MINUTES', 60),
+
     'no_break_fine' => env('PAYROLL_NO_BREAK_FINE', 20),
 
 ];

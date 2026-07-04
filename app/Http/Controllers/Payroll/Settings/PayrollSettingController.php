@@ -52,6 +52,7 @@ class PayrollSettingController extends Controller
             'defaults' => [
                 'late_deduction_per_minute' => (string) config('payroll.late_deduction_per_minute'),
                 'late_deduction_threshold_minutes' => (string) config('payroll.late_deduction_threshold_minutes'),
+                'half_day_threshold_minutes' => (string) config('payroll.half_day_threshold_minutes'),
                 'no_break_fine' => (string) config('payroll.no_break_fine'),
             ],
         ]);
@@ -62,6 +63,7 @@ class PayrollSettingController extends Controller
         $fields = [
             'late_deduction_per_minute',
             'late_deduction_threshold_minutes',
+            'half_day_threshold_minutes',
             'no_break_fine',
         ];
 

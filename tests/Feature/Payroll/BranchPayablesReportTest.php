@@ -61,6 +61,9 @@ function createEmployeeWithAttendanceForPayables(
         'sss_number' => $govtIds['sss'] ?? null,
         'philhealth_number' => $govtIds['phic'] ?? null,
         'pagibig_number' => $govtIds['pagibig'] ?? null,
+        'sss_deduction_per_week' => 165.75,
+        'philhealth_deduction_per_week' => 82.88,
+        'pagibig_deduction_per_week' => 50.00,
     ]);
 
     if (! Salary::where('employee_id', $emp->id)->exists()) {
@@ -103,15 +106,10 @@ test('employer shares are computed and stored on payroll generation', function (
     $item = $period->items()->first();
     expect($item)->not->toBeNull();
 
-    $monthlySalary = 510 * 26;
-
-    $expectedSss = round($monthlySalary * 10 / 100 / 4, 2);
-    expect((float) $item->sss_employer)->toBe($expectedSss);
-
-    $expectedPhilHealth = round($monthlySalary * 0.05 * 0.50 / 4, 2);
-    expect((float) $item->philhealth_employer)->toBe($expectedPhilHealth);
-
-    expect((float) $item->pagibig_employer)->toBe(50.00);
+    // Employer share is always 2x the employee's fixed weekly deduction.
+    expect((float) $item->sss_employer)->toBe(round(165.75 * 2, 2));
+    expect((float) $item->philhealth_employer)->toBe(round(82.88 * 2, 2));
+    expect((float) $item->pagibig_employer)->toBe(round(50.00 * 2, 2));
 });
 
 test('employer shares are zero when govt numbers are missing', function () {

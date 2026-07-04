@@ -91,17 +91,22 @@ it('charges 0 for on-time arrival', function () {
     expect($sheet->late_deduction)->toBe('0.00');
 });
 
-it('charges correctly for 65 minutes late', function () {
+it('treats 60+ minutes late as an afternoon half day with no late deduction', function () {
     $date = '2026-06-01';
-    punchInAt($this->employee, $date, '09:05');
+    punchInAt($this->employee, $date, '09:05'); // 65 minutes late
+    TimeLog::create([
+        'employee_id' => $this->employee->id,
+        'timestamp' => Carbon::parse("{$date} 17:00"),
+        'type' => PunchType::OUT,
+        'source' => PunchSource::SELF_SERVICE,
+    ]);
 
     $sheet = $this->service->processDailyAttendance($this->employee, $date);
 
-    $hourlyRate = 510 / 8;
-    $expected = round((20 * 10) + (45 * ($hourlyRate / 60)), 2);
-
-    expect((int) $sheet->late_minutes)->toBe(65);
-    expect((string) $sheet->late_deduction)->toBe((string) $expected);
+    // Morning is unpaid, no late deduction — only the afternoon (13:00–17:00) is paid.
+    expect((int) $sheet->late_minutes)->toBe(0);
+    expect((float) $sheet->late_deduction)->toBe(0.0);
+    expect((float) $sheet->daily_wage)->toBe(255.0); // half of ₱510
 });
 
 it('subtracts late_deduction from daily_wage', function () {
