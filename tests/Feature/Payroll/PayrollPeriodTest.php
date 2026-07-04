@@ -933,6 +933,49 @@ it('only superadmin can void a period', function () {
     expect($sheets->count())->toBe(0);
 });
 
+it('restores cash advance balances when an approved period is voided', function () {
+    $emp = createEmployeeWithAttendance($this->branchA, 'Emp', 510, ['sss' => null, 'phic' => null, 'pagibig' => null]);
+
+    $ca = CashAdvance::create([
+        'employee_id' => $emp->id,
+        'amount' => 1000,
+        'remaining_balance' => 1000,
+        'reason' => 'Test',
+        'status' => 'approved',
+    ]);
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.generate'), [
+            'period_start' => '2026-05-25',
+            'period_end' => '2026-05-30',
+        ]);
+
+    $ca->refresh();
+    expect((float) $ca->remaining_balance)->toBe(0.0);
+    expect($ca->status)->toBe('paid');
+
+    $period = PayrollPeriod::where('branch_id', $this->branchA->id)->first();
+    $item = PayrollPeriodItem::where('payroll_period_id', $period->id)->where('employee_id', $emp->id)->first();
+
+    $this->actingAs($this->superadmin)
+        ->post(route('payroll.periods.approve', $period));
+
+    $this->actingAs($this->superadmin)
+        ->post(route('payroll.periods.void', $period))
+        ->assertRedirect();
+
+    $ca->refresh();
+    expect((float) $ca->remaining_balance)->toBe(1000.0);
+    expect($ca->status)->toBe('approved');
+
+    // The period and its item are kept for audit (unlike delete()), but the
+    // now-reversed ledger entry is cleared so it can't be double-counted.
+    $period->refresh();
+    expect($period->status)->toBe(PayrollPeriodStatus::VOIDED);
+    expect(PayrollPeriodItem::whereKey($item->id)->exists())->toBeTrue();
+    expect(CashAdvanceDeduction::where('payroll_period_item_id', $item->id)->exists())->toBeFalse();
+});
+
 it('prevents voiding a draft period', function () {
     createEmployeeWithAttendance($this->branchA, 'Emp');
 

@@ -292,6 +292,8 @@ class PayrollPeriodService
                 ->whereNotNull('locked_at')
                 ->update(['locked_at' => null]);
 
+            $this->reverseCashAdvanceDeductions($period);
+
             $period->update([
                 'status' => PayrollPeriodStatus::VOIDED,
             ]);
@@ -399,10 +401,14 @@ class PayrollPeriodService
 
     /**
      * Restore cash advance balances that were reduced when generating this
-     * period, since deleting the period undoes its payroll effect. Reverses
-     * exactly the amount each advance ledger entry recorded, regardless of
-     * whether other (still-existing) periods have since deducted from the
-     * same advance.
+     * period, since voiding/deleting the period undoes its payroll effect.
+     * Reverses exactly the amount each advance ledger entry recorded,
+     * regardless of whether other (still-existing) periods have since
+     * deducted from the same advance.
+     *
+     * Called by both void() (which keeps the period/items for audit — only
+     * the ledger rows are cleared so they don't double-count) and delete()
+     * (where the items are removed outright afterward anyway).
      */
     protected function reverseCashAdvanceDeductions(PayrollPeriod $period): void
     {
@@ -428,5 +434,7 @@ class PayrollPeriodService
                 'status' => $restoredBalance > 0 ? 'approved' : $ca->status,
             ]);
         }
+
+        CashAdvanceDeduction::whereIn('payroll_period_item_id', $itemIds)->delete();
     }
 }
