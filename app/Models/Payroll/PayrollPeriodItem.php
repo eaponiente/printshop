@@ -4,6 +4,7 @@ namespace App\Models\Payroll;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PayrollPeriodItem extends Model
 {
@@ -39,5 +40,10 @@ class PayrollPeriodItem extends Model
     public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class);
+    }
+
+    public function cashAdvanceDeductions(): HasMany
+    {
+        return $this->hasMany(CashAdvanceDeduction::class);
     }
 }

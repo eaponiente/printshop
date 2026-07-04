@@ -5,6 +5,7 @@ namespace Payroll\Attendance\Services;
 use App\Models\Branch;
 use App\Models\Payroll\AttendanceSheet;
 use App\Models\Payroll\CashAdvance;
+use App\Models\Payroll\CashAdvanceDeduction;
 use App\Models\Payroll\Employee;
 use App\Models\Payroll\Holiday;
 use App\Models\Payroll\PayrollPeriod;
@@ -212,14 +213,15 @@ class PayrollPeriodService
         $philhealthEmployer = round($philhealthDeduction * 2, 2);
         $pagibigEmployer = round($pagibigDeduction * 2, 2);
 
-        $caDeduction = $this->computeCADeduction($employee, $grossPay + $deminimisEarnings - $sssDeduction - $philhealthDeduction - $pagibigDeduction);
+        $caResult = $this->computeCADeduction($employee, $grossPay + $deminimisEarnings - $sssDeduction - $philhealthDeduction - $pagibigDeduction);
+        $caDeduction = $caResult['total'];
 
         $netPay = round($grossPay + $deminimisEarnings - $sssDeduction - $philhealthDeduction - $pagibigDeduction - $caDeduction, 2);
         if ($netPay < 0) {
             $netPay = 0;
         }
 
-        return PayrollPeriodItem::create([
+        $item = PayrollPeriodItem::create([
             'payroll_period_id' => $period->id,
             'employee_id' => $employee->id,
             'total_regular_days' => $totalRegularDays,
@@ -247,6 +249,16 @@ class PayrollPeriodService
             'daily_rate' => $dailyRate,
             'sss_bracket' => null,
         ]);
+
+        foreach ($caResult['breakdown'] as $cashAdvanceId => $amount) {
+            CashAdvanceDeduction::create([
+                'payroll_period_item_id' => $item->id,
+                'cash_advance_id' => $cashAdvanceId,
+                'amount' => $amount,
+            ]);
+        }
+
+        return $item;
     }
 
     public function approve(PayrollPeriod $period, int $approvedBy): void
@@ -300,6 +312,8 @@ class PayrollPeriodService
                 ->whereNotNull('locked_at')
                 ->update(['locked_at' => null]);
 
+            $this->reverseCashAdvanceDeductions($period);
+
             $period->items()->delete();
 
             $period->delete();
@@ -342,8 +356,15 @@ class PayrollPeriodService
      * An employee may have several concurrent cash advances. Deduct against
      * each one FIFO (oldest first) until the net receivable for the period is
      * exhausted or every advance is paid off.
+     *
+     * Returns the total deduction plus a per-advance breakdown (cash_advance_id
+     * => amount) so the caller can record a ledger entry per item. That ledger
+     * is what lets a period deletion reverse the exact amounts taken from each
+     * advance instead of only the lump sum.
+     *
+     * @return array{total: float, breakdown: array<int, float>}
      */
-    protected function computeCADeduction(Employee $employee, float $netReceivable): float
+    protected function computeCADeduction(Employee $employee, float $netReceivable): array
     {
         $activeCAs = CashAdvance::where('employee_id', $employee->id)
             ->whereIn('status', ['approved', 'unpaid'])
@@ -353,6 +374,7 @@ class PayrollPeriodService
 
         $remaining = $netReceivable;
         $totalDeduction = 0.0;
+        $breakdown = [];
 
         foreach ($activeCAs as $ca) {
             if ($remaining <= 0) {
@@ -367,10 +389,44 @@ class PayrollPeriodService
                 'status' => $newBalance <= 0 ? 'paid' : $ca->status,
             ]);
 
+            $breakdown[$ca->id] = round($deduction, 2);
             $totalDeduction += $deduction;
             $remaining -= $deduction;
         }
 
-        return round($totalDeduction, 2);
+        return ['total' => round($totalDeduction, 2), 'breakdown' => $breakdown];
+    }
+
+    /**
+     * Restore cash advance balances that were reduced when generating this
+     * period, since deleting the period undoes its payroll effect. Reverses
+     * exactly the amount each advance ledger entry recorded, regardless of
+     * whether other (still-existing) periods have since deducted from the
+     * same advance.
+     */
+    protected function reverseCashAdvanceDeductions(PayrollPeriod $period): void
+    {
+        $itemIds = $period->items()->pluck('id');
+
+        if ($itemIds->isEmpty()) {
+            return;
+        }
+
+        $deductions = CashAdvanceDeduction::whereIn('payroll_period_item_id', $itemIds)->get();
+
+        foreach ($deductions as $deduction) {
+            $ca = CashAdvance::lockForUpdate()->find($deduction->cash_advance_id);
+
+            if (! $ca) {
+                continue;
+            }
+
+            $restoredBalance = round((float) $ca->remaining_balance + (float) $deduction->amount, 2);
+
+            $ca->update([
+                'remaining_balance' => $restoredBalance,
+                'status' => $restoredBalance > 0 ? 'approved' : $ca->status,
+            ]);
+        }
     }
 }
