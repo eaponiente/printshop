@@ -123,8 +123,7 @@ class AttendanceService
                 // Tardy:
                 //  - Regular / morning: minutes past schedule start.
                 //  - Afternoon half: no penalty when in by the afternoon start;
-                //    otherwise minutes past the afternoon start (same threshold
-                //    and per-minute rate as the morning).
+                //    otherwise minutes past the afternoon start.
                 if (! $isAfternoonHalf) {
                     if ($rawInTime->gt($scheduleStart)) {
                         $lateMinutes = (int) abs($rawInTime->diffInMinutes($scheduleStart));
@@ -136,7 +135,12 @@ class AttendanceService
                 $perMinute = (float) (app(PayrollSettingService::class)->get('late_deduction_per_minute', config('payroll.late_deduction_per_minute')));
                 $threshold = (int) (app(PayrollSettingService::class)->get('late_deduction_threshold_minutes', config('payroll.late_deduction_threshold_minutes')));
 
-                if ($lateMinutes <= $threshold) {
+                if ($isAfternoonHalf) {
+                    // Afternoon-late half day keeps the full half-day wage and is
+                    // penalised only by the flat per-minute rate for up to the
+                    // threshold (no hourly-rate escalation beyond it).
+                    $lateDeduction = round(min($lateMinutes, $threshold) * $perMinute, 2);
+                } elseif ($lateMinutes <= $threshold) {
                     $lateDeduction = round($lateMinutes * $perMinute, 2);
                 } else {
                     $lateDeduction = round(
@@ -181,23 +185,16 @@ class AttendanceService
                 $undertimeDeduction = round(($undertimeMinutes / 60) * $hourlyRate, 2);
 
                 // Half-day: charge only for the missing half, capped at paidEndTime.
-                // Morning half uses scheduleStart so the late penalty doesn't also
-                // inflate undertime. Afternoon half pays a flat afternoon (from the
-                // afternoon start) when in on time; when late for the afternoon it
-                // pays only from the actual punch — so those minutes are lost pay on
-                // top of the separate late deduction.
+                // Morning half anchors on scheduleStart; afternoon half anchors on
+                // the afternoon start — so it always pays the full afternoon session
+                // (flat half-day wage). Afternoon lateness is handled solely by the
+                // capped late deduction above, never by trimming paid hours.
                 if (($isMorningHalf || $isAfternoonHalf) && $outPunch) {
                     $outTimeForHalf = Carbon::parse($outPunch->timestamp);
                     if ($outTimeForHalf->gt($paidEndTime)) {
                         $outTimeForHalf = $paidEndTime->copy();
                     }
-                    if ($isMorningHalf) {
-                        $halfStartTime = $scheduleStart;
-                    } else {
-                        $halfStartTime = $rawInTime->lte($afternoonStart)
-                            ? $afternoonStart->copy()
-                            : $inTime;
-                    }
+                    $halfStartTime = $isMorningHalf ? $scheduleStart : $afternoonStart->copy();
                     $halfWorkedMinutes = (int) max(0, $halfStartTime->diffInMinutes($outTimeForHalf));
                     $fullDayMinutes = $scheduledPaidMinutes - $unpaidTailMinutes;
                     $undertimeMinutes = max(0, $fullDayMinutes - $halfWorkedMinutes);
