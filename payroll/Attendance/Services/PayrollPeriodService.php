@@ -338,25 +338,39 @@ class PayrollPeriodService
         return $total;
     }
 
+    /**
+     * An employee may have several concurrent cash advances. Deduct against
+     * each one FIFO (oldest first) until the net receivable for the period is
+     * exhausted or every advance is paid off.
+     */
     protected function computeCADeduction(Employee $employee, float $netReceivable): float
     {
-        $activeCA = CashAdvance::where('employee_id', $employee->id)
+        $activeCAs = CashAdvance::where('employee_id', $employee->id)
             ->whereIn('status', ['approved', 'unpaid'])
             ->where('remaining_balance', '>', 0)
-            ->first();
+            ->orderBy('created_at')
+            ->get();
 
-        if (! $activeCA) {
-            return 0;
+        $remaining = $netReceivable;
+        $totalDeduction = 0.0;
+
+        foreach ($activeCAs as $ca) {
+            if ($remaining <= 0) {
+                break;
+            }
+
+            $deduction = min((float) $ca->remaining_balance, $remaining);
+            $newBalance = round((float) $ca->remaining_balance - $deduction, 2);
+
+            $ca->update([
+                'remaining_balance' => $newBalance,
+                'status' => $newBalance <= 0 ? 'paid' : $ca->status,
+            ]);
+
+            $totalDeduction += $deduction;
+            $remaining -= $deduction;
         }
 
-        $deduction = min((float) $activeCA->remaining_balance, $netReceivable);
-        $newBalance = (float) $activeCA->remaining_balance - $deduction;
-
-        $activeCA->update([
-            'remaining_balance' => $newBalance,
-            'status' => $newBalance <= 0 ? 'paid' : $activeCA->status,
-        ]);
-
-        return round($deduction, 2);
+        return round($totalDeduction, 2);
     }
 }

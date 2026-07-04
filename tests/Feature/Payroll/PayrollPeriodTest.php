@@ -363,6 +363,71 @@ it('deducts cash advance up to net receivable', function () {
     expect($ca->status)->toBe('paid');
 });
 
+it('deducts across multiple cash advances in FIFO order, oldest first', function () {
+    $emp = createEmployeeWithAttendance($this->branchA, 'Emp', 510, ['sss' => null, 'phic' => null, 'pagibig' => null]);
+
+    $older = CashAdvance::create([
+        'employee_id' => $emp->id,
+        'amount' => 1000,
+        'remaining_balance' => 1000,
+        'reason' => 'First CA',
+        'status' => 'approved',
+        'created_at' => now()->subDay(),
+    ]);
+
+    $newer = CashAdvance::create([
+        'employee_id' => $emp->id,
+        'amount' => 3000,
+        'remaining_balance' => 3000,
+        'reason' => 'Second CA',
+        'status' => 'approved',
+    ]);
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.generate'), [
+            'period_start' => '2026-05-25',
+            'period_end' => '2026-05-30',
+        ]);
+
+    $item = PayrollPeriodItem::where('employee_id', $emp->id)->first();
+
+    // Gross = 510 × 5 = 2550. The older CA (1000) is paid off first; the
+    // remaining 1550 is applied to the newer CA, leaving it partially owed.
+    expect((float) $item->ca_deduction)->toBe(2550.0);
+    expect((float) $item->net_pay)->toBe(0.0);
+
+    $older->refresh();
+    $newer->refresh();
+
+    expect((float) $older->remaining_balance)->toBe(0.0);
+    expect($older->status)->toBe('paid');
+
+    expect((float) $newer->remaining_balance)->toBe(1450.0);
+    expect($newer->status)->toBe('approved');
+});
+
+it('allows multiple active cash advances to exist for the same employee simultaneously', function () {
+    $emp = createEmployeeWithAttendance($this->branchA, 'Emp', 510, ['sss' => null, 'phic' => null, 'pagibig' => null]);
+
+    CashAdvance::create([
+        'employee_id' => $emp->id,
+        'amount' => 200,
+        'remaining_balance' => 200,
+        'reason' => 'First CA',
+        'status' => 'approved',
+    ]);
+
+    CashAdvance::create([
+        'employee_id' => $emp->id,
+        'amount' => 300,
+        'remaining_balance' => 300,
+        'reason' => 'Second CA',
+        'status' => 'approved',
+    ]);
+
+    expect(CashAdvance::where('employee_id', $emp->id)->count())->toBe(2);
+});
+
 // ──────────── Batch 4: Edge cases ────────────
 
 it('gives no holiday pay when employee does not work on regular holiday', function () {
