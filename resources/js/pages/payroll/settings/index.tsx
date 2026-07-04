@@ -34,6 +34,7 @@ type Props = {
     defaults: {
         late_deduction_per_minute: string;
         late_deduction_threshold_minutes: string;
+        half_day_threshold_minutes: string;
         no_break_fine: string;
     };
 };
@@ -52,6 +53,9 @@ export default function PayrollSettings({
                 late_deduction_per_minute: fd.get('late_deduction_per_minute'),
                 late_deduction_threshold_minutes: fd.get(
                     'late_deduction_threshold_minutes',
+                ),
+                half_day_threshold_minutes: fd.get(
+                    'half_day_threshold_minutes',
                 ),
                 no_break_fine: fd.get('no_break_fine'),
             } as any,
@@ -114,6 +118,24 @@ export default function PayrollSettings({
                         <p className="text-xs text-muted-foreground">
                             Minutes after which the penalty switches from
                             per-minute flat rate to hourly-rate-based.
+                        </p>
+                    </div>
+
+                    <div className="space-y-1">
+                        <Label htmlFor="half_day_threshold_minutes">
+                            Half-day threshold (minutes)
+                        </Label>
+                        <Input
+                            id="half_day_threshold_minutes"
+                            name="half_day_threshold_minutes"
+                            type="number"
+                            min="1"
+                            defaultValue={value('half_day_threshold_minutes')}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            Minutes late (from schedule start) at which the day
+                            becomes an afternoon-only half day: morning unpaid,
+                            no late deduction, afternoon session paid.
                         </p>
                     </div>
 

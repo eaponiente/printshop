@@ -55,6 +55,7 @@ it('allows superadmin to update settings and creates audit log', function () {
         ->put('/payroll/settings', [
             'late_deduction_per_minute' => '7',
             'late_deduction_threshold_minutes' => '15',
+            'half_day_threshold_minutes' => '60',
             'no_break_fine' => '20',
         ]);
 
@@ -88,6 +89,7 @@ it('does not create audit log for unchanged values', function () {
         ->put('/payroll/settings', [
             'late_deduction_per_minute' => '10',
             'late_deduction_threshold_minutes' => '20',
+            'half_day_threshold_minutes' => '60',
             'no_break_fine' => '20',
         ]);
 

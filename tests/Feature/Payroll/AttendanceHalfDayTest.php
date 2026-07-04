@@ -219,3 +219,96 @@ it('does not treat leaving after 1pm as a morning half-day', function () {
     expect((int) $sheet->undertime_minutes)->toBe(180);
     expect((float) $sheet->fine_deduction)->toBe(20.0);
 });
+
+// --- Late ≥ 1 hour in the morning becomes an afternoon-only half day ---
+
+function hdPunch(Employee $employee, string $date, string $time, PunchType $type): void
+{
+    TimeLog::create([
+        'employee_id' => $employee->id,
+        'timestamp' => Carbon::parse("{$date} {$time}"),
+        'type' => $type,
+        'source' => PunchSource::SELF_SERVICE,
+    ]);
+}
+
+it('turns exactly 1 hour late into a half day with no late deduction', function () {
+    $date = '2026-06-01';
+    hdPunch($this->employee, $date, '09:00', PunchType::IN); // 60 min late
+    hdPunch($this->employee, $date, '17:00', PunchType::OUT);
+
+    $sheet = $this->service->processDailyAttendance($this->employee, $date);
+
+    expect((int) $sheet->late_minutes)->toBe(0);
+    expect((float) $sheet->late_deduction)->toBe(0.0);
+    expect((int) $sheet->undertime_minutes)->toBe(240);
+    expect((float) $sheet->daily_wage)->toBe(round(510 - 4 * $this->hourlyRate, 2)); // 255
+});
+
+it('pays a flat afternoon regardless of the exact (late) morning arrival', function () {
+    $date = '2026-06-01';
+    hdPunch($this->employee, $date, '10:30', PunchType::IN); // deep into the morning
+    hdPunch($this->employee, $date, '17:00', PunchType::OUT);
+
+    $sheet = $this->service->processDailyAttendance($this->employee, $date);
+
+    expect((float) $sheet->late_deduction)->toBe(0.0);
+    expect((float) $sheet->daily_wage)->toBe(round(510 - 4 * $this->hourlyRate, 2)); // 255
+});
+
+it('pays 1pm–5pm when arriving at noon', function () {
+    $date = '2026-06-01';
+    hdPunch($this->employee, $date, '12:00', PunchType::IN);
+    hdPunch($this->employee, $date, '17:00', PunchType::OUT);
+
+    $sheet = $this->service->processDailyAttendance($this->employee, $date);
+
+    expect((int) $sheet->late_minutes)->toBe(0);
+    expect((float) $sheet->daily_wage)->toBe(round(510 - 4 * $this->hourlyRate, 2)); // 255
+});
+
+it('applies a late deduction AND reduced pay when late for the afternoon session', function () {
+    $date = '2026-06-01';
+    hdPunch($this->employee, $date, '13:10', PunchType::IN); // 10 min late for 1pm
+    hdPunch($this->employee, $date, '17:00', PunchType::OUT);
+
+    $sheet = $this->service->processDailyAttendance($this->employee, $date);
+
+    $lateDeduction = round(10 * 10, 2);                        // 10 min within threshold
+    $undertime = round((250 / 60) * $this->hourlyRate, 2);     // only 230m of 480 worked
+
+    expect((int) $sheet->late_minutes)->toBe(10);
+    expect((float) $sheet->late_deduction)->toBe($lateDeduction);
+    expect((int) $sheet->undertime_minutes)->toBe(250);
+    expect((float) $sheet->daily_wage)->toBe(round(510 - $lateDeduction - $undertime, 2));
+});
+
+it('keeps 59 minutes late as a full day (just under the 1-hour cutoff)', function () {
+    $date = '2026-06-01';
+    hdPunch($this->employee, $date, '08:59', PunchType::IN);
+    hdPunch($this->employee, $date, '12:00', PunchType::LUNCH_OUT);
+    hdPunch($this->employee, $date, '13:00', PunchType::LUNCH_IN);
+    hdPunch($this->employee, $date, '17:00', PunchType::OUT);
+
+    $sheet = $this->service->processDailyAttendance($this->employee, $date);
+
+    expect((int) $sheet->late_minutes)->toBe(59);
+    expect((float) $sheet->late_deduction)->toBeGreaterThan(0.0);
+    expect((float) $sheet->daily_wage)->toBeGreaterThan(255.0); // full day, not the flat half
+});
+
+it('respects a configurable half-day threshold', function () {
+    app(\App\Services\Payroll\PayrollSettingService::class)->set('half_day_threshold_minutes', '90');
+
+    $date = '2026-06-01';
+    hdPunch($this->employee, $date, '09:05', PunchType::IN); // 65 min late, under the 90 cutoff
+    hdPunch($this->employee, $date, '12:00', PunchType::LUNCH_OUT);
+    hdPunch($this->employee, $date, '13:00', PunchType::LUNCH_IN);
+    hdPunch($this->employee, $date, '17:00', PunchType::OUT);
+
+    $sheet = $this->service->processDailyAttendance($this->employee, $date);
+
+    expect((int) $sheet->late_minutes)->toBe(65);
+    expect((float) $sheet->late_deduction)->toBeGreaterThan(0.0);
+    expect((float) $sheet->daily_wage)->not->toBe(255.0);
+});
