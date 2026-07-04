@@ -504,6 +504,79 @@ it('restores multiple cash advances (FIFO) when the draft period is deleted', fu
     expect($newer->status)->toBe('approved');
 });
 
+it('reverses all three cash advances when the period that fully paid them off is deleted', function () {
+    $emp = createEmployeeWithAttendance($this->branchA, 'Emp', 510, ['sss' => null, 'phic' => null, 'pagibig' => null]);
+
+    $ca1 = CashAdvance::create([
+        'employee_id' => $emp->id,
+        'amount' => 500,
+        'remaining_balance' => 500,
+        'reason' => 'First CA',
+        'status' => 'approved',
+        'created_at' => now()->subDays(3),
+    ]);
+
+    $ca2 = CashAdvance::create([
+        'employee_id' => $emp->id,
+        'amount' => 700,
+        'remaining_balance' => 700,
+        'reason' => 'Second CA',
+        'status' => 'approved',
+        'created_at' => now()->subDays(2),
+    ]);
+
+    $ca3 = CashAdvance::create([
+        'employee_id' => $emp->id,
+        'amount' => 800,
+        'remaining_balance' => 800,
+        'reason' => 'Third CA',
+        'status' => 'approved',
+        'created_at' => now()->subDay(),
+    ]);
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.generate'), [
+            'period_start' => '2026-05-25',
+            'period_end' => '2026-05-30',
+        ]);
+
+    $item = PayrollPeriodItem::where('employee_id', $emp->id)->first();
+
+    // Gross = 510 × 5 = 2550. All three advances (500 + 700 + 800 = 2000)
+    // are fully paid off within this single period.
+    expect((float) $item->ca_deduction)->toBe(2000.0);
+    expect((float) $item->net_pay)->toBe(550.0);
+
+    $ca1->refresh();
+    $ca2->refresh();
+    $ca3->refresh();
+
+    expect((float) $ca1->remaining_balance)->toBe(0.0);
+    expect($ca1->status)->toBe('paid');
+    expect((float) $ca2->remaining_balance)->toBe(0.0);
+    expect($ca2->status)->toBe('paid');
+    expect((float) $ca3->remaining_balance)->toBe(0.0);
+    expect($ca3->status)->toBe('paid');
+    expect(CashAdvanceDeduction::count())->toBe(3);
+
+    $period = PayrollPeriod::where('branch_id', $this->branchA->id)->first();
+    app(PayrollPeriodService::class)->delete($period);
+
+    $ca1->refresh();
+    $ca2->refresh();
+    $ca3->refresh();
+
+    // Each advance is restored to exactly what it was before generation.
+    expect((float) $ca1->remaining_balance)->toBe(500.0);
+    expect($ca1->status)->toBe('approved');
+    expect((float) $ca2->remaining_balance)->toBe(700.0);
+    expect($ca2->status)->toBe('approved');
+    expect((float) $ca3->remaining_balance)->toBe(800.0);
+    expect($ca3->status)->toBe('approved');
+
+    expect(CashAdvanceDeduction::count())->toBe(0);
+});
+
 it('only reverses what THIS period deducted, leaving other periods effect intact', function () {
     $emp = createEmployeeWithAttendance($this->branchA, 'Emp', 510, ['sss' => null, 'phic' => null, 'pagibig' => null]);
 
