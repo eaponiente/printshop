@@ -5,23 +5,18 @@ namespace Payroll\Attendance\Services;
 use App\Models\Branch;
 use App\Models\Payroll\AttendanceSheet;
 use App\Models\Payroll\CashAdvance;
-use App\Models\Payroll\CompanyConfig;
 use App\Models\Payroll\Employee;
 use App\Models\Payroll\Holiday;
 use App\Models\Payroll\PayrollPeriod;
 use App\Models\Payroll\PayrollPeriodItem;
-use App\Models\Payroll\SssContributionBracket;
 use App\Models\Payroll\TimeLog;
 use Carbon\Carbon;
-use Carbon\CarbonImmutable;
 use DB;
 use Illuminate\Database\Eloquent\Collection;
 use Payroll\Attendance\Enums\PayrollPeriodStatus;
 
 class PayrollPeriodService
 {
-    private ?array $sssBracketsCache = null;
-
     public function __construct(private AttendanceService $attendanceService) {}
 
     public function findIncompleteSheets(Branch $branch, string $periodStart, string $periodEnd): array
@@ -132,8 +127,6 @@ class PayrollPeriodService
                 ->get()
                 ->groupBy('employee_id');
 
-            $payrollsInMonth = $this->countMondaysInMonth($periodStart);
-
             foreach ($employees as $employee) {
                 $this->generateItemForEmployee(
                     $period,
@@ -141,7 +134,6 @@ class PayrollPeriodService
                     $periodStart,
                     $periodEnd,
                     $sheetsByEmployee->get($employee->id, new Collection),
-                    $payrollsInMonth,
                 );
             }
 
@@ -189,7 +181,6 @@ class PayrollPeriodService
         string $start,
         string $end,
         Collection $sheets,
-        int $payrollsInMonth = 4,
     ): PayrollPeriodItem {
 
         $totalRegularDays = $sheets->where('is_present', true)->whereNull('holiday_type')->where('is_rest_day', false)->count();
@@ -210,12 +201,17 @@ class PayrollPeriodService
         $deminimisEarnings = $this->computeDeminimis($employee, $period, $sheets);
 
         $dailyRate = $employee->current_daily_rate ?? 0;
-        $sssDeduction = $this->computeSSS($dailyRate, $employee, $payrollsInMonth);
-        $sssEmployer = $this->computeSSSEmployer($dailyRate, $employee, $payrollsInMonth);
-        $philhealthDeduction = $this->computePhilHealth($dailyRate, $employee);
-        $philhealthEmployer = $this->computePhilHealthEmployer($dailyRate, $employee);
-        $pagibigDeduction = $this->computePagIBIG($employee);
-        $pagibigEmployer = $this->computePagIBIGEmployer($employee);
+
+        // Fixed per-employee weekly deductions, applied as-is each period and
+        // gated on the matching government ID. Employer share is always 2x.
+        $sssDeduction = $employee->sss_number ? round((float) $employee->sss_deduction_per_week, 2) : 0.0;
+        $philhealthDeduction = $employee->philhealth_number ? round((float) $employee->philhealth_deduction_per_week, 2) : 0.0;
+        $pagibigDeduction = $employee->pagibig_number ? round((float) $employee->pagibig_deduction_per_week, 2) : 0.0;
+
+        $sssEmployer = round($sssDeduction * 2, 2);
+        $philhealthEmployer = round($philhealthDeduction * 2, 2);
+        $pagibigEmployer = round($pagibigDeduction * 2, 2);
+
         $caDeduction = $this->computeCADeduction($employee, $grossPay + $deminimisEarnings - $sssDeduction - $philhealthDeduction - $pagibigDeduction);
 
         $netPay = round($grossPay + $deminimisEarnings - $sssDeduction - $philhealthDeduction - $pagibigDeduction - $caDeduction, 2);
@@ -249,7 +245,7 @@ class PayrollPeriodService
             'ca_deduction' => $caDeduction,
             'net_pay' => $netPay,
             'daily_rate' => $dailyRate,
-            'sss_bracket' => $this->findSSSBracket($dailyRate * 26),
+            'sss_bracket' => null,
         ]);
     }
 
@@ -342,106 +338,6 @@ class PayrollPeriodService
         return $total;
     }
 
-    protected function computeSSS(float $dailyRate, Employee $employee, int $divisor = 4): float
-    {
-        if (! $employee->sss_number) {
-            return 0;
-        }
-
-        $monthlySalary = $dailyRate * 26;
-        $bracket = SssContributionBracket::findBracket($monthlySalary);
-
-        if (! $bracket) {
-            return 0;
-        }
-
-        if ($bracket->employee_contribution !== null) {
-            return round((float) $bracket->employee_contribution / $divisor, 2);
-        }
-
-        return round($monthlySalary * (float) $bracket->employee_percentage / 100 / $divisor, 2);
-    }
-
-    protected function findSSSBracket(float $monthlySalary): int
-    {
-        if ($this->sssBracketsCache === null) {
-            $this->sssBracketsCache = SssContributionBracket::orderBy('salary_min')->get()->all();
-        }
-
-        foreach ($this->sssBracketsCache as $index => $bracket) {
-            $max = (float) ($bracket->salary_max ?? PHP_FLOAT_MAX);
-            if ($monthlySalary <= $max) {
-                return $index + 1;
-            }
-        }
-
-        return count($this->sssBracketsCache);
-    }
-
-    protected function computeSSSEmployer(float $dailyRate, Employee $employee, int $divisor = 4): float
-    {
-        if (! $employee->sss_number) {
-            return 0;
-        }
-
-        $monthlySalary = $dailyRate * 26;
-        $bracket = SssContributionBracket::findBracket($monthlySalary);
-
-        if (! $bracket) {
-            return 0;
-        }
-
-        if ($bracket->employer_contribution !== null) {
-            return round((float) $bracket->employer_contribution / $divisor, 2);
-        }
-
-        return round($monthlySalary * (float) $bracket->employer_percentage / 100 / $divisor, 2);
-    }
-
-    protected function computePhilHealthEmployer(float $dailyRate, Employee $employee): float
-    {
-        if (! $employee->philhealth_number) {
-            return 0;
-        }
-
-        $monthlySalary = $dailyRate * 26;
-
-        return round($monthlySalary * 0.05 * 0.50 / 4, 2);
-    }
-
-    protected function computePagIBIGEmployer(Employee $employee): float
-    {
-        if (! $employee->pagibig_number) {
-            return 0;
-        }
-
-        $monthlyEmployerShare = (float) CompanyConfig::getValue('pagibig_monthly_employer_share', 200);
-
-        return round($monthlyEmployerShare / 4, 2);
-    }
-
-    protected function computePhilHealth(float $dailyRate, Employee $employee): float
-    {
-        if (! $employee->philhealth_number) {
-            return 0;
-        }
-
-        $monthlySalary = $dailyRate * 26;
-
-        return round($monthlySalary * 0.05 * 0.50 / 4, 2);
-    }
-
-    protected function computePagIBIG(Employee $employee): float
-    {
-        if (! $employee->pagibig_number) {
-            return 0;
-        }
-
-        $monthlyEmployeeShare = (float) CompanyConfig::getValue('pagibig_monthly_employee_share', 200);
-
-        return round($monthlyEmployeeShare / 4, 2);
-    }
-
     protected function computeCADeduction(Employee $employee, float $netReceivable): float
     {
         $activeCA = CashAdvance::where('employee_id', $employee->id)
@@ -462,13 +358,5 @@ class PayrollPeriodService
         ]);
 
         return round($deduction, 2);
-    }
-
-    private function countMondaysInMonth(string $periodStart): int
-    {
-        $date = CarbonImmutable::parse($periodStart);
-        $ordinal = (int) ceil($date->day / 7);
-
-        return $ordinal + (int) floor(($date->daysInMonth - $date->day) / 7);
     }
 }

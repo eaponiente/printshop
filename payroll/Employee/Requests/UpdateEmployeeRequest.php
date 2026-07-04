@@ -34,10 +34,23 @@ class UpdateEmployeeRequest extends FormRequest
             'philhealth_number' => ['nullable', 'string', 'max:20'],
             'pagibig_number' => ['nullable', 'string', 'max:20'],
             'tin_number' => ['nullable', 'string', 'max:20'],
+            'sss_deduction_per_week' => ['required_with:sss_number', 'nullable', 'numeric', 'min:0'],
+            'philhealth_deduction_per_week' => ['required_with:philhealth_number', 'nullable', 'numeric', 'min:0'],
+            'pagibig_deduction_per_week' => ['required_with:pagibig_number', 'nullable', 'numeric', 'min:0'],
             'default_paid_leave_days' => ['nullable', 'numeric', 'min:0'],
             'paid_leave_balance' => ['nullable', 'numeric', 'min:0'],
             'can_edit_sewed_items' => ['boolean'],
             'notes' => ['nullable', 'string', 'max:2000'],
+
+            // Login account on the linked user
+            'username' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('users')->ignore($this->employee->user?->id)->whereNull('deleted_at'),
+            ],
+            'password' => ['nullable', 'string', 'min:6', 'confirmed'],
+            'role' => ['required', Rule::in(['admin', 'staff'])],
         ];
     }
 }

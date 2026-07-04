@@ -37,6 +37,9 @@ export type Employee = {
     philhealth_number: string | null;
     pagibig_number: string | null;
     tin_number: string | null;
+    sss_deduction_per_week: number;
+    philhealth_deduction_per_week: number;
+    pagibig_deduction_per_week: number;
     notes: string | null;
     created_at: string;
     updated_at: string;
@@ -44,6 +47,11 @@ export type Employee = {
     branch: Branch;
     salaries?: Salary[];
     active_schedule?: EmployeeSchedule | null;
+    user?: {
+        id: number;
+        username: string;
+        role: 'admin' | 'staff' | 'superadmin';
+    } | null;
     [key: string]: unknown;
 };
 

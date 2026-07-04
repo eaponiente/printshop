@@ -50,13 +50,9 @@ export function AppSidebar() {
         ...(isAdmin
             ? [
                   {
-                      title: 'Users',
-                      href: '#',
+                      title: 'Customers',
+                      href: '/customers',
                       icon: Users,
-                      items: [
-                          { title: 'Users', url: '/users' },
-                          { title: 'Customers', url: '/customers' },
-                      ],
                   },
               ]
             : []),

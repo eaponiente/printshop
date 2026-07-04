@@ -15,11 +15,6 @@ export type User = {
     [key: string]: unknown;
 };
 
-export type UsersList = {
-    users: PaginatedResponse<User>;
-    branches: Branch[];
-};
-
 export type Customer = {
     id: number;
     first_name: string;
