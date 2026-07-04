@@ -48,7 +48,18 @@ export default function EmployeeEdit({
         philhealth_number: employee.philhealth_number ?? '',
         pagibig_number: employee.pagibig_number ?? '',
         tin_number: employee.tin_number ?? '',
+        sss_deduction_per_week: Number(employee.sss_deduction_per_week ?? 0),
+        philhealth_deduction_per_week: Number(
+            employee.philhealth_deduction_per_week ?? 0,
+        ),
+        pagibig_deduction_per_week: Number(
+            employee.pagibig_deduction_per_week ?? 0,
+        ),
         notes: employee.notes ?? '',
+        username: employee.user?.username ?? '',
+        password: '',
+        password_confirmation: '',
+        role: employee.user?.role ?? 'staff',
     });
 
     const submit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -85,6 +96,7 @@ export default function EmployeeEdit({
                     onSubmit={submit}
                     submitLabel="Save Changes"
                     cancelHref={route('payroll.employees.show', employee.id)}
+                    isEdit
                 />
             </div>
         </PayrollLayout>

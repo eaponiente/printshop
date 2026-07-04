@@ -39,7 +39,14 @@ export default function EmployeeCreate({
         philhealth_number: '',
         pagibig_number: '',
         tin_number: '',
+        sss_deduction_per_week: 0,
+        philhealth_deduction_per_week: 0,
+        pagibig_deduction_per_week: 0,
         notes: '',
+        username: '',
+        password: '',
+        password_confirmation: '',
+        role: 'staff',
     });
 
     const submit = (e: React.FormEvent<HTMLFormElement>) => {
