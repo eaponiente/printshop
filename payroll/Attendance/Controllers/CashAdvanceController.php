@@ -64,15 +64,6 @@ class CashAdvanceController extends Controller
             abort(403);
         }
 
-        $activeCA = CashAdvance::where('employee_id', $employee->id)
-            ->whereIn('status', ['pending', 'approved', 'unpaid'])
-            ->where('remaining_balance', '>', 0)
-            ->exists();
-
-        if ($activeCA) {
-            return back()->withErrors(['error' => 'This employee already has an unpaid cash advance.']);
-        }
-
         DB::transaction(function () use ($validated, $employee, $user) {
             CashAdvance::create([
                 'employee_id' => $employee->id,
