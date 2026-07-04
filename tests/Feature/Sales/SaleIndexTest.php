@@ -69,9 +69,32 @@ it('superadmin sees transactions from all branches in paid tab', function () {
     $transactions = $response->inertiaProps('transactions');
 
     $data = $transactions['data'];
-    $branchIds = collect($data)->pluck('branch_id')->unique()->filter()->values();
+    // Paid tab now lists one row per payment; branch comes from the parent transaction.
+    $branchIds = collect($data)->map(fn ($item) => $item['transaction']['branch_id'] ?? null)->unique()->filter()->values();
 
     expect($branchIds->toArray())->toEqualCanonicalizing([$this->branchA->id, $this->branchB->id]);
+});
+
+it('lists one row per payment — installments under a transaction are not grouped', function () {
+    $tx = Transaction::factory()->create([
+        'branch_id' => $this->branchA->id,
+        'amount_total' => 300,
+    ]);
+    // Fully paid across two installments of different types.
+    $tx->recordPayment(100, 'cash');
+    $tx->recordPayment(200, 'gcash');
+
+    $response = $this->actingAs($this->superadmin)
+        ->get(route('sales.index', ['tab' => 'paid', 'date' => now()->toDateString(), 'mode' => 'daily']));
+
+    $response->assertOk();
+    $data = collect($response->inertiaProps('transactions')['data'])
+        ->where('transaction_id', $tx->id);
+
+    // Two payments → two separate rows (not collapsed into one transaction row).
+    expect($data)->toHaveCount(2);
+    expect($data->pluck('amount')->map(fn ($a) => (float) $a)->sort()->values()->all())
+        ->toBe([100.0, 200.0]);
 });
 
 it('superadmin sees transactions from all branches in unpaid tab', function () {
@@ -131,7 +154,7 @@ it('admin does not see other branch transactions in paid tab', function () {
     $data = $transactions['data'];
 
     foreach ($data as $item) {
-        expect($item['branch_id'])->toBe($this->branchA->id);
+        expect($item['transaction']['branch_id'])->toBe($this->branchA->id);
     }
 });
 
@@ -194,7 +217,7 @@ it('staff only sees their own transactions in paid tab', function () {
     $data = $transactions['data'];
 
     foreach ($data as $item) {
-        expect($item['staff_id'])->toBe($this->staffA->id);
+        expect($item['transaction']['staff_id'])->toBe($this->staffA->id);
     }
 });
 
@@ -276,7 +299,7 @@ it('superadmin can filter by branch in paid tab', function () {
     $data = $transactions['data'];
 
     foreach ($data as $item) {
-        expect($item['branch_id'])->toBe($this->branchA->id);
+        expect($item['transaction']['branch_id'])->toBe($this->branchA->id);
     }
 });
 
@@ -354,7 +377,7 @@ it('returns expected inertia props for the default partial tab including net amo
             ->has('cash_on_hand_amount')
             ->has('cash_net_amount')
             ->has('gcash_net_amount')
-            ->where('is_payment_view', false)
+            ->where('is_payment_view', true)
             ->where('show_summary', true);
     });
 });
