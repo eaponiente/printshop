@@ -44,6 +44,7 @@ type SewedItem = {
     amount: number;
     notes: string | null;
     sewed_date: string;
+    created_at: string;
     completed_at: string | null;
     tags: TagPivot[];
     sublimation: {

@@ -8,6 +8,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { toManilaTime } from '@/utils/dateHelper';
 
 interface TagEntry {
     id: number;
@@ -23,6 +24,7 @@ interface PayslipItem {
     quantity: number;
     notes: string | null;
     sewed_date: string;
+    created_at: string;
     tags: TagEntry[];
     sublimation: { description: string } | null;
 }
@@ -50,7 +52,7 @@ export default function PayslipDialog({
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogContent className="sm:max-w-2xl">
+            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl print:max-h-none print:overflow-visible">
                 <style>{`
                     @media print {
                         body * { visibility: hidden; }
@@ -198,6 +200,12 @@ export default function PayslipDialog({
                                                                 }}
                                                             />
                                                             {tag.name}
+                                                            <span className="text-[11px] text-muted-foreground">
+                                                                {toManilaTime(
+                                                                    item.created_at,
+                                                                    'MMM DD, YYYY',
+                                                                )}
+                                                            </span>
                                                         </span>
                                                     </td>
                                                     <td className="px-3 py-1.5 text-right tabular-nums">
