@@ -56,11 +56,22 @@ export default function PayslipDialog({
                 <style>{`
                     @media print {
                         @page { margin: 12mm; }
+
+                        /* Remove the page behind the dialog entirely —
+                           visibility:hidden would keep its layout height and
+                           spill trailing blank pages after the payslip. */
+                        body > #app { display: none !important; }
+                        [data-slot="dialog-overlay"] { display: none !important; }
+
+                        /* Safety net for other portals (toasts, tooltips). */
                         body * { visibility: hidden; }
+                        .payslip-print-area,
+                        .payslip-print-area * { visibility: visible; }
+
                         /* The dialog is fixed + transformed, and fixed elements
                            don't paginate in print — content past page 1 gets
-                           clipped. Reposition it as a plain absolute block at
-                           the page origin so long payslips flow across pages. */
+                           clipped. Reposition it as a plain block at the page
+                           origin so long payslips flow across pages. */
                         .payslip-dialog {
                             position: absolute !important;
                             top: 0 !important;
@@ -73,17 +84,32 @@ export default function PayslipDialog({
                             border: 0 !important;
                             box-shadow: none !important;
                             padding: 0 !important;
+                            background: #fff !important;
                         }
-                        .payslip-print-area,
-                        .payslip-print-area * { visibility: visible; }
                         .payslip-print-area {
-                            position: absolute;
-                            top: 0;
-                            left: 0;
+                            position: static !important;
                             width: 100%;
-                            padding: 16px;
+                            padding: 4px;
+                            color: #111 !important;
                         }
                         .payslip-print-area .no-print { display: none !important; }
+
+                        /* Print-safe colors regardless of dark mode or the
+                           browser's default background stripping. */
+                        .payslip-print-area * {
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                            color: #111 !important;
+                            border-color: #d4d4d8 !important;
+                        }
+                        .payslip-print-area .text-muted-foreground { color: #52525b !important; }
+                        .payslip-print-area .bg-sidebar { background: #fff !important; }
+                        .payslip-print-area thead tr,
+                        .payslip-print-area tfoot tr { background: #f4f4f5 !important; }
+
+                        /* overflow-hidden wrappers can clip rows at page-break
+                           fragmentation edges. */
+                        .payslip-print-area .overflow-hidden { overflow: visible !important; }
                     }
                 `}</style>
 
