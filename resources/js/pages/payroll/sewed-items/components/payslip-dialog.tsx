@@ -155,6 +155,9 @@ export default function PayslipDialog({
                         >
                             <h3 className="mb-2 text-sm font-semibold">
                                 {item.sublimation?.description ?? '—'}
+                                <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">
+                                    {toManilaTime(item.created_at, 'MMM DD, YYYY')}
+                                </span>
                             </h3>
 
                             <div className="overflow-hidden rounded-md border">
@@ -200,12 +203,6 @@ export default function PayslipDialog({
                                                                 }}
                                                             />
                                                             {tag.name}
-                                                            <span className="text-[11px] text-muted-foreground">
-                                                                {toManilaTime(
-                                                                    item.created_at,
-                                                                    'MMM DD, YYYY',
-                                                                )}
-                                                            </span>
                                                         </span>
                                                     </td>
                                                     <td className="px-3 py-1.5 text-right tabular-nums">
