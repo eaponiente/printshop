@@ -1,6 +1,7 @@
 import { Head, router } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
 import { AlertTriangle, ArrowLeft, CheckCircle, ClipboardCheck, RefreshCw, Trash2, Undo2 } from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/data-table';
 import {
@@ -88,6 +89,8 @@ export default function PayrollPeriodShow({
     canDelete,
     isSuperAdmin,
 }: Props) {
+    const [recomputing, setRecomputing] = useState(false);
+
     const columns: ColumnDef<PeriodItem>[] = [
         {
             accessorKey: 'employee',
@@ -184,11 +187,15 @@ export default function PayrollPeriodShow({
                             <Button
                                 variant="outline"
                                 size="sm"
+                                disabled={recomputing}
                                 onClick={() =>
                                     router.post(
                                         `/payroll/periods/${period.id}/recompute`,
                                         {},
                                         {
+                                            onStart: () => setRecomputing(true),
+                                            onFinish: () =>
+                                                setRecomputing(false),
                                             onSuccess: () =>
                                                 toast.success(
                                                     'Payroll recomputed.',
@@ -201,8 +208,10 @@ export default function PayrollPeriodShow({
                                     )
                                 }
                             >
-                                <RefreshCw className="mr-1 h-4 w-4" />
-                                Recompute
+                                <RefreshCw
+                                    className={`mr-1 h-4 w-4 ${recomputing ? 'animate-spin' : ''}`}
+                                />
+                                {recomputing ? 'Recomputing…' : 'Recompute'}
                             </Button>
                         )}
                         {canApprove && period.status === 'draft' && (
