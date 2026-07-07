@@ -158,6 +158,17 @@ class PayrollPeriodService
         }
 
         DB::transaction(function () use ($period) {
+            // Serialize concurrent recomputes (double-click / two admins) on the
+            // period row. A second call blocks here until the first commits, then
+            // re-reads the now-current status — without this lock, overlapping
+            // transactions can each reverse the same cash-advance ledger rows and
+            // over-restore the balance.
+            $period = PayrollPeriod::lockForUpdate()->findOrFail($period->id);
+
+            if ($period->status !== PayrollPeriodStatus::DRAFT) {
+                throw new \RuntimeException('Only draft periods can be recomputed.');
+            }
+
             $this->reverseCashAdvanceDeductions($period);
             $period->items()->delete();
 
@@ -322,6 +333,11 @@ class PayrollPeriodService
     public function void(PayrollPeriod $period): void
     {
         DB::transaction(function () use ($period) {
+            // Lock the period row so a concurrent void/delete/recompute of the
+            // same period can't also reverse its cash-advance ledger and
+            // over-restore the balance. The re-read sees the committed status.
+            $period = PayrollPeriod::lockForUpdate()->findOrFail($period->id);
+
             if ($period->status === PayrollPeriodStatus::DRAFT) {
                 throw new \RuntimeException('Draft periods cannot be voided.');
             }
@@ -352,6 +368,20 @@ class PayrollPeriodService
         }
 
         DB::transaction(function () use ($period) {
+            // Lock the period row first. A concurrent double-delete blocks here;
+            // once the winner commits and removes the row, the loser's re-read
+            // returns null and it exits without reversing the ledger a second
+            // time. Also serializes against a racing void/recompute.
+            $period = PayrollPeriod::lockForUpdate()->find($period->id);
+
+            if (! $period) {
+                return; // already deleted by a concurrent request
+            }
+
+            if ($period->status !== PayrollPeriodStatus::DRAFT) {
+                throw new \RuntimeException('Only draft periods can be deleted.');
+            }
+
             AttendanceSheet::whereIn('employee_id', function ($query) use ($period) {
                 $query->select('id')->from('employees')->where('branch_id', $period->branch_id);
             })
@@ -413,10 +443,18 @@ class PayrollPeriodService
      */
     protected function computeCADeduction(Employee $employee, float $netReceivable): array
     {
+        // Lock the employee's cash-advance rows for the duration of the enclosing
+        // transaction. Without this, two payroll operations touching the same
+        // employee across *different* periods (e.g. a generate racing a recompute,
+        // or two overlapping-range generates) can both read the same balance and
+        // each deduct it, over-deducting the advance. The period-row lock only
+        // serializes same-period work, so the CA row itself must be the guard —
+        // matching the lockForUpdate already used when reversing.
         $activeCAs = CashAdvance::where('employee_id', $employee->id)
             ->whereIn('status', ['approved', 'unpaid'])
             ->where('remaining_balance', '>', 0)
             ->orderBy('created_at')
+            ->lockForUpdate()
             ->get();
 
         $remaining = $netReceivable;

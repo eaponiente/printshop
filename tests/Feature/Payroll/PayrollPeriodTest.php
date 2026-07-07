@@ -433,6 +433,41 @@ it('recompute is idempotent and does not double-deduct a cash advance', function
     expect(CashAdvanceDeduction::where('payroll_period_item_id', $item->id)->count())->toBe(1);
 });
 
+it('re-checks status under lock and refuses a period approved concurrently', function () {
+    $emp = createEmployeeWithAttendance($this->branchA, 'Emp', 510, ['sss' => null, 'phic' => null, 'pagibig' => null]);
+
+    CashAdvance::create([
+        'employee_id' => $emp->id,
+        'amount' => 1000,
+        'remaining_balance' => 1000,
+        'reason' => 'Test',
+        'status' => 'approved',
+    ]);
+
+    $period = app(PayrollPeriodService::class)->generate($this->branchA, '2026-05-25', '2026-05-30');
+
+    $ca = CashAdvance::first();
+    $balanceAfterGenerate = (float) $ca->remaining_balance;
+
+    // Simulate a concurrent request approving the period after this (now stale)
+    // $period instance was loaded. The in-memory model still reads DRAFT, so it
+    // passes the outer guard — but the row-locked re-read inside the transaction
+    // sees APPROVED and must abort before reversing any cash-advance ledger.
+    PayrollPeriod::where('id', $period->id)->update(['status' => PayrollPeriodStatus::APPROVED->value]);
+
+    expect(fn () => app(PayrollPeriodService::class)->recompute($period))
+        ->toThrow(RuntimeException::class);
+
+    // Cash advance untouched — the reverse never ran, so no double-restore.
+    $ca->refresh();
+    expect((float) $ca->remaining_balance)->toBe($balanceAfterGenerate);
+
+    // Items and their ledger rows are intact.
+    $itemIds = PayrollPeriodItem::where('payroll_period_id', $period->id)->pluck('id');
+    expect($itemIds)->toHaveCount(1);
+    expect(CashAdvanceDeduction::whereIn('payroll_period_item_id', $itemIds)->count())->toBe(1);
+});
+
 it('does not allow recomputing an approved period', function () {
     createEmployeeWithAttendance($this->branchA, 'Emp');
 
@@ -538,6 +573,59 @@ it('restores the cash advance balance when the draft period that paid it off is 
     expect((float) $ca->remaining_balance)->toBe(1000.0);
     expect($ca->status)->toBe('approved');
     expect(CashAdvanceDeduction::count())->toBe(0); // cascaded away with the item
+});
+
+it('delete re-checks status under lock and does not reverse a cash advance twice', function () {
+    $emp = createEmployeeWithAttendance($this->branchA, 'Emp', 510, ['sss' => null, 'phic' => null, 'pagibig' => null]);
+
+    $ca = CashAdvance::create([
+        'employee_id' => $emp->id,
+        'amount' => 1000,
+        'remaining_balance' => 1000,
+        'reason' => 'Test',
+        'status' => 'approved',
+    ]);
+
+    $period = app(PayrollPeriodService::class)->generate($this->branchA, '2026-05-25', '2026-05-30');
+
+    // First delete restores the balance to 1000 and removes the period.
+    app(PayrollPeriodService::class)->delete($period);
+    $ca->refresh();
+    expect((float) $ca->remaining_balance)->toBe(1000.0);
+
+    // A second delete on the same (now-stale) instance — as a concurrent
+    // double-click would produce — must be a no-op: the period is already gone,
+    // so the ledger is not reversed a second time and the balance stays at 1000.
+    app(PayrollPeriodService::class)->delete($period);
+    $ca->refresh();
+    expect((float) $ca->remaining_balance)->toBe(1000.0);
+});
+
+it('void re-checks status under lock and does not reverse a cash advance twice', function () {
+    $emp = createEmployeeWithAttendance($this->branchA, 'Emp', 510, ['sss' => null, 'phic' => null, 'pagibig' => null]);
+
+    $ca = CashAdvance::create([
+        'employee_id' => $emp->id,
+        'amount' => 1000,
+        'remaining_balance' => 1000,
+        'reason' => 'Test',
+        'status' => 'approved',
+    ]);
+
+    $period = app(PayrollPeriodService::class)->generate($this->branchA, '2026-05-25', '2026-05-30');
+    app(PayrollPeriodService::class)->approve($period, $this->superadmin->id);
+
+    // First void restores the balance to 1000.
+    app(PayrollPeriodService::class)->void($period);
+    $ca->refresh();
+    expect((float) $ca->remaining_balance)->toBe(1000.0);
+
+    // A stale second void (concurrent double-click) sees VOIDED under the lock
+    // and throws before reversing the ledger again — balance stays at 1000.
+    expect(fn () => app(PayrollPeriodService::class)->void($period))
+        ->toThrow(RuntimeException::class);
+    $ca->refresh();
+    expect((float) $ca->remaining_balance)->toBe(1000.0);
 });
 
 it('restores multiple cash advances (FIFO) when the draft period is deleted', function () {
