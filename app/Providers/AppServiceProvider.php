@@ -26,6 +26,7 @@ use Payroll\Attendance\Policies\LeaveRequestPolicy;
 use Payroll\Attendance\Policies\OvertimeRequestPolicy;
 use Payroll\Attendance\Policies\PayrollPeriodPolicy;
 use Payroll\Attendance\Policies\TimeLogPolicy;
+use Payroll\Attendance\Policies\WorkWeekTablePolicy;
 use Payroll\Audit\Models\AuditLog;
 use Payroll\Audit\Policies\AuditLogPolicy;
 use Payroll\Employee\Policies\EmployeePolicy as PayrollEmployeePolicy;
@@ -81,6 +82,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('payroll-periods.void', [PayrollPeriodPolicy::class, 'void']);
         Gate::define('payroll-periods.view', [PayrollPeriodPolicy::class, 'view']);
         Gate::define('payroll-periods.delete', [PayrollPeriodPolicy::class, 'delete']);
+
+        Gate::define('work-week.view', [WorkWeekTablePolicy::class, 'view']);
 
         // Payroll attendance policies — registered with action-based gates
         // until the corresponding Eloquent models are created.

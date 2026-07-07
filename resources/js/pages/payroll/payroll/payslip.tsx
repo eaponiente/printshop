@@ -54,6 +54,18 @@ type Item = {
     net_pay: number;
     daily_rate: number;
     sss_bracket: number | null;
+    cash_advance_deductions?: CashAdvanceDeduction[];
+};
+
+type CashAdvanceDeduction = {
+    id: number;
+    amount: number;
+    cash_advance: {
+        id: number;
+        reason: string | null;
+        remaining_balance: number;
+        status: string;
+    } | null;
 };
 
 type Period = {
@@ -447,6 +459,12 @@ function DeductionsCard({
         (Number(item.pagibig_deduction) || 0) +
         (Number(item.ca_deduction) || 0);
 
+    const caDeductions = item.cash_advance_deductions ?? [];
+    const outstandingCa = caDeductions.reduce(
+        (sum, d) => sum + (Number(d.cash_advance?.remaining_balance) || 0),
+        0,
+    );
+
     const employerTotal =
         (Number(item.sss_employer) || 0) +
         (Number(item.philhealth_employer) || 0) +
@@ -481,12 +499,33 @@ function DeductionsCard({
                         red
                     />
                 )}
-                {item.ca_deduction > 0 && (
-                    <LineItem
-                        label="Cash Advance"
-                        value={-item.ca_deduction}
-                        red
-                    />
+                {caDeductions.length > 0
+                    ? caDeductions.map((d) => (
+                          <LineItem
+                              key={d.id}
+                              label={
+                                  d.cash_advance?.reason
+                                      ? `Cash Advance — ${d.cash_advance.reason}`
+                                      : 'Cash Advance'
+                              }
+                              value={-d.amount}
+                              red
+                          />
+                      ))
+                    : item.ca_deduction > 0 && (
+                          <LineItem
+                              label="Cash Advance"
+                              value={-item.ca_deduction}
+                              red
+                          />
+                      )}
+                {outstandingCa > 0 && (
+                    <p className="text-[10px] tracking-wide text-muted-foreground">
+                        Outstanding cash advance balance after this period:{' '}
+                        <span className="font-mono font-medium">
+                            {formatCurrency(outstandingCa)}
+                        </span>
+                    </p>
                 )}
                 {statutoryAndCa === 0 && (
                     <p className="text-xs text-muted-foreground">

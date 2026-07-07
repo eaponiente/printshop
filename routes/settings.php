@@ -30,6 +30,7 @@ use Payroll\Attendance\Controllers\PayrollPeriodController;
 use Payroll\Attendance\Controllers\PayrollReportController;
 use Payroll\Attendance\Controllers\SssBracketController;
 use Payroll\Attendance\Controllers\TimeLogController;
+use Payroll\Attendance\Controllers\WorkWeekTableController;
 use Payroll\Audit\Controllers\AuditLogController;
 use Payroll\Employee\Controllers\EmployeeController;
 use Payroll\Employee\Controllers\EmployeeScheduleController;
@@ -131,11 +132,15 @@ Route::middleware(['auth'])->group(function () {
         Route::post('periods/generate', [PayrollPeriodController::class, 'generate'])->name('periods.generate');
         Route::get('periods/{period}', [PayrollPeriodController::class, 'show'])->name('periods.show');
         Route::post('periods/{period}/check', [PayrollPeriodController::class, 'check'])->name('periods.check');
+        Route::post('periods/{period}/recompute', [PayrollPeriodController::class, 'recompute'])->name('periods.recompute');
         Route::post('periods/{period}/approve', [PayrollPeriodController::class, 'approve'])->name('periods.approve');
         Route::post('periods/{period}/void', [PayrollPeriodController::class, 'void'])->name('periods.void');
         Route::delete('periods/{period}', [PayrollPeriodController::class, 'destroy'])->name('periods.destroy');
         Route::get('periods/{period}/payslip/{item}', [PayrollPeriodController::class, 'payslip'])->name('payslip');
         Route::get('my-payslip', [PayrollPeriodController::class, 'myPayslip'])->name('my-payslip');
+
+        Route::get('work-week', [WorkWeekTableController::class, 'index'])->name('work-week.index');
+        Route::get('work-week/print', [WorkWeekTableController::class, 'print'])->name('work-week.print');
 
         Route::get('reports', [PayrollReportController::class, 'index'])->name('reports.index');
         Route::get('reports/print', [PayrollReportController::class, 'print'])->name('reports.print');

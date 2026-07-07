@@ -56,24 +56,9 @@ declare module 'ziggy-js' {
     "two-factor.regenerate-recovery-codes": [],
     "home": [],
     "dashboard": [],
+    "release-notes.index": [],
     "profile.edit": [],
     "profile.update": [],
-    "users.index": [],
-    "users.store": [],
-    "users.update": [
-        {
-            "name": "user",
-            "required": true,
-            "binding": "id"
-        }
-    ],
-    "users.destroy": [
-        {
-            "name": "user",
-            "required": true,
-            "binding": "id"
-        }
-    ],
     "branches.index": [],
     "branches.create": [],
     "branches.store": [],
@@ -153,6 +138,13 @@ declare module 'ziggy-js' {
             "binding": "id"
         }
     ],
+    "sublimations.duplicate": [
+        {
+            "name": "sublimation",
+            "required": true,
+            "binding": "id"
+        }
+    ],
     "sublimations.tags.add": [
         {
             "name": "sublimation",
@@ -161,6 +153,18 @@ declare module 'ziggy-js' {
         }
     ],
     "sublimations.tags.remove": [
+        {
+            "name": "sublimation",
+            "required": true,
+            "binding": "id"
+        },
+        {
+            "name": "tag",
+            "required": true,
+            "binding": "id"
+        }
+    ],
+    "sublimations.tags.update-quantity": [
         {
             "name": "sublimation",
             "required": true,
@@ -315,6 +319,13 @@ declare module 'ziggy-js' {
             "binding": "id"
         }
     ],
+    "purchase-orders.update-staff": [
+        {
+            "name": "purchaseOrder",
+            "required": true,
+            "binding": "id"
+        }
+    ],
     "purchase-orders.index": [],
     "purchase-orders.create": [],
     "purchase-orders.store": [],
@@ -449,7 +460,7 @@ declare module 'ziggy-js' {
             "binding": "id"
         }
     ],
-    "payroll.employees.destroy": [
+    "payroll.employees.deactivate": [
         {
             "name": "employee",
             "required": true,
@@ -484,6 +495,7 @@ declare module 'ziggy-js' {
             "binding": "id"
         }
     ],
+    "payroll.employees.sync-all": [],
     "payroll.audit.index": [],
     "payroll.attendance.index": [],
     "payroll.attendance.punch": [],
@@ -534,6 +546,26 @@ declare module 'ziggy-js' {
             "binding": "id"
         }
     ],
+    "payroll.attendance.logs.store": [
+        {
+            "name": "employee",
+            "required": true,
+            "binding": "id"
+        }
+    ],
+    "payroll.attendance.logs.destroy": [
+        {
+            "name": "employee",
+            "required": true,
+            "binding": "id"
+        },
+        {
+            "name": "log",
+            "required": true,
+            "binding": "id"
+        }
+    ],
+    "payroll.attendance.geo": [],
     "payroll.fines.store": [],
     "payroll.fines.destroy": [
         {
@@ -545,6 +577,20 @@ declare module 'ziggy-js' {
     "payroll.periods.index": [],
     "payroll.periods.generate": [],
     "payroll.periods.show": [
+        {
+            "name": "period",
+            "required": true,
+            "binding": "id"
+        }
+    ],
+    "payroll.periods.check": [
+        {
+            "name": "period",
+            "required": true,
+            "binding": "id"
+        }
+    ],
+    "payroll.periods.recompute": [
         {
             "name": "period",
             "required": true,
@@ -565,6 +611,13 @@ declare module 'ziggy-js' {
             "binding": "id"
         }
     ],
+    "payroll.periods.destroy": [
+        {
+            "name": "period",
+            "required": true,
+            "binding": "id"
+        }
+    ],
     "payroll.payslip": [
         {
             "name": "period",
@@ -578,8 +631,11 @@ declare module 'ziggy-js' {
         }
     ],
     "payroll.my-payslip": [],
+    "payroll.work-week.index": [],
+    "payroll.work-week.print": [],
     "payroll.reports.index": [],
     "payroll.reports.print": [],
+    "payroll.reports.branch-payables": [],
     "payroll.sss.brackets.index": [],
     "payroll.sss.brackets.store": [],
     "payroll.sss.brackets.update": [
@@ -637,6 +693,7 @@ declare module 'ziggy-js' {
             "binding": "id"
         }
     ],
+    "payroll.leaves.reset": [],
     "payroll.corrections.index": [],
     "payroll.corrections.store": [],
     "payroll.corrections.approve": [
@@ -669,6 +726,41 @@ declare module 'ziggy-js' {
             "binding": "id"
         }
     ],
+    "payroll.sewed-items.index": [],
+    "payroll.sewed-items.payslip": [],
+    "payroll.sewed-items.payslip.approve": [
+        {
+            "name": "payslip",
+            "required": true,
+            "binding": "id"
+        }
+    ],
+    "payroll.sewed-items.payslip.cancel": [
+        {
+            "name": "payslip",
+            "required": true,
+            "binding": "id"
+        }
+    ],
+    "payroll.sewed-items.store": [],
+    "payroll.sewed-items.update": [
+        {
+            "name": "sewedItem",
+            "required": true,
+            "binding": "id"
+        }
+    ],
+    "payroll.sewed-items.destroy": [
+        {
+            "name": "sewedItem",
+            "required": true,
+            "binding": "id"
+        }
+    ],
+    "payroll.settings.index": [],
+    "payroll.settings.update": [],
+    "payroll.admin.fix-no-break-fine": [],
+    "payroll.admin.recalculate-late-deductions": [],
     "api.customers.index": [],
     "profile.destroy": [],
     "security.edit": [],
