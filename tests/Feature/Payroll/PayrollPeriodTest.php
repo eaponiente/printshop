@@ -364,6 +364,85 @@ it('deducts cash advance up to net receivable', function () {
     expect($ca->status)->toBe('paid');
 });
 
+it('recomputes a draft period to pick up a cash advance granted after generation', function () {
+    $emp = createEmployeeWithAttendance($this->branchA, 'Emp', 510, ['sss' => null, 'phic' => null, 'pagibig' => null]);
+
+    // Generate first — no cash advance exists yet.
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.generate'), [
+            'period_start' => '2026-05-25',
+            'period_end' => '2026-05-30',
+        ]);
+
+    $period = PayrollPeriod::first();
+    $item = PayrollPeriodItem::where('employee_id', $emp->id)->first();
+    expect((float) $item->ca_deduction)->toBe(0.0);
+
+    // Cash advance granted after the draft was generated.
+    CashAdvance::create([
+        'employee_id' => $emp->id,
+        'amount' => 1000,
+        'remaining_balance' => 1000,
+        'reason' => 'Late grant',
+        'status' => 'approved',
+    ]);
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.recompute', $period))
+        ->assertRedirect();
+
+    $item = PayrollPeriodItem::where('employee_id', $emp->id)->first();
+    expect((float) $item->ca_deduction)->toBe(1000.0);
+    expect((float) $item->net_pay)->toBe(1550.0);
+
+    $ca = CashAdvance::first();
+    expect((float) $ca->remaining_balance)->toBe(0.0);
+    expect($ca->status)->toBe('paid');
+
+    expect(CashAdvanceDeduction::where('payroll_period_item_id', $item->id)->count())->toBe(1);
+});
+
+it('recompute is idempotent and does not double-deduct a cash advance', function () {
+    $emp = createEmployeeWithAttendance($this->branchA, 'Emp', 510, ['sss' => null, 'phic' => null, 'pagibig' => null]);
+
+    CashAdvance::create([
+        'employee_id' => $emp->id,
+        'amount' => 1000,
+        'remaining_balance' => 1000,
+        'reason' => 'Test',
+        'status' => 'approved',
+    ]);
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.generate'), [
+            'period_start' => '2026-05-25',
+            'period_end' => '2026-05-30',
+        ]);
+
+    $period = PayrollPeriod::first();
+
+    // Recompute twice — the CA balance must not go negative or double-count.
+    app(PayrollPeriodService::class)->recompute($period);
+    app(PayrollPeriodService::class)->recompute($period);
+
+    $item = PayrollPeriodItem::where('employee_id', $emp->id)->first();
+    expect((float) $item->ca_deduction)->toBe(1000.0);
+
+    $ca = CashAdvance::first();
+    expect((float) $ca->remaining_balance)->toBe(0.0);
+    expect(CashAdvanceDeduction::where('payroll_period_item_id', $item->id)->count())->toBe(1);
+});
+
+it('does not allow recomputing an approved period', function () {
+    createEmployeeWithAttendance($this->branchA, 'Emp');
+
+    $period = app(PayrollPeriodService::class)->generate($this->branchA, '2026-05-25', '2026-05-30');
+    app(PayrollPeriodService::class)->approve($period, $this->superadmin->id);
+
+    expect(fn () => app(PayrollPeriodService::class)->recompute($period))
+        ->toThrow(RuntimeException::class);
+});
+
 it('deducts across multiple cash advances in FIFO order, oldest first', function () {
     $emp = createEmployeeWithAttendance($this->branchA, 'Emp', 510, ['sss' => null, 'phic' => null, 'pagibig' => null]);
 

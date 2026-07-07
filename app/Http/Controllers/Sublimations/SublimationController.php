@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Payroll\Employee\Enums\EmployeeStatus;
 
 class SublimationController extends Controller
 {
@@ -134,6 +135,10 @@ class SublimationController extends Controller
         }
 
         $usersQuery = User::whereIn('role', ['admin', 'staff'])
+            ->where(function ($query) {
+                $query->whereNull('employee_id')
+                    ->orWhereHas('employee', fn ($q) => $q->where('status', EmployeeStatus::ACTIVE->value));
+            })
             ->orderBy('first_name');
 
         // Non-superadmins only see users within their accessible branches.

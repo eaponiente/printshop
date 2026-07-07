@@ -143,6 +143,51 @@ class PayrollPeriodService
     }
 
     /**
+     * Rebuild a draft period's items in place. Reverses any cash advance
+     * deductions the period previously recorded, drops the existing items, then
+     * regenerates them from the still-locked attendance sheets plus the
+     * *current* cash advances, benefits and statutory settings. Used when
+     * something that feeds payroll — most commonly a cash advance granted after
+     * the draft was first generated — needs to be reflected. Only draft periods
+     * can be recomputed; approved/voided periods are immutable.
+     */
+    public function recompute(PayrollPeriod $period): void
+    {
+        if ($period->status !== PayrollPeriodStatus::DRAFT) {
+            throw new \RuntimeException('Only draft periods can be recomputed.');
+        }
+
+        DB::transaction(function () use ($period) {
+            $this->reverseCashAdvanceDeductions($period);
+            $period->items()->delete();
+
+            $start = $period->period_start->toDateString();
+            $end = $period->period_end->toDateString();
+
+            $employees = Employee::where('branch_id', $period->branch_id)
+                ->where('status', 'active')
+                ->whereDoesntHave('user', fn ($q) => $q->where('role', 'superadmin'))
+                ->with(['benefits'])
+                ->get();
+
+            $sheetsByEmployee = AttendanceSheet::whereIn('employee_id', $employees->pluck('id'))
+                ->whereBetween('date', [$start, $end])
+                ->get()
+                ->groupBy('employee_id');
+
+            foreach ($employees as $employee) {
+                $this->generateItemForEmployee(
+                    $period,
+                    $employee,
+                    $start,
+                    $end,
+                    $sheetsByEmployee->get($employee->id, new Collection),
+                );
+            }
+        });
+    }
+
+    /**
      * Return all date strings within [start, end] that match a holiday, fixed
      * or recurring. Batches the holiday lookups to avoid N+1 in generate().
      */

@@ -13,6 +13,7 @@
 5. [RBAC & Authorization](#5-rbac--authorization)
 6. [Edge Cases](#6-edge-cases)
 7. [Payslip Design](#7-payslip-design)
+8. [Work Week Payroll Table](#8-work-week-payroll-table)
 
 ---
 
@@ -652,6 +653,7 @@ net_pay          = total_gross − govt_deductions − ca_deduction
 - **Deducted from net pay**: after government contributions
 - **Balance carries over**: if net_pay < remaining_balance, deduct all available, remainder to next period
 - **Net pay ≥ 0**: deduction capped so net never goes negative
+- **Deducted at generation time**: a cash advance is applied when the payroll period is generated. One granted _after_ a draft was generated is not reflected until the draft is **recomputed** (`payroll.periods.recompute`) or the period is regenerated. Approved/paid periods are locked; a later advance carries to the next period.
 
 ```
 ca_deduction = min(remaining_balance, net_pay_before_ca)
@@ -820,10 +822,18 @@ All payroll routes are under `/payroll` prefix with `payroll.` name prefix. All 
 | `GET`  | `/payroll/periods`                         | `payroll.periods.index`    | Auth (admin+)        |
 | `POST` | `/payroll/periods/generate`                | `payroll.periods.generate` | Auth (admin+)        |
 | `GET`  | `/payroll/periods/{period}`                | `payroll.periods.show`     | Auth (admin+)        |
+| `POST` | `/payroll/periods/{period}/recompute`      | `payroll.periods.recompute` | Auth (admin+), draft only |
 | `POST` | `/payroll/periods/{period}/approve`        | `payroll.periods.approve`  | Auth (superadmin)    |
 | `POST` | `/payroll/periods/{period}/void`           | `payroll.periods.void`     | Auth (superadmin)    |
 | `GET`  | `/payroll/periods/{period}/payslip/{item}` | `payroll.payslip`          | Auth (branch-scoped) |
 | `GET`  | `/payroll/my-payslip`                      | `payroll.my-payslip`       | Auth                 |
+
+### Work Week Table
+
+| Method | Path                       | Name                      | Auth          |
+| ------ | -------------------------- | ------------------------- | ------------- |
+| `GET`  | `/payroll/work-week`       | `payroll.work-week.index` | Auth (admin+) |
+| `GET`  | `/payroll/work-week/print` | `payroll.work-week.print` | Auth (admin+) |
 
 ### Reports
 
@@ -961,6 +971,7 @@ Admin     → Superadmin (never self-approved)
 | Manage holidays                               | —         | —                     | ✓                 |
 | Edit company config (SSS/PhilHealth/Pag-IBIG) | —         | —                     | ✓                 |
 | View audit logs                               | —         | Branch only           | All branches      |
+| View work week payroll table                  | —         | Branch only           | All (defaults to first branch)   |
 
 ---
 
@@ -1148,7 +1159,54 @@ Admin     → Superadmin (never self-approved)
 | Holiday pay         | Shown as separate line item with percentage label (100%, 130%, 200%). 0% holidays not shown.                       |
 | De minimis benefits | Shown under Earnings with `*` prefix and "Non-taxable" footnote. Label from `payslip_label`. Prorated (÷4).        |
 | Deduction ordering  | Late + Fines first (behavioral), then statutory (SSS/PhilHealth/Pag-IBIG), then voluntary (Cash Advance).          |
+| Cash advance detail | Each cash advance deducted this period is itemized on its own line with the advance's reason (from the `cash_advance_deductions` ledger). When an advance is only partially settled, the remaining outstanding balance is shown below. |
 | Missing gov't IDs   | Deduction line shown as `—` and no amount deducted.                                                                |
 | Net pay ≥ 0         | Cash advance deduction capped so net pay never goes negative.                                                      |
 | Signature blocks    | Employee, preparer, and approver signature lines in footer.                                                        |
 | Contribution basis  | All government deductions computed on `daily_rate × 26`. NOT on variable attendance earnings.                      |
+
+---
+
+## 8. Work Week Payroll Table
+
+A read-only, live preview of payroll numbers for an arbitrary date range — an "Excel-style" scratch view admins/superadmins can use to sanity-check attendance, deductions, and net pay **before** committing to a formal `payroll.periods.generate` run. Unlike period generation, this page:
+
+- Never creates a `PayrollPeriod` row.
+- Never locks `attendance_sheets` (`locked_at` is never touched).
+- Never mutates a `CashAdvance` balance — the Cash Advance column is a FIFO **preview** computed in memory, mirroring `PayrollPeriodService::computeCADeduction()`'s ordering/capping logic without calling `update()`.
+
+### Filters
+
+| Filter     | Admin                          | Superadmin                                                    |
+| ---------- | ------------------------------- | --------------------------------------------------------------- |
+| Branch     | Locked to own branch, no picker | Defaults to the alphabetically-first branch; can pick any branch |
+| Date range | Defaults to last Saturday → this week's Friday (7 calendar days) | Same default, same picker                                        |
+
+### Day-column contract
+
+The grid shows **6 columns: Saturday, Monday, Tuesday, Wednesday, Thursday, Friday** — Sunday is intentionally omitted as a column (universal rest day) even though the underlying date range spans all 7 days. Any Sunday activity (e.g. holiday work, approved OT) still folds into the row and footer totals; it just has no dedicated cell.
+
+### Day-cell status precedence
+
+Evaluated in this exact order per `attendance_sheets` row:
+
+| Order | Condition                          | Label      | Color        |
+| ----- | ----------------------------------- | ---------- | ------------ |
+| 1     | No sheet exists for the date        | `—`        | Gray         |
+| 2     | `is_rest_day = true`                 | `Rest`     | Blue (muted) |
+| 3     | `leave_type` is set                  | `Leave`    | Purple       |
+| 4     | `holiday_pay_percent > 0`            | `H`        | Blue         |
+| 5a    | `is_present = true`                  | `✔` (or `Half Day` when `hours_worked ≤ 4.5`) | Green |
+| 5b    | `is_present = false`                 | `A`        | Red          |
+
+Late (`late_minutes > 0`) and overtime (`overtime_minutes > 0`) are **annotations** on top of a Present cell, not separate exclusive states.
+
+### Row & footer columns
+
+Employee Name, Daily Rate, the 6 day cells, Total Fines, Total Late (mins), Total OT (hours), Holiday Count, Cash Advance (preview), SSS/PhilHealth/Pag-IBIG (same fixed per-week formula as §3.8, gated on the matching government ID being present), Total Deductions (SSS + PhilHealth + Pag-IBIG + CA preview — **not** late/undertime/fine, which are already inside `daily_wage`/gross per the invariant in §3.3), Gross Salary (`sum(daily_wage)` over the full range), Net Salary. Unlike a generated `PayrollPeriodItem`, this page does **not** compute de minimis benefits — a deliberate scope simplification for a scratch preview.
+
+Footer totals (Gross Payroll, Total Deductions, Total Net Salary, Total Cash Advance, Total OT Hours, Total Holidays, Total Lates) are computed across **every** employee matching the branch filter, not just the visible page.
+
+### Print behavior
+
+"Print Payroll" opens a standalone route (`payroll.work-week.print`) in a new tab — the full, unpaginated employee set for the branch and range, rendered as one compact table with `@page`/`@media print` CSS (`break-inside: avoid` per row), following the same `window.print()` pattern as `payroll.reports.print`.

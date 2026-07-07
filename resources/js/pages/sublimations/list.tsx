@@ -88,9 +88,11 @@ import { TagCell } from './tag-cell';
 
 function computeNextAdditionalDescription(description: string): string {
     const m = description.match(/^(.*) \(Addtl\. (\d+)\)$/);
+
     if (m) {
         return `${m[1]} (Addtl. ${parseInt(m[2], 10) + 1})`;
     }
+
     return `${description} (Addtl. 1)`;
 }
 
@@ -145,6 +147,7 @@ export default function SublimationIndex({
         setDuplicateTagQtys((prev) => {
             const next = { ...prev };
             delete next[tagId];
+
             return next;
         });
 
@@ -1042,6 +1045,7 @@ export default function SublimationIndex({
                                 if (deleteTarget) {
                                     deleteSublimation(deleteTarget);
                                 }
+
                                 setDeleteTarget(null);
                             }}
                         >
@@ -1085,6 +1089,7 @@ export default function SublimationIndex({
 
                             if (tagPayload.length === 0) {
                                 toast.error('Select at least one category', { position: 'top-center' });
+
                                 return;
                             }
 

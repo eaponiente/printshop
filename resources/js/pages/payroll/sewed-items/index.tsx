@@ -566,7 +566,10 @@ export default function SewedItemsIndex({
                                                     size="icon"
                                                     className="text-destructive hover:text-destructive"
                                                     onClick={() => {
-                                                        if (!confirm('Delete this sewed item? This cannot be undone.')) return;
+                                                        if (!confirm('Delete this sewed item? This cannot be undone.')) {
+return;
+}
+
                                                         router.delete(route('payroll.sewed-items.destroy', item.id), { preserveScroll: true });
                                                     }}
                                                 >

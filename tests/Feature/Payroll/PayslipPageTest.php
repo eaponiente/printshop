@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\Branch;
+use App\Models\Payroll\CashAdvance;
+use App\Models\Payroll\CashAdvanceDeduction;
 use App\Models\Payroll\CompanyConfig;
 use App\Models\Payroll\Employee;
 use App\Models\Payroll\PayrollPeriod;
@@ -122,6 +124,50 @@ it('passes the company name from CompanyConfig', function () {
         ->assertInertia(
             fn (AssertableInertia $page) => $page
                 ->where('companyName', 'Acme Print Co.')
+        );
+});
+
+it('itemizes each cash advance deduction on the payslip with its reason and remaining balance', function () {
+    $olderCa = CashAdvance::create([
+        'employee_id' => $this->employee->id,
+        'amount' => 50,
+        'remaining_balance' => 0,
+        'reason' => 'Medical',
+        'status' => 'paid',
+        'approved_by' => $this->admin->id,
+        'approved_at' => now(),
+    ]);
+    $newerCa = CashAdvance::create([
+        'employee_id' => $this->employee->id,
+        'amount' => 1000,
+        'remaining_balance' => 955,
+        'reason' => 'Tuition',
+        'status' => 'approved',
+        'approved_by' => $this->admin->id,
+        'approved_at' => now(),
+    ]);
+
+    $this->item->update(['ca_deduction' => 95]);
+    CashAdvanceDeduction::create([
+        'payroll_period_item_id' => $this->item->id,
+        'cash_advance_id' => $olderCa->id,
+        'amount' => 50,
+    ]);
+    CashAdvanceDeduction::create([
+        'payroll_period_item_id' => $this->item->id,
+        'cash_advance_id' => $newerCa->id,
+        'amount' => 45,
+    ]);
+
+    $this->actingAs($this->admin)
+        ->get(route('payroll.payslip', [$this->period->id, $this->item->id]))
+        ->assertOk()
+        ->assertInertia(
+            fn (AssertableInertia $page) => $page
+                ->has('item.cash_advance_deductions', 2)
+                ->where('item.cash_advance_deductions.0.cash_advance.reason', 'Medical')
+                ->where('item.cash_advance_deductions.1.cash_advance.reason', 'Tuition')
+                ->where('item.cash_advance_deductions.1.cash_advance.remaining_balance', '955.00')
         );
 });
 
