@@ -5,7 +5,6 @@ import InputError from '@/components/input-error';
 import SearchCustomersField from '@/components/shared/search-customers-field';
 import { submitFormOptions } from '@/components/shared/submit-form-options';
 import TagSelector from '@/components/shared/tag-selector';
-import { tagsLocked } from '@/pages/sublimations/tag-locked-statuses';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -22,6 +21,7 @@ import {
 } from '@/components/ui/native-select';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
+import { tagsLocked } from '@/pages/sublimations/tag-locked-statuses';
 import type { Branch } from '@/types/branches';
 import type { Tag } from '@/types/settings';
 import type { Sublimation, SublimationStatus } from '@/types/sublimations';

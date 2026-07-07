@@ -3,6 +3,7 @@ import {
     Banknote,
     BriefcaseBusiness,
     CalendarDays,
+    CalendarRange,
     ClipboardList,
     Clock,
     FileEdit,
@@ -178,6 +179,11 @@ export function PayrollSidebar() {
                                     title: 'Attendance Sheets',
                                     href: '/payroll/attendance-sheets',
                                     icon: Table,
+                                },
+                                {
+                                    title: 'Work Week Table',
+                                    href: '/payroll/work-week',
+                                    icon: CalendarRange,
                                 },
                                 ...managementNav,
                             ]}

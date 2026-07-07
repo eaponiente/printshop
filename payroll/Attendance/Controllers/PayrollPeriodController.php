@@ -113,6 +113,21 @@ class PayrollPeriodController extends Controller
         return redirect()->route('payroll.periods.show', $period);
     }
 
+    public function recompute(PayrollPeriod $period, PayrollPeriodService $service)
+    {
+        Gate::authorize('payroll-periods.generate', [$period->branch_id]);
+
+        try {
+            $service->recompute($period);
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        $this->audit('recomputed', $period, [], []);
+
+        return back()->with('success', 'Payroll recomputed. Cash advances and other updates are now reflected.');
+    }
+
     public function approve(PayrollPeriod $period, PayrollPeriodService $service)
     {
         Gate::authorize('payroll-periods.approve', [$period->branch_id]);
@@ -155,6 +170,8 @@ class PayrollPeriodController extends Controller
             'employee:id,first_name,last_name,employee_number,current_daily_rate,sss_number,philhealth_number,pagibig_number,tin_number,position',
             'payrollPeriod:id,branch_id,period_start,period_end,status,approved_by,approved_at',
             'payrollPeriod.branch:id,name',
+            'cashAdvanceDeductions:id,payroll_period_item_id,cash_advance_id,amount',
+            'cashAdvanceDeductions.cashAdvance:id,reason,amount,remaining_balance,status',
         ]);
 
         $period->load([
