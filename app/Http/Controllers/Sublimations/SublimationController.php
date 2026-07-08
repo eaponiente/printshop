@@ -24,11 +24,12 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Payroll\Audit\Traits\Auditable;
 use Payroll\Employee\Enums\EmployeeStatus;
 
 class SublimationController extends Controller
 {
-    use AuthorizesRequests;
+    use Auditable, AuthorizesRequests;
 
     public function __construct(protected SalesService $salesService) {}
 
@@ -194,32 +195,100 @@ class SublimationController extends Controller
             $tagIds = $request->input('tag_ids', []);
 
             $sublimation->fill(
-                collect($request->validated())->except('tag_ids')
+                collect($request->validated())->except(['tag_ids', 'change_reason'])
                     ->merge(['quantity' => collect($tagIds)->sum('quantity')])
                     ->all()
             );
 
-            if ($sublimation->isDirty('amount_total')) {
-                $hasTransaction = $sublimation->transaction()->exists();
-                $transactionNotPending = $hasTransaction && $sublimation->transaction->status != TransactionStatus::PENDING->value;
-                $inProduction = $sublimation->status->isProductionPhase();
+            $amountChanged = $sublimation->isDirty('amount_total');
 
-                if ($transactionNotPending || $inProduction) {
+            if ($amountChanged) {
+                // Amount is editable through downpayment_complete; every later
+                // production status locks it. Pre-payment statuses stay editable too.
+                $editable = $sublimation->status->isPrePaymentPhase()
+                    || $sublimation->status === SublimationStatus::DOWNPAYMENT_COMPLETE;
+
+                if (! $editable) {
                     return back()->withErrors(['message' => 'Cannot change amount—sublimation has been processed.']);
                 }
+            }
 
-                if ($hasTransaction) {
-                    $sublimation->transaction->update(['amount_total' => $sublimation->amount_total]);
+            $oldAmount = (float) $sublimation->getOriginal('amount_total');
+            $newTotal = (float) $sublimation->amount_total;
+            $changeReason = $request->filled('change_reason') ? $request->input('change_reason') : null;
+            $isAdmin = in_array(
+                auth()->user()->role,
+                [UserRole::ADMIN->value, UserRole::SUPERADMIN->value],
+                true
+            );
+
+            DB::transaction(function () use ($sublimation, $request, $tagIds, $amountChanged, $oldAmount, $newTotal, $changeReason, $isAdmin) {
+                if ($amountChanged && $sublimation->transaction_id) {
+                    // Lock the transaction row and read its payment state fresh, so a
+                    // concurrent payment can't be clobbered by a stale recompute.
+                    $transaction = Transaction::whereKey($sublimation->transaction_id)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if ($transaction) {
+                        $paid = (float) $transaction->amount_paid;
+
+                        // Once a downpayment has been collected (transaction no longer
+                        // pending), only admins may still change the total.
+                        if ($transaction->status !== TransactionStatus::PENDING->value && ! $isAdmin) {
+                            throw ValidationException::withMessages([
+                                'message' => 'Only an admin can change the amount once a downpayment has been recorded.',
+                            ]);
+                        }
+
+                        // Never set the total below what has already been paid.
+                        if ($newTotal < $paid) {
+                            throw ValidationException::withMessages([
+                                'message' => 'Amount cannot be lower than the amount already paid ('
+                                    .number_format($paid, 2).').',
+                            ]);
+                        }
+
+                        // Recompute status/fulfilled_at (mirrors Transaction::recordPayment).
+                        if ($paid <= 0) {
+                            $status = TransactionStatus::PENDING;
+                            $fulfilledAt = null;
+                        } elseif ($paid >= $newTotal) {
+                            $status = TransactionStatus::PAID;
+                            $fulfilledAt = $transaction->fulfilled_at ?? now();
+                        } else {
+                            $status = TransactionStatus::PARTIAL;
+                            $fulfilledAt = null;
+                        }
+
+                        $transaction->update([
+                            'amount_total' => $newTotal,
+                            'status' => $status,
+                            'fulfilled_at' => $fulfilledAt,
+                            'change_reason' => $changeReason,
+                        ]);
+                    }
                 }
-            }
 
-            $sublimation->save();
+                $sublimation->save();
 
-            if ($request->has('tag_ids') && ! $sublimation->tagsLocked()) {
-                $sublimation->tags()->sync($this->tagSyncPayload($tagIds));
-            }
+                if ($request->has('tag_ids') && ! $sublimation->tagsLocked()) {
+                    $sublimation->tags()->sync($this->tagSyncPayload($tagIds));
+                }
+
+                if ($amountChanged) {
+                    $this->audit(
+                        'amount_updated',
+                        $sublimation,
+                        ['amount_total' => $oldAmount],
+                        ['amount_total' => $newTotal, 'change_reason' => $changeReason],
+                    );
+                }
+            });
 
             return redirect()->back()->with('success', 'Sublimation updated successfully.');
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors());
         } catch (\Exception $e) {
             Log::error('Failed to update sublimation: '.$e->getMessage());
 

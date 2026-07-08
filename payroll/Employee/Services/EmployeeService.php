@@ -76,38 +76,46 @@ class EmployeeService
                 );
             }
 
-            if ($username !== null || $role !== null || ! empty($password)) {
-                $user = $employee->user;
+            $user = $employee->user;
 
-                if ($user) {
-                    $updates = [];
-                    if ($username !== null) {
-                        $updates['username'] = $username;
-                    }
-                    if ($role !== null) {
-                        $updates['role'] = $role;
-                    }
-                    if (! empty($password)) {
-                        $updates['password'] = bcrypt($password);
-                    }
-                    // Keep the user's branch in sync with the employee's branch.
-                    $updates['branch_id'] = $employee->branch_id;
-                    $updates['first_name'] = $employee->first_name;
-                    $updates['last_name'] = $employee->last_name;
-
-                    $user->update($updates);
-                } elseif ($username && ! empty($password) && $role) {
-                    // Legacy employee with no linked user — create one now.
-                    User::create([
-                        'first_name' => $employee->first_name,
-                        'last_name' => $employee->last_name,
-                        'username' => $username,
-                        'password' => bcrypt($password),
-                        'role' => $role,
-                        'branch_id' => $employee->branch_id,
-                        'employee_id' => $employee->id,
-                    ]);
+            if ($user) {
+                $updates = [];
+                if ($username !== null) {
+                    $updates['username'] = $username;
                 }
+                if ($role !== null) {
+                    $updates['role'] = $role;
+                }
+                if (! empty($password)) {
+                    $updates['password'] = bcrypt($password);
+                }
+                // Mirror the employee's branch/name onto the linked user whenever
+                // they change — independent of any credential edit. A branch-only
+                // update must not leave the login account pointing at the old branch.
+                if ($employee->wasChanged('branch_id')) {
+                    $updates['branch_id'] = $employee->branch_id;
+                }
+                if ($employee->wasChanged('first_name')) {
+                    $updates['first_name'] = $employee->first_name;
+                }
+                if ($employee->wasChanged('last_name')) {
+                    $updates['last_name'] = $employee->last_name;
+                }
+
+                if (! empty($updates)) {
+                    $user->update($updates);
+                }
+            } elseif ($username && ! empty($password) && $role) {
+                // Legacy employee with no linked user — create one now.
+                User::create([
+                    'first_name' => $employee->first_name,
+                    'last_name' => $employee->last_name,
+                    'username' => $username,
+                    'password' => bcrypt($password),
+                    'role' => $role,
+                    'branch_id' => $employee->branch_id,
+                    'employee_id' => $employee->id,
+                ]);
             }
         });
     }

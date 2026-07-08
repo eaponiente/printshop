@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Hash;
 use Payroll\Audit\Models\AuditLog;
 use Payroll\Employee\Enums\EmployeePosition;
 use Payroll\Employee\Enums\EmployeeStatus;
+use Payroll\Employee\Services\EmployeeService;
 
 /**
  * Returns the login-account fields now required by Store/UpdateEmployeeRequest.
@@ -1234,4 +1235,75 @@ it('self-service profile updates only contact and government IDs', function () {
     expect($employee->middle_name)->toBe('M');
     expect($employee->email)->toBe('original@example.com');
     expect($employee->tin_number)->toBe('ORIGINAL-TIN');
+});
+
+it('syncs linked user branch when superadmin moves employee to another branch', function () {
+    $employee = Employee::create([
+        'first_name' => 'Mover',
+        'last_name' => 'Employee',
+        'hire_date' => '2024-01-01',
+        'branch_id' => $this->branchA->id,
+        'position' => EmployeePosition::REGULAR->value,
+        'status' => EmployeeStatus::ACTIVE->value,
+        'current_daily_rate' => 500,
+    ]);
+    Salary::createForEmployee($employee, 500, '2024-01-01');
+
+    $linkedUser = User::factory()->create([
+        'branch_id' => $this->branchA->id,
+        'role' => 'staff',
+        'employee_id' => $employee->id,
+    ]);
+
+    $this->actingAs($this->superadmin)
+        ->put(route('payroll.employees.update', $employee), array_merge([
+            'first_name' => 'Mover',
+            'last_name' => 'Employee',
+            'hire_date' => '2024-01-01',
+            'branch_id' => $this->branchB->id,
+            'position' => EmployeePosition::REGULAR->value,
+            'status' => EmployeeStatus::ACTIVE->value,
+            'daily_rate' => 500,
+        ], loginFields($linkedUser->username, 'staff', null)))
+        ->assertRedirect();
+
+    $employee->refresh();
+    $linkedUser->refresh();
+
+    expect((int) $employee->branch_id)->toBe($this->branchB->id);
+    expect((int) $linkedUser->branch_id)->toBe($this->branchB->id);
+});
+
+it('syncs linked user branch even when service update carries no credential fields', function () {
+    $employee = Employee::create([
+        'first_name' => 'Direct',
+        'last_name' => 'Sync',
+        'hire_date' => '2024-01-01',
+        'branch_id' => $this->branchA->id,
+        'position' => EmployeePosition::REGULAR->value,
+        'status' => EmployeeStatus::ACTIVE->value,
+        'current_daily_rate' => 500,
+    ]);
+    Salary::createForEmployee($employee, 500, '2024-01-01');
+
+    $linkedUser = User::factory()->create([
+        'branch_id' => $this->branchA->id,
+        'role' => 'staff',
+        'employee_id' => $employee->id,
+    ]);
+
+    // Call the service directly with no username/role/password — the branch
+    // sync must still fire off the changed employee attributes.
+    app(EmployeeService::class)->update($employee, [
+        'first_name' => 'Direct',
+        'last_name' => 'Sync',
+        'hire_date' => '2024-01-01',
+        'branch_id' => $this->branchB->id,
+        'position' => EmployeePosition::REGULAR->value,
+        'status' => EmployeeStatus::ACTIVE->value,
+        'daily_rate' => 500,
+    ]);
+
+    $linkedUser->refresh();
+    expect((int) $linkedUser->branch_id)->toBe($this->branchB->id);
 });
