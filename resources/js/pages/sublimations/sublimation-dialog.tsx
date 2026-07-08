@@ -54,6 +54,7 @@ export default function SublimationDialog({
         production_authorized: sublimation?.production_authorized ?? false,
         amount_total: sublimation?.amount_total ?? '',
         amount_paid: sublimation?.amount_paid ?? '',
+        change_reason: '',
         description: sublimation?.description ?? '',
         notes: sublimation?.notes ?? '',
         branch_id: sublimation?.branch_id ?? (auth.user as any).branch_id ?? '',
@@ -73,6 +74,12 @@ export default function SublimationDialog({
     }, [data.transaction_type, setData]);
 
     const prePaymentKeys = ['for_approval', 'done_layout', 'waiting_for_dp'];
+    // Amount stays editable through downpayment_complete; later statuses lock it.
+    const amountEditableKeys = [...prePaymentKeys, 'downpayment_complete'];
+
+    const hasTransaction = !!sublimation?.transaction;
+    const transactionPending =
+        !hasTransaction || sublimation?.transaction?.status === 'pending';
 
     const [availableTagsState, setAvailableTagsState] =
         useState<Tag[]>(availableTags);
@@ -118,6 +125,16 @@ export default function SublimationDialog({
     const isManagerOrAdmin = ['admin', 'superadmin'].includes(auth.user.role);
     const showAuthorization =
         isEdit && data.transaction_type === 'retail' && isManagerOrAdmin;
+
+    // The amount locks either past downpayment_complete, or once a downpayment
+    // has been recorded (non-pending transaction) for non-admins.
+    const amountLocked =
+        isEdit &&
+        (!amountEditableKeys.includes(data.status) ||
+            (!transactionPending && !isManagerOrAdmin));
+    // Prompt for a reason whenever an existing order's amount can be changed and
+    // a transaction already exists (i.e. money is or will be involved).
+    const showAmountReason = isEdit && !amountLocked && hasTransaction;
 
     return (
         <>
@@ -284,10 +301,7 @@ export default function SublimationDialog({
                         <div className="grid gap-2">
                             <Label htmlFor="amount_total">Total Amount</Label>
                             <Input
-                                disabled={
-                                    isEdit &&
-                                    !prePaymentKeys.includes(data.status)
-                                }
+                                disabled={amountLocked}
                                 id="amount_total"
                                 value={data.amount_total}
                                 onChange={(e) =>
@@ -296,6 +310,26 @@ export default function SublimationDialog({
                             />
                             <InputError message={errors.amount_total} />
                         </div>
+
+                        {showAmountReason && (
+                            <div className="grid gap-2">
+                                <Label htmlFor="change_reason">
+                                    Reason for amount change
+                                    <span className="ml-1 text-xs text-muted-foreground">
+                                        (optional)
+                                    </span>
+                                </Label>
+                                <Input
+                                    id="change_reason"
+                                    placeholder="e.g. customer added items, price renegotiated"
+                                    value={data.change_reason}
+                                    onChange={(e) =>
+                                        setData('change_reason', e.target.value)
+                                    }
+                                />
+                                <InputError message={errors.change_reason} />
+                            </div>
+                        )}
 
                         {/* Tags */}
                         <div className="grid gap-2">
