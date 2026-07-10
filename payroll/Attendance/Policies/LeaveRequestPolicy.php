@@ -67,6 +67,42 @@ class LeaveRequestPolicy
         return $this->approve($user, $requestorBranchId, $requestorUserId);
     }
 
+    public function delete(User $user, int $requestorBranchId, ?int $requestorUserId): bool
+    {
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        if ($user->isStaff()) {
+            return false;
+        }
+
+        if ($user->isAdmin()) {
+            // Deleting your own leave (changing your mind) is self-service and,
+            // unlike approving it, is not a conflict of interest.
+            if ($requestorUserId && $user->id === $requestorUserId) {
+                return true;
+            }
+
+            if ((int) $user->branch_id !== $requestorBranchId) {
+                return false;
+            }
+
+            // Admins may delete staff leaves in their branch, but not another
+            // admin's/superadmin's leave.
+            if ($requestorUserId) {
+                $requestor = User::find($requestorUserId);
+                if ($requestor && ! $requestor->isStaff()) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
     public function cancel(User $user, int $requestorBranchId, ?int $requestorUserId): bool
     {
         if ($user->isSuperAdmin()) {

@@ -165,6 +165,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('leave-requests/{leaveRequest}/deny', [LeaveRequestController::class, 'deny'])->name('leaves.deny');
         Route::post('leave-requests/{leaveRequest}/cancel', [LeaveRequestController::class, 'cancel'])->name('leaves.cancel');
         Route::post('leave-requests/reset', [LeaveRequestController::class, 'resetLeave'])->name('leaves.reset');
+        Route::delete('leave-requests/{leaveRequest}', [LeaveRequestController::class, 'destroy'])->name('leaves.destroy');
 
         Route::get('correction-requests', [CorrectionRequestController::class, 'index'])->name('corrections.index');
         Route::post('correction-requests', [CorrectionRequestController::class, 'store'])->name('corrections.store');
