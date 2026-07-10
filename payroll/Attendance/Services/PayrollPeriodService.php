@@ -361,10 +361,22 @@ class PayrollPeriodService
         });
     }
 
+    /**
+     * Statuses a period may be deleted from. Draft periods are removed before
+     * approval; approved periods can be deleted to unwind an over-eager
+     * approval (both unlock sheets and reverse cash-advance deductions). Paid
+     * periods (money already disbursed) and voided periods (already reversed)
+     * stay non-deletable.
+     */
+    protected const DELETABLE_STATUSES = [
+        PayrollPeriodStatus::DRAFT,
+        PayrollPeriodStatus::APPROVED,
+    ];
+
     public function delete(PayrollPeriod $period): void
     {
-        if ($period->status !== PayrollPeriodStatus::DRAFT) {
-            throw new \RuntimeException('Only draft periods can be deleted.');
+        if (! in_array($period->status, self::DELETABLE_STATUSES, true)) {
+            throw new \RuntimeException('Only draft or approved periods can be deleted.');
         }
 
         DB::transaction(function () use ($period) {
@@ -378,8 +390,8 @@ class PayrollPeriodService
                 return; // already deleted by a concurrent request
             }
 
-            if ($period->status !== PayrollPeriodStatus::DRAFT) {
-                throw new \RuntimeException('Only draft periods can be deleted.');
+            if (! in_array($period->status, self::DELETABLE_STATUSES, true)) {
+                throw new \RuntimeException('Only draft or approved periods can be deleted.');
             }
 
             AttendanceSheet::whereIn('employee_id', function ($query) use ($period) {

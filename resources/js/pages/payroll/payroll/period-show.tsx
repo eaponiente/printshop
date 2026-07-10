@@ -1,6 +1,14 @@
 import { Head, router } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
-import { AlertTriangle, ArrowLeft, CheckCircle, ClipboardCheck, RefreshCw, Trash2, Undo2 } from 'lucide-react';
+import {
+    AlertTriangle,
+    ArrowLeft,
+    CheckCircle,
+    ClipboardCheck,
+    RefreshCw,
+    Trash2,
+    Undo2,
+} from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/data-table';
@@ -233,81 +241,90 @@ export default function PayrollPeriodShow({
                                 Check Payroll
                             </Button>
                         )}
-                        {canApprove && period.status === 'draft' && period.checked_at && (
-                            <Button
-                                variant="default"
-                                size="sm"
-                                onClick={() =>
-                                    router.post(
-                                        `/payroll/periods/${period.id}/approve`,
-                                        {},
-                                        {
-                                            onSuccess: () =>
-                                                toast.success('Approved.'),
-                                            onError: () =>
-                                                toast.error('Failed.'),
-                                        },
-                                    )
-                                }
-                            >
-                                <CheckCircle className="mr-1 h-4 w-4" /> Approve
-                            </Button>
-                        )}
-                        {canDelete && period.status === 'draft' && (
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="destructive" size="sm">
-                                        <Trash2 className="mr-1 h-4 w-4" />{' '}
-                                        Delete
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>
-                                            Delete draft period?
-                                        </AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            This will delete the draft payroll
-                                            period and unlock all attendance
-                                            sheets. This cannot be undone.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>
-                                            Cancel
-                                        </AlertDialogCancel>
-                                        <AlertDialogAction
-                                            onClick={() =>
-                                                router.delete(
-                                                    `/payroll/periods/${period.id}`,
-                                                    {
-                                                        onSuccess: () =>
-                                                            toast.success(
-                                                                'Period deleted.',
-                                                                {
-                                                                    position:
-                                                                        'top-center',
-                                                                },
-                                                            ),
-                                                        onError: (err: any) =>
-                                                            toast.error(
-                                                                err.message ??
-                                                                    'Deletion failed.',
-                                                                {
-                                                                    position:
-                                                                        'top-center',
-                                                                },
-                                                            ),
-                                                    },
-                                                )
-                                            }
-                                        >
+                        {canApprove &&
+                            period.status === 'draft' &&
+                            period.checked_at && (
+                                <Button
+                                    variant="default"
+                                    size="sm"
+                                    onClick={() =>
+                                        router.post(
+                                            `/payroll/periods/${period.id}/approve`,
+                                            {},
+                                            {
+                                                onSuccess: () =>
+                                                    toast.success('Approved.'),
+                                                onError: () =>
+                                                    toast.error('Failed.'),
+                                            },
+                                        )
+                                    }
+                                >
+                                    <CheckCircle className="mr-1 h-4 w-4" />{' '}
+                                    Approve
+                                </Button>
+                            )}
+                        {canDelete &&
+                            (period.status === 'draft' ||
+                                period.status === 'approved') && (
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="destructive" size="sm">
+                                            <Trash2 className="mr-1 h-4 w-4" />{' '}
                                             Delete
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        )}
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>
+                                                {period.status === 'approved'
+                                                    ? 'Delete approved period?'
+                                                    : 'Delete draft period?'}
+                                            </AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                {period.status === 'approved'
+                                                    ? 'This will permanently delete this approved payroll period, unlock all attendance sheets, and restore any cash-advance balances it deducted. This cannot be undone.'
+                                                    : 'This will delete the draft payroll period and unlock all attendance sheets. This cannot be undone.'}
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>
+                                                Cancel
+                                            </AlertDialogCancel>
+                                            <AlertDialogAction
+                                                onClick={() =>
+                                                    router.delete(
+                                                        `/payroll/periods/${period.id}`,
+                                                        {
+                                                            onSuccess: () =>
+                                                                toast.success(
+                                                                    'Period deleted.',
+                                                                    {
+                                                                        position:
+                                                                            'top-center',
+                                                                    },
+                                                                ),
+                                                            onError: (
+                                                                err: any,
+                                                            ) =>
+                                                                toast.error(
+                                                                    err.message ??
+                                                                        'Deletion failed.',
+                                                                    {
+                                                                        position:
+                                                                            'top-center',
+                                                                    },
+                                                                ),
+                                                        },
+                                                    )
+                                                }
+                                            >
+                                                Delete
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            )}
                         {isSuperAdmin &&
                             (period.status === 'approved' ||
                                 period.status === 'paid') && (
@@ -346,8 +363,12 @@ export default function PayrollPeriodShow({
                                 <>
                                     <AlertTriangle className="h-4 w-4 text-amber-600" />
                                     <span className="text-amber-700">
-                                        {incompleteSheets.length} incomplete attendance record
-                                        {incompleteSheets.length !== 1 ? 's' : ''} found
+                                        {incompleteSheets.length} incomplete
+                                        attendance record
+                                        {incompleteSheets.length !== 1
+                                            ? 's'
+                                            : ''}{' '}
+                                        found
                                     </span>
                                 </>
                             ) : (
@@ -369,7 +390,9 @@ export default function PayrollPeriodShow({
                                         <span className="font-medium">
                                             {s.employee}
                                         </span>
-                                        <span className="text-amber-500">—</span>
+                                        <span className="text-amber-500">
+                                            —
+                                        </span>
                                         <span className="font-mono text-xs">
                                             {s.date}
                                         </span>

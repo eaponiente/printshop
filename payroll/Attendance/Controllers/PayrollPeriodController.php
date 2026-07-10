@@ -156,7 +156,7 @@ class PayrollPeriodController extends Controller
         $this->audit('deleted', $period, $before, []);
 
         return redirect()->route('payroll.periods.index')
-            ->with('success', 'Draft payroll period deleted successfully.');
+            ->with('success', 'Payroll period deleted successfully.');
     }
 
     public function payslip(PayrollPeriod $period, PayrollPeriodItem $item)
