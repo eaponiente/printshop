@@ -243,7 +243,8 @@ export default function PayrollPeriodShow({
                         )}
                         {canApprove &&
                             period.status === 'draft' &&
-                            period.checked_at && (
+                            period.checked_at &&
+                            incompleteSheets.length === 0 && (
                                 <Button
                                     variant="default"
                                     size="sm"
@@ -410,6 +411,12 @@ export default function PayrollPeriodShow({
                                     </li>
                                 ))}
                             </ul>
+                        )}
+                        {incompleteSheets.length > 0 && (
+                            <p className="mt-2 text-xs font-medium text-amber-700">
+                                Resolve these records and re-run Check Payroll
+                                before the period can be approved.
+                            </p>
                         )}
                         <p className="mt-2 text-xs text-muted-foreground">
                             Last checked:{' '}
