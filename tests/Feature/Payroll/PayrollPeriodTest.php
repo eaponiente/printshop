@@ -1297,7 +1297,7 @@ it('allows superadmin to delete any draft period', function () {
     expect(PayrollPeriod::count())->toBe(0);
 });
 
-it('prevents deletion of approved periods', function () {
+it('allows deletion of approved periods', function () {
     createEmployeeWithAttendance($this->branchA, 'Emp');
 
     $this->actingAs($this->adminA)
@@ -1313,9 +1313,9 @@ it('prevents deletion of approved periods', function () {
     $period->refresh();
     expect($period->status)->toBe(PayrollPeriodStatus::APPROVED);
 
-    $this->expectException(RuntimeException::class);
-    $this->expectExceptionMessage('Only draft periods can be deleted.');
     app(PayrollPeriodService::class)->delete($period);
+
+    expect(PayrollPeriod::find($period->id))->toBeNull();
 });
 
 it('denies staff from deleting', function () {
@@ -1489,4 +1489,119 @@ it('generate runs a bounded number of queries regardless of employee count', fun
     // Pre-refactor this would have been well over 200. We allow generous headroom but
     // assert the order of magnitude has dropped.
     expect($count)->toBeLessThan(150);
+});
+
+// ──────────── Batch: Deleting an approved period ────────────
+
+it('deletes an approved period, unlocks its sheets and restores cash advances', function () {
+    $emp = createEmployeeWithAttendance($this->branchA, 'Emp', 510, ['sss' => null, 'phic' => null, 'pagibig' => null]);
+
+    $ca = CashAdvance::create([
+        'employee_id' => $emp->id,
+        'amount' => 1000,
+        'remaining_balance' => 1000,
+        'reason' => 'Test',
+        'status' => 'approved',
+    ]);
+
+    $period = app(PayrollPeriodService::class)->generate($this->branchA, '2026-05-25', '2026-05-30');
+    app(PayrollPeriodService::class)->approve($period, $this->superadmin->id);
+
+    $period->refresh();
+    expect($period->status)->toBe(PayrollPeriodStatus::APPROVED);
+    // Generating locked the sheets.
+    expect(AttendanceSheet::where('employee_id', $emp->id)->whereNotNull('locked_at')->count())->toBe(5);
+
+    app(PayrollPeriodService::class)->delete($period);
+
+    // Period and its items are gone.
+    expect(PayrollPeriod::find($period->id))->toBeNull();
+    expect(PayrollPeriodItem::where('payroll_period_id', $period->id)->count())->toBe(0);
+
+    // Sheets are unlocked again for corrections.
+    expect(AttendanceSheet::where('employee_id', $emp->id)->whereNotNull('locked_at')->count())->toBe(0);
+
+    // Cash-advance balance restored and ledger cleared.
+    $ca->refresh();
+    expect((float) $ca->remaining_balance)->toBe(1000.0);
+    expect($ca->status)->toBe('approved');
+    expect(CashAdvanceDeduction::count())->toBe(0);
+});
+
+it('refuses to delete a paid period', function () {
+    createEmployeeWithAttendance($this->branchA, 'Emp', 510, ['sss' => null, 'phic' => null, 'pagibig' => null]);
+
+    $period = app(PayrollPeriodService::class)->generate($this->branchA, '2026-05-25', '2026-05-30');
+    $period->update(['status' => PayrollPeriodStatus::PAID]);
+
+    expect(fn () => app(PayrollPeriodService::class)->delete($period))
+        ->toThrow(RuntimeException::class, 'Only draft or approved periods can be deleted.');
+
+    expect(PayrollPeriod::find($period->id))->not->toBeNull();
+});
+
+it('refuses to delete a voided period', function () {
+    createEmployeeWithAttendance($this->branchA, 'Emp', 510, ['sss' => null, 'phic' => null, 'pagibig' => null]);
+
+    $period = app(PayrollPeriodService::class)->generate($this->branchA, '2026-05-25', '2026-05-30');
+    app(PayrollPeriodService::class)->approve($period, $this->superadmin->id);
+    app(PayrollPeriodService::class)->void($period);
+
+    $period->refresh();
+    expect($period->status)->toBe(PayrollPeriodStatus::VOIDED);
+
+    expect(fn () => app(PayrollPeriodService::class)->delete($period))
+        ->toThrow(RuntimeException::class, 'Only draft or approved periods can be deleted.');
+});
+
+it('allows an admin to delete an approved period in their own branch', function () {
+    createEmployeeWithAttendance($this->branchA, 'Emp');
+
+    $period = app(PayrollPeriodService::class)->generate($this->branchA, '2026-05-25', '2026-05-30');
+    app(PayrollPeriodService::class)->approve($period, $this->adminA->id);
+
+    $this->actingAs($this->adminA)
+        ->delete(route('payroll.periods.destroy', $period))
+        ->assertRedirect(route('payroll.periods.index'));
+
+    expect(PayrollPeriod::find($period->id))->toBeNull();
+});
+
+it('blocks an admin from deleting an approved period in another branch', function () {
+    createEmployeeWithAttendance($this->branchB, 'Emp');
+
+    $period = app(PayrollPeriodService::class)->generate($this->branchB, '2026-05-25', '2026-05-30');
+    app(PayrollPeriodService::class)->approve($period, $this->superadmin->id);
+
+    $this->actingAs($this->adminA)
+        ->delete(route('payroll.periods.destroy', $period))
+        ->assertForbidden();
+
+    expect(PayrollPeriod::find($period->id))->not->toBeNull();
+});
+
+it('blocks staff from deleting an approved period', function () {
+    createEmployeeWithAttendance($this->branchA, 'Emp');
+
+    $period = app(PayrollPeriodService::class)->generate($this->branchA, '2026-05-25', '2026-05-30');
+    app(PayrollPeriodService::class)->approve($period, $this->adminA->id);
+
+    $this->actingAs($this->staffA)
+        ->delete(route('payroll.periods.destroy', $period))
+        ->assertForbidden();
+
+    expect(PayrollPeriod::find($period->id))->not->toBeNull();
+});
+
+it('lets a superadmin delete an approved period in any branch', function () {
+    createEmployeeWithAttendance($this->branchB, 'Emp');
+
+    $period = app(PayrollPeriodService::class)->generate($this->branchB, '2026-05-25', '2026-05-30');
+    app(PayrollPeriodService::class)->approve($period, $this->superadmin->id);
+
+    $this->actingAs($this->superadmin)
+        ->delete(route('payroll.periods.destroy', $period))
+        ->assertRedirect(route('payroll.periods.index'));
+
+    expect(PayrollPeriod::find($period->id))->toBeNull();
 });

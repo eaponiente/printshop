@@ -39,6 +39,7 @@ time_logs  ──→  attendance_sheets  ──→  payroll_period_items
 | On correction approval    | `processDailyAttendance()` for employee + date | Regenerate corrected sheet                      |
 | Payroll period generation | Lock sheets, aggregate into period items       | Finalize pay period                             |
 | Payroll period void       | Unlock all sheets in period                    | Enable corrections then re-generate             |
+| Payroll period delete     | Unlock sheets, reverse cash advances, drop row | Undo a `draft` **or `approved`** period entirely |
 
 ### Auth Architecture
 
@@ -301,6 +302,15 @@ Index: `[employee_id, status]`
 
 Unique index: `[branch_id, period_start, period_end]`
 Additional index: `status`
+
+**Void vs. delete.** Both unlock the period's attendance sheets and reverse cash-advance
+deductions (restoring `remaining_balance`), but differ in what survives and who may act:
+
+- **Void** keeps the row as `voided` for audit. Superadmin-only (`payroll-periods.void`).
+- **Delete** hard-deletes the period and its items (an `Auditable` `deleted` entry preserves
+  the before-state). Allowed for `draft` **and `approved`** periods only — `paid` and `voided`
+  stay non-deletable. **Branch-scoped** (`payroll-periods.delete`): superadmin any branch,
+  admin their own branch, staff denied. See `PayrollPeriodService::delete()`.
 
 ### 2.13 `payroll_period_items`
 

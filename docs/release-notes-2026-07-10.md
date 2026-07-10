@@ -1,6 +1,6 @@
 # What's New — July 10, 2026
 
-Approved and pending leaves can now be deleted, with the leave balance refunded and the day's attendance recomputed from real punches.
+Approved and pending leaves can now be deleted, with the leave balance refunded and the day's attendance recomputed from real punches. Approved payroll periods can now be deleted outright (branch-scoped), unlocking their sheets and restoring cash-advance balances.
 
 ---
 
@@ -20,3 +20,20 @@ Approved and pending leaves can now be deleted, with the leave balance refunded 
 - Authorization is a new `leave-requests.delete` gate backed by `LeaveRequestPolicy::delete()`, which delegates to `approve()` (superadmin bypass; admins only within their branch on staff; no acting on your own request). Route: `DELETE /payroll/leave-requests/{leaveRequest}` → `payroll.leaves.destroy`.
 - Payroll needs no change: leave value already lives inside `daily_wage`, and `PayrollPeriodService::generate` reads only `attendance_sheets`, so once the sheet is reprocessed the period math is correct with no double-counting.
 - Covered by new cases in `tests/Feature/Payroll/LeaveBalanceTest.php` (refund + reprocess, worked-through-leave recompute, unpaid/pending no-op, locked-period block, staff forbidden, denied rejected).
+
+---
+
+## Payroll Periods
+
+### Delete an approved payroll period
+- An **approved** payroll period can now be **deleted**, not just voided. Use it to fully undo a period that was approved by mistake — it disappears entirely instead of lingering as a voided record.
+- Deleting an approved period **unlocks all of its attendance sheets** (so the days can be corrected and the period re-generated) and **restores any cash-advance balances** those payslips had deducted, exactly like void does.
+- **Branch-scoped.** A branch admin can delete an approved period **in their own branch**; a superadmin can delete in any branch; staff cannot delete. The Delete button appears on the period page for drafts and approved periods, with a confirmation dialog spelling out the consequences.
+- **Only draft and approved periods are deletable.** Paid periods (money already disbursed) and already-voided periods stay protected.
+- **Void still exists** and is unchanged: it keeps the period on record as `voided` and remains superadmin-only. Void when you want an audit trail; delete when you want the period gone.
+
+### Notes for reviewers
+- Single guard change in `PayrollPeriodService::delete()`: the DRAFT-only check (pre-transaction and the re-check under `lockForUpdate`) now allows `DELETABLE_STATUSES = [DRAFT, APPROVED]`. The existing branch-scoped sheet unlock + `reverseCashAdvanceDeductions` + item/period delete already handled approved periods correctly.
+- No authorization change: `PayrollPeriodController::destroy` already authorizes `payroll-periods.delete` with `$period->branch_id` and `PayrollPeriodPolicy::delete()` is already branch-scoped (staff denied, admin own branch, superadmin any). Only the success flash was made status-neutral.
+- Frontend: `period-show.tsx` now shows the delete dialog for `approved` as well as `draft`, with approved-specific copy warning about the sheet unlock and cash-advance restore.
+- Covered by new cases in `tests/Feature/Payroll/PayrollPeriodTest.php` (approved delete unlocks sheets + restores CA + drops items/row, paid/voided refused, admin-in-branch allowed, cross-branch admin and staff forbidden, superadmin any branch).
