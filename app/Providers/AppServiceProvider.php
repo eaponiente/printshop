@@ -103,6 +103,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('leave-requests.approve', [LeaveRequestPolicy::class, 'approve']);
         Gate::define('leave-requests.deny', [LeaveRequestPolicy::class, 'deny']);
         Gate::define('leave-requests.cancel', [LeaveRequestPolicy::class, 'cancel']);
+        Gate::define('leave-requests.delete', [LeaveRequestPolicy::class, 'delete']);
 
         Gate::define('correction-requests.submit', [CorrectionRequestPolicy::class, 'submit']);
         Gate::define('correction-requests.approve', [CorrectionRequestPolicy::class, 'approve']);

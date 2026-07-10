@@ -679,6 +679,27 @@ ca_deduction = min(remaining_balance, net_pay_before_ca)
 
 Leave types: `vacation`, `sick`, `emergency`, `maternity`, `paternity`, `bereavement`, `unpaid`
 
+**Deleting a leave** (`DELETE /payroll/leave-requests/{lr}`, `leaves.destroy`, admins/superadmin only):
+
+Use this when a leave was granted but will not be used — the employee changed their mind, or
+was on leave for a date they actually came in and worked. Only `pending` and `approved` leaves
+are deletable (`denied`/`cancelled` are rejected). The delete is a hard delete, which frees the
+`unique(employee_id, date)` slot so the day can be re-requested.
+
+On delete:
+
+- **Balance refund** — if the leave was `approved` **and** `is_paid`, `paid_leave_balance` is
+  incremented by 1 (mirrors `deny`). Pending or unpaid leaves change no balance.
+- **Attendance reprocessed** — for an approved leave, `AttendanceService::processDailyAttendance`
+  is re-run for the date so the day recomputes from the actual punches (real worked wage if the
+  employee clocked in, absent if not) and the `leave_*` columns are cleared. Punches
+  (`time_logs`) are never touched by the delete. This is what makes the "on leave but worked"
+  case pay correctly. There is no date restriction — a past-dated leave can be deleted as long
+  as the date's sheet is not yet locked.
+- **Locked-period guard** — deleting an approved leave whose attendance sheet is locked inside a
+  generated payroll period is refused (that pay is finalized; refunding a spent credit there
+  would corrupt a closed period). Mirrors the `approve` lock guard.
+
 ### 3.12 Fines
 
 - Per-day flat fines for policy violations (e.g., ₱20 for no uniform)
@@ -876,6 +897,7 @@ All payroll routes are under `/payroll` prefix with `payroll.` name prefix. All 
 | `POST` | `/payroll/leave-requests/{lr}/approve` | `payroll.leaves.approve` | Auth (superior role) |
 | `POST` | `/payroll/leave-requests/{lr}/deny`    | `payroll.leaves.deny`    | Auth (superior role) |
 | `POST` | `/payroll/leave-requests/{lr}/cancel`  | `payroll.leaves.cancel`  | Auth (owner/admin)   |
+| `DELETE` | `/payroll/leave-requests/{lr}`       | `payroll.leaves.destroy` | Auth (superior role) |
 
 ### Correction Requests
 
@@ -954,6 +976,7 @@ Admin     → Superadmin (never self-approved)
 | Approve OT request                            | —         | Branch employees      | All               |
 | Submit leave request                          | Self only | Self only             | Self only         |
 | Approve leave request                         | —         | Branch employees      | All               |
+| Delete leave request                          | —         | Own + branch staff    | All               |
 | Request cash advance                          | Self only | Self only             | Self only         |
 | Approve cash advance                          | —         | Branch employees      | All               |
 | Manage employee schedules                     | —         | Branch employees      | All               |

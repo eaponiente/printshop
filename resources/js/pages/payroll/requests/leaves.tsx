@@ -1,6 +1,6 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
-import { Check, Plus, RefreshCw, X } from 'lucide-react';
+import { Check, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/data-table';
@@ -69,6 +69,23 @@ return;
         );
     };
 
+    const handleDelete = (id: number) => {
+        if (
+            !confirm(
+                'Delete this leave? If it was approved & paid, the balance will be refunded and the day recomputed from attendance.',
+            )
+        ) {
+            return;
+        }
+
+        router.delete(`/payroll/leave-requests/${id}`, {
+            preserveScroll: true,
+            onSuccess: () => toast.success('Leave deleted'),
+            onError: (err: any) =>
+                toast.error(err?.error || 'Failed to delete.'),
+        });
+    };
+
     const columns: ColumnDef<any>[] = [
         {
             accessorKey: 'employee',
@@ -127,61 +144,93 @@ return;
             ? [
                   {
                       header: 'Actions',
-                      cell: ({ row }: CellContext<any, any>) =>
-                          row.original.status === 'pending' ? (
+                      cell: ({ row }: CellContext<any, any>) => {
+                          const status = row.original.status;
+                          const canDelete =
+                              status === 'pending' || status === 'approved';
+
+                          if (!canDelete) {
+                              return (
+                                  <span className="text-xs text-muted-foreground">
+                                      —
+                                  </span>
+                              );
+                          }
+
+                          return (
                               <div className="flex gap-1">
-                                  <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() =>
-                                          router.post(
-                                              `/payroll/leave-requests/${row.original.id}/approve`,
-                                              {},
-                                              {
-                                                  onSuccess: () =>
-                                                      toast.success('Approved'),
-                                                  onError: (err: any) => {
-                                                      const msg =
-                                                          err?.error ||
-                                                          err?.message ||
-                                                          'Failed to approve.';
-                                                      toast.error(msg);
-                                                  },
-                                              },
-                                          )
-                                      }
-                                  >
-                                      <Check className="h-4 w-4 text-green-600" />
-                                  </Button>
-                                  <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() =>
-                                          router.post(
-                                              `/payroll/leave-requests/${row.original.id}/deny`,
-                                              {},
-                                              {
-                                                  onSuccess: () =>
-                                                      toast.success('Denied'),
-                                                  onError: (err: any) => {
-                                                      const msg =
-                                                          err?.error ||
-                                                          err?.message ||
-                                                          'Failed to deny.';
-                                                      toast.error(msg);
-                                                  },
-                                              },
-                                          )
-                                      }
-                                  >
-                                      <X className="h-4 w-4 text-red-500" />
-                                  </Button>
+                                  {status === 'pending' && (
+                                      <>
+                                          <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() =>
+                                                  router.post(
+                                                      `/payroll/leave-requests/${row.original.id}/approve`,
+                                                      {},
+                                                      {
+                                                          onSuccess: () =>
+                                                              toast.success(
+                                                                  'Approved',
+                                                              ),
+                                                          onError: (
+                                                              err: any,
+                                                          ) => {
+                                                              const msg =
+                                                                  err?.error ||
+                                                                  err?.message ||
+                                                                  'Failed to approve.';
+                                                              toast.error(msg);
+                                                          },
+                                                      },
+                                                  )
+                                              }
+                                          >
+                                              <Check className="h-4 w-4 text-green-600" />
+                                          </Button>
+                                          <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() =>
+                                                  router.post(
+                                                      `/payroll/leave-requests/${row.original.id}/deny`,
+                                                      {},
+                                                      {
+                                                          onSuccess: () =>
+                                                              toast.success(
+                                                                  'Denied',
+                                                              ),
+                                                          onError: (
+                                                              err: any,
+                                                          ) => {
+                                                              const msg =
+                                                                  err?.error ||
+                                                                  err?.message ||
+                                                                  'Failed to deny.';
+                                                              toast.error(msg);
+                                                          },
+                                                      },
+                                                  )
+                                              }
+                                          >
+                                              <X className="h-4 w-4 text-red-500" />
+                                          </Button>
+                                      </>
+                                  )}
+                                  {canDelete && (
+                                      <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() =>
+                                              handleDelete(row.original.id)
+                                          }
+                                      >
+                                          <Trash2 className="h-4 w-4 text-red-500" />
+                                      </Button>
+                                  )}
                               </div>
-                          ) : (
-                              <span className="text-xs text-muted-foreground">
-                                  —
-                              </span>
-                          ),
+                          );
+                      },
                   } as ColumnDef<any>,
               ]
             : []),
