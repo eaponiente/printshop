@@ -162,6 +162,51 @@ class LeaveRequestController extends Controller
         return back()->with('success', 'Leave request cancelled.');
     }
 
+    public function destroy(LeaveRequest $leaveRequest): RedirectResponse
+    {
+        Gate::authorize('leave-requests.delete', [$leaveRequest->employee->branch_id, $leaveRequest->employee->user?->id]);
+
+        if (! in_array($leaveRequest->status, ['pending', 'approved'], true)) {
+            return back()->withErrors(['error' => 'Only pending or approved leave requests can be deleted.']);
+        }
+
+        $employee = $leaveRequest->employee;
+        $date = $leaveRequest->date->toDateString();
+        $wasApproved = $leaveRequest->status === 'approved';
+        $wasApprovedPaid = $wasApproved && $leaveRequest->is_paid;
+
+        if ($wasApproved) {
+            $lockedSheet = AttendanceSheet::where('employee_id', $leaveRequest->employee_id)
+                ->where('date', $date)
+                ->whereNotNull('locked_at')
+                ->first();
+
+            if ($lockedSheet) {
+                throw ValidationException::withMessages([
+                    'error' => 'Attendance sheet for this date is locked in a payroll period.',
+                ]);
+            }
+        }
+
+        $before = $leaveRequest->getAttributes();
+
+        DB::transaction(function () use ($leaveRequest, $employee, $wasApproved, $wasApprovedPaid, $date) {
+            if ($wasApprovedPaid) {
+                $employee->increment('paid_leave_balance', 1);
+            }
+
+            $leaveRequest->delete();
+
+            if ($wasApproved) {
+                app(AttendanceService::class)->processDailyAttendance($employee, $date);
+            }
+        });
+
+        $this->audit('deleted', $leaveRequest, $before, []);
+
+        return back()->with('success', 'Leave request deleted.');
+    }
+
     public function resetLeave(): RedirectResponse
     {
         if (! auth()->user()->isSuperAdmin()) {
