@@ -122,68 +122,64 @@ export default function PayrollPeriodsIndex({
                     >
                         <Eye className="h-4 w-4" />
                     </Button>
-                    {canGenerate &&
-                        (row.original.status === 'draft' ||
-                            row.original.status === 'approved') && (
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        title="Delete"
+                    {canGenerate && row.original.status === 'draft' && (
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Delete"
+                                >
+                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                        Delete draft period?
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This will delete the draft payroll
+                                        period and unlock all attendance sheets.
+                                        This cannot be undone.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>
+                                        Cancel
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                        onClick={() =>
+                                            router.delete(
+                                                `/payroll/periods/${row.original.id}`,
+                                                {
+                                                    onSuccess: () =>
+                                                        toast.success(
+                                                            'Period deleted.',
+                                                            {
+                                                                position:
+                                                                    'top-center',
+                                                            },
+                                                        ),
+                                                    onError: (err: any) =>
+                                                        toast.error(
+                                                            err.message ??
+                                                                'Deletion failed.',
+                                                            {
+                                                                position:
+                                                                    'top-center',
+                                                            },
+                                                        ),
+                                                },
+                                            )
+                                        }
                                     >
-                                        <Trash2 className="h-4 w-4 text-red-500" />
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>
-                                            {row.original.status === 'approved'
-                                                ? 'Delete approved period?'
-                                                : 'Delete draft period?'}
-                                        </AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            {row.original.status === 'approved'
-                                                ? 'This will permanently delete this approved payroll period, unlock all attendance sheets, and restore any cash-advance balances it deducted. This cannot be undone.'
-                                                : 'This will delete the draft payroll period and unlock all attendance sheets. This cannot be undone.'}
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>
-                                            Cancel
-                                        </AlertDialogCancel>
-                                        <AlertDialogAction
-                                            onClick={() =>
-                                                router.delete(
-                                                    `/payroll/periods/${row.original.id}`,
-                                                    {
-                                                        onSuccess: () =>
-                                                            toast.success(
-                                                                'Period deleted.',
-                                                                {
-                                                                    position:
-                                                                        'top-center',
-                                                                },
-                                                            ),
-                                                        onError: (err: any) =>
-                                                            toast.error(
-                                                                err.message ??
-                                                                    'Deletion failed.',
-                                                                {
-                                                                    position:
-                                                                        'top-center',
-                                                                },
-                                                            ),
-                                                    },
-                                                )
-                                            }
-                                        >
-                                            Delete
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        )}
+                                        Delete
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    )}
                 </div>
             ),
         },
