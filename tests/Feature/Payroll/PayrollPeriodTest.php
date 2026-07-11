@@ -1675,7 +1675,7 @@ it('exposes the approve button after Check Payroll finds attendance complete', f
     $period->refresh();
     expect($period->checked_at)->not->toBeNull();
 
-    // checked_at set AND incompleteSheets empty → the Approve button renders.
+    // checked_at set AND no blocking issues → the Approve button renders.
     $this->actingAs($this->adminA)
         ->get(route('payroll.periods.show', $period))
         ->assertOk()
@@ -1685,6 +1685,8 @@ it('exposes the approve button after Check Payroll finds attendance complete', f
             ->where('canApprove', true)
             ->where('period.checked_at', fn ($v) => $v !== null)
             ->where('incompleteSheets', [])
+            ->where('uncomputedEmployees', [])
+            ->where('negativeNetPay', [])
         );
 });
 
@@ -1748,4 +1750,87 @@ it('scopes the completeness check to the period branch and date range', function
             ->where('canApprove', true)
             ->where('incompleteSheets', [])
         );
+});
+
+it('hides the approve button when an active employee has no computed payroll', function () {
+    // One employee is generated into the period with complete attendance.
+    $emp1 = createEmployeeWithAttendance($this->branchA, 'Computed');
+    addCompletePunches($emp1);
+
+    $period = app(PayrollPeriodService::class)->generate($this->branchA, '2026-05-25', '2026-05-30');
+
+    // A second active employee is added AFTER generation → never computed. No
+    // attendance sheets, so it is not an incomplete-attendance issue.
+    Employee::create([
+        'first_name' => 'Late',
+        'last_name' => 'Hire',
+        'branch_id' => $this->branchA->id,
+        'hire_date' => '2026-01-05',
+        'position' => 'regular',
+        'status' => 'active',
+        'current_daily_rate' => 510,
+    ]);
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.check', $period))
+        ->assertRedirect();
+
+    // uncomputedEmployees is non-empty → Approve button gated, even though
+    // attendance is complete.
+    $this->actingAs($this->adminA)
+        ->get(route('payroll.periods.show', $period))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('payroll/payroll/period-show')
+            ->where('canApprove', true)
+            ->where('incompleteSheets', [])
+            ->has('uncomputedEmployees', 1)
+            ->where('uncomputedEmployees.0.employee', 'Hire, Late')
+        );
+});
+
+it('treats negative net pay as a warning that does not gate approval', function () {
+    // Low daily rate so fixed weekly statutory deductions exceed earnings and
+    // the net is floored to zero (would-be-negative).
+    $emp = createEmployeeWithAttendance($this->branchA, 'LowPay', 50);
+    addCompletePunches($emp);
+
+    $period = app(PayrollPeriodService::class)->generate($this->branchA, '2026-05-25', '2026-05-30');
+
+    $item = PayrollPeriodItem::where('employee_id', $emp->id)->first();
+    expect((float) $item->net_pay)->toBe(0.0); // floored
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.check', $period))
+        ->assertRedirect();
+
+    // negativeNetPay is populated, but there are no blocking issues → Approve shows.
+    $this->actingAs($this->adminA)
+        ->get(route('payroll.periods.show', $period))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('payroll/payroll/period-show')
+            ->where('canApprove', true)
+            ->where('period.checked_at', fn ($v) => $v !== null)
+            ->where('incompleteSheets', [])
+            ->where('uncomputedEmployees', [])
+            ->has('negativeNetPay', 1)
+            ->where('negativeNetPay.0.net', fn ($v) => $v < 0)
+        );
+});
+
+it('refuses to check a period that is not a draft', function () {
+    createEmployeeWithAttendance($this->branchA, 'Emp');
+
+    $period = app(PayrollPeriodService::class)->generate($this->branchA, '2026-05-25', '2026-05-30');
+    app(PayrollPeriodService::class)->approve($period, $this->adminA->id);
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.check', $period))
+        ->assertRedirect();
+
+    $period->refresh();
+    // The check was refused: status unchanged and it was never marked checked.
+    expect($period->status)->toBe(PayrollPeriodStatus::APPROVED);
+    expect($period->checked_at)->toBeNull();
 });
