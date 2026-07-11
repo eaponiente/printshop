@@ -92,12 +92,18 @@ class PayrollPeriodController extends Controller
             ? $service->findIncompleteSheets($period->branch, $period->period_start->toDateString(), $period->period_end->toDateString())
             : [];
 
+        // Additional Check Payroll validations (only meaningful once checked).
+        $uncomputedEmployees = $period->checked_at ? $service->findUncomputedEmployees($period) : [];
+        $negativeNetPay = $period->checked_at ? $service->findNegativeNetPay($period) : [];
+
         return Inertia::render('payroll/payroll/period-show', [
             'period' => array_merge($period->toArray(), [
                 'checked_at' => $period->checked_at?->toDateTimeString(),
             ]),
             'items' => $items,
             'incompleteSheets' => $incompleteSheets,
+            'uncomputedEmployees' => $uncomputedEmployees,
+            'negativeNetPay' => $negativeNetPay,
             'canApprove' => Gate::check('payroll-periods.approve', [$period->branch_id]),
             'canDelete' => ! auth()->user()->isStaff(),
             'isSuperAdmin' => auth()->user()->isSuperAdmin(),
@@ -107,6 +113,10 @@ class PayrollPeriodController extends Controller
     public function check(PayrollPeriod $period)
     {
         Gate::authorize('payroll-periods.approve', [$period->branch_id]);
+
+        if ($period->status !== PayrollPeriodStatus::DRAFT) {
+            return back()->with('error', 'Only draft periods can be checked.');
+        }
 
         $period->update(['checked_at' => now()]);
 

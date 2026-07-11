@@ -312,6 +312,26 @@ deductions (restoring `remaining_balance`), but differ in what survives and who 
   stay non-deletable. **Branch-scoped** (`payroll-periods.delete`): superadmin any branch,
   admin their own branch, staff denied. See `PayrollPeriodService::delete()`.
 
+**Check Payroll → Approve gate.** A draft period must pass **Check Payroll** (`payroll.periods.check`,
+which stamps `checked_at`) before the **Approve** button appears. `PayrollPeriodController::show`
+computes the validation report only once `checked_at` is set and passes it to `period-show.tsx`,
+which reveals Approve only when there are no **blocking** issues:
+
+- **No missing attendance** — `PayrollPeriodService::findIncompleteSheets()` (present, non-rest,
+  non-leave sheets that lack a matching punch set for that day). _Blocks._
+- **All employees computed** — `findUncomputedEmployees()`: active, non-superadmin employees in the
+  branch with no payroll item (e.g. hired/reactivated after generation). Recompute to include them.
+  _Blocks._
+- **Not already approved** — `check` is refused unless the period is `draft`; Approve is `draft`-only.
+  _Blocks (enforced server-side)._
+- **No negative net pay** — `findNegativeNetPay()`: items whose pre-floor net (`gross + deminimis −
+  SSS − PhilHealth − Pag-IBIG − CA`) is below zero because deductions outran earnings (stored
+  `net_pay` is clamped to 0). **Warning only — does not block approval.**
+
+The "No payroll errors" idea from early scoping was intentionally dropped. Enforcement of the two
+non-attendance blockers is frontend-gated except `check`'s draft guard; the approve endpoint itself
+is not hard-blocked (see the July 11 release notes for the test-fixture rationale).
+
 ### 2.13 `payroll_period_items`
 
 | Column                     | Type              | Notes                                 |
