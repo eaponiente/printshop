@@ -6,11 +6,14 @@ Payroll periods can only be approved once their attendance is fully complete —
 
 ## Work Week Table
 
-### Date filter now applies the exact dates you pick
-- Picking a From/To range on the Work Week page now filters to **exactly** those dates. Previously the selected dates could land a day early (e.g. picking May 25 filtered from May 24) because of a timezone conversion.
+### Separate From / To date filter
+- The Work Week date filter is now two explicit **From** and **To** date inputs with an **Apply** button, replacing the single calendar range popover. Set both ends, click Apply, and the table reloads for exactly that range.
+- The inputs guard each other (From can't exceed To and vice-versa), and Apply is disabled until a valid, changed range is entered.
+- Picking dates now lands on **exactly** the days you choose — the previous calendar popover could shift a selection a day early in Asia/Manila (UTC+8) because it serialized dates through `toISOString()`. Native date inputs use `YYYY-MM-DD` strings directly, so there is no Date/UTC conversion.
 
 #### Notes for reviewers
-- `resources/js/components/date-range-picker.tsx`: the calendar's selected dates were serialized with `toISOString()`, which shifts a locally-picked midnight back a day in positive-offset zones (Asia/Manila is UTC+8). Replaced with a `toLocalISODate()` helper that formats from the Date's local calendar fields, per the AGENTS.md local-time rule. The picker is used only by the Work Week filters. No JS test runner exists in the repo; verified via a `TZ=Asia/Manila` simulation plus type/lint checks.
+- `resources/js/pages/payroll/work-week/components/work-week-filters.tsx` now renders two `Input type="date"` fields (local state) plus an Apply button that calls the existing `onDateRangeChange` → `start_date`/`end_date` navigation. The parent `index.tsx` prop contract is unchanged.
+- The now-unused `resources/js/components/date-range-picker.tsx` (calendar range popover) was removed. No JS test runner exists in the repo; verified via type/lint checks.
 
 ---
 
