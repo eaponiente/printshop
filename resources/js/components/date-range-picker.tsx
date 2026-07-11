@@ -15,6 +15,20 @@ type DateRangePickerProps = {
     onChange: (startDate: string, endDate: string) => void;
 };
 
+/**
+ * Format a calendar-selected Date as YYYY-MM-DD using its *local* calendar
+ * fields. react-day-picker yields dates at local midnight, so `toISOString()`
+ * would shift them to the previous day in any positive-offset timezone (e.g.
+ * Asia/Manila, UTC+8) — picking May 25 would submit May 24.
+ */
+const toLocalISODate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+};
+
 export function DateRangePicker({
     startDate,
     endDate,
@@ -30,10 +44,7 @@ export function DateRangePicker({
             return;
         }
 
-        onChange(
-            selected.from.toISOString().substring(0, 10),
-            selected.to.toISOString().substring(0, 10),
-        );
+        onChange(toLocalISODate(selected.from), toLocalISODate(selected.to));
     };
 
     return (

@@ -4,6 +4,16 @@ Payroll periods can only be approved once their attendance is fully complete —
 
 ---
 
+## Work Week Table
+
+### Date filter now applies the exact dates you pick
+- Picking a From/To range on the Work Week page now filters to **exactly** those dates. Previously the selected dates could land a day early (e.g. picking May 25 filtered from May 24) because of a timezone conversion.
+
+#### Notes for reviewers
+- `resources/js/components/date-range-picker.tsx`: the calendar's selected dates were serialized with `toISOString()`, which shifts a locally-picked midnight back a day in positive-offset zones (Asia/Manila is UTC+8). Replaced with a `toLocalISODate()` helper that formats from the Date's local calendar fields, per the AGENTS.md local-time rule. The picker is used only by the Work Week filters. No JS test runner exists in the repo; verified via a `TZ=Asia/Manila` simulation plus type/lint checks.
+
+---
+
 ## Payroll Periods
 
 ### Approve only after attendance is complete
