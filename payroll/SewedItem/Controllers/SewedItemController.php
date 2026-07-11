@@ -53,11 +53,19 @@ class SewedItemController extends Controller
             'date_to' => $request->query('date_to'),
             'branch_id' => $request->query('branch_id'),
             'user_id' => $request->query('user_id'),
+            'search' => $request->query('search'),
         ];
 
         // Backend-only filter by a specific sewed item id (used by deep links).
         if ($filters['id']) {
             $query->where('id', $filters['id']);
+        }
+
+        // Search by the sublimation's description.
+        if ($filters['search']) {
+            $query->whereHas('sublimation', function ($q) use ($filters) {
+                $q->where('description', 'like', '%'.$filters['search'].'%');
+            });
         }
 
         if ($filters['date_from']) {
@@ -80,7 +88,11 @@ class SewedItemController extends Controller
             $query->whereNull('completed_at');
         }
 
-        $sewedItems = $query->orderBy('created_at', 'desc')->paginate(20)->appends(array_filter($filters));
+        // When a date range is filtered, widen the page size so a whole range
+        // is visible at once; otherwise keep the default.
+        $perPage = ($filters['date_from'] || $filters['date_to']) ? 200 : 20;
+
+        $sewedItems = $query->orderBy('created_at', 'desc')->paginate($perPage)->appends(array_filter($filters));
 
         $branches = [];
         $staff = [];

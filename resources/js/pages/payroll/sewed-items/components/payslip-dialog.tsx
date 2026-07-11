@@ -37,6 +37,23 @@ interface PayslipDialogProps {
     payslipId: number | null;
 }
 
+const peso = (value: number) =>
+    `₱${value.toLocaleString('en-PH', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    })}`;
+
+const tagPrice = (tag: TagEntry) =>
+    Number(tag.pivot.price_per_piece ?? tag.price_per_piece ?? 0);
+
+// Escape values before injecting into the print document's HTML string.
+const esc = (value: string) =>
+    value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+
 export default function PayslipDialog({
     open,
     setOpen,
@@ -50,142 +67,181 @@ export default function PayslipDialog({
         timeStyle: 'short',
     });
 
+    // Build a clean, self-contained document and print it from a dedicated
+    // window. This avoids fighting the transformed dialog / app DOM with
+    // print-only CSS overrides, which is what kept breaking the old layout.
+    const handlePrint = () => {
+        const rows = items
+            .map((item) => {
+                const tags = item.tags ?? [];
+                const description = esc(item.sublimation?.description ?? '—');
+                const date = toManilaTime(item.created_at, 'MMM DD, YYYY');
+
+                const tagRows = tags
+                    .map((tag, index) => {
+                        const qty = tag.pivot.quantity;
+                        const price = tagPrice(tag);
+                        const amount = qty * price;
+
+                        return `
+                            <tr>
+                                <td>${index === 0 ? esc(date) : ''}</td>
+                                <td>${index === 0 ? description : ''}</td>
+                                <td>
+                                    <span class="dot" style="background:${esc(tag.color)}"></span>${esc(tag.name)}
+                                </td>
+                                <td class="num">${qty}</td>
+                                <td class="num">${peso(price)}</td>
+                                <td class="num">${peso(amount)}</td>
+                            </tr>`;
+                    })
+                    .join('');
+
+                return `
+                    ${tagRows}
+                    <tr class="subtotal">
+                        <td colspan="3"></td>
+                        <td class="num">${item.quantity}</td>
+                        <td></td>
+                        <td class="num">${peso(Number(item.amount))}</td>
+                    </tr>`;
+            })
+            .join('');
+
+        const html = `<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Sewed Items Payslip</title>
+    <style>
+        @page { size: A4 portrait; margin: 12mm; }
+        * { box-sizing: border-box; }
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            color: #111;
+            font-size: 11px;
+            margin: 0;
+        }
+        h1 { font-size: 16px; text-align: center; margin: 0 0 12px; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        th, td {
+            padding: 4px 6px;
+            text-align: left;
+            vertical-align: top;
+            word-break: break-word;
+            overflow-wrap: break-word;
+        }
+        thead th { background: #f4f4f5; border-bottom: 1px solid #d4d4d8; }
+        tbody td { border-bottom: 1px solid #ececee; }
+        col.date { width: 13%; }
+        col.desc { width: 27%; }
+        col.cat { width: 25%; }
+        col.qty { width: 9%; }
+        col.price { width: 13%; }
+        col.amt { width: 13%; }
+        .num { text-align: right; font-variant-numeric: tabular-nums; }
+        .dot {
+            display: inline-block;
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            margin-right: 5px;
+            vertical-align: middle;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        tr.subtotal td {
+            background: #fafafa;
+            border-top: 1px solid #d4d4d8;
+            border-bottom: 1px solid #d4d4d8;
+            font-weight: 600;
+        }
+        tfoot td {
+            border-top: 2px solid #111;
+            font-weight: 700;
+            padding-top: 6px;
+        }
+        .footer {
+            margin-top: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            border-top: 1px solid #d4d4d8;
+            padding-top: 10px;
+        }
+        .footer .muted { color: #52525b; font-size: 10px; }
+        .footer .total { font-size: 16px; font-weight: 700; }
+        thead { display: table-header-group; }
+        tr { break-inside: avoid; }
+    </style>
+</head>
+<body>
+    <h1>SEWED ITEMS PAYSLIP</h1>
+    <table>
+        <colgroup>
+            <col class="date" /><col class="desc" /><col class="cat" />
+            <col class="qty" /><col class="price" /><col class="amt" />
+        </colgroup>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Description</th>
+                <th>Category</th>
+                <th class="num">Qty</th>
+                <th class="num">Price/piece</th>
+                <th class="num">Amount</th>
+            </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+        <tfoot>
+            <tr>
+                <td colspan="5">Grand Total</td>
+                <td class="num">${peso(grandTotal)}</td>
+            </tr>
+        </tfoot>
+    </table>
+    <div class="footer">
+        <div>
+            <div>Generated by: <strong>${esc(generatedBy)}</strong></div>
+            <div class="muted">${esc(generatedAt)}</div>
+        </div>
+        <div style="text-align:right">
+            <div class="muted">Total Amount</div>
+            <div class="total">${peso(grandTotal)}</div>
+        </div>
+    </div>
+</body>
+</html>`;
+
+        const win = window.open('', '_blank', 'width=900,height=1000');
+
+        if (!win) {
+            toast.error('Unable to open print window. Please allow pop-ups.');
+
+            return;
+        }
+
+        win.document.write(html);
+        win.document.close();
+        win.focus();
+
+        // Give the new document a tick to lay out before invoking print.
+        win.onload = () => {
+            win.print();
+        };
+        setTimeout(() => {
+            try {
+                win.print();
+            } catch {
+                // onload already handled it.
+            }
+        }, 300);
+    };
+
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogContent className="payslip-dialog max-h-[85vh] overflow-y-auto sm:max-w-2xl">
-                <style>{`
-                    @media print {
-                        @page { size: A4 portrait; margin: 8mm; }
-
-                        /* Remove the page behind the dialog entirely —
-                           visibility:hidden would keep its layout height and
-                           spill trailing blank pages after the payslip. */
-                        body > #app { display: none !important; }
-                        [data-slot="dialog-overlay"] { display: none !important; }
-
-                        /* Safety net for other portals (toasts, tooltips). */
-                        body * { visibility: hidden; }
-                        .payslip-print-area,
-                        .payslip-print-area * { visibility: visible; }
-
-                        /* The dialog is fixed + transformed, and fixed elements
-                           don't paginate in print — content past page 1 gets
-                           clipped. Reposition it as a plain block at the page
-                           origin so long payslips flow across pages. */
-                        .payslip-dialog {
-                            position: absolute !important;
-                            top: 0 !important;
-                            left: 0 !important;
-                            transform: none !important;
-                            width: 100% !important;
-                            max-width: none !important;
-                            max-height: none !important;
-                            overflow: visible !important;
-                            border: 0 !important;
-                            box-shadow: none !important;
-                            padding: 0 !important;
-                            margin: 0 !important;
-                            background: #fff !important;
-                        }
-
-                        /* Printable container — fixed to page width, no overflow */
-                        .payslip-print-area {
-                            position: static !important;
-                            width: 100% !important;
-                            max-width: 100% !important;
-                            padding: 0 !important;
-                            margin: 0 !important;
-                            color: #111 !important;
-                            font-size: 9pt !important;
-                            line-height: 1.3 !important;
-                            box-sizing: border-box !important;
-                            overflow-x: hidden !important;
-                        }
-                        .payslip-print-area .no-print { display: none !important; }
-
-                        /* Hide the card layout when printing */
-                        .payslip-print-area .screen-only { display: none !important; }
-
-                        /* Global text wrapping and overflow prevention */
-                        .payslip-print-area * {
-                            -webkit-print-color-adjust: exact;
-                            print-color-adjust: exact;
-                            color: #111 !important;
-                            border-color: #d4d4d8 !important;
-                            word-break: break-word !important;
-                            overflow-wrap: break-word !important;
-                            white-space: normal !important;
-                            max-width: 100% !important;
-                        }
-                        .payslip-print-area .text-muted-foreground { color: #52525b !important; }
-                        .payslip-print-area .bg-sidebar { background: #fff !important; }
-
-                        /* Single consolidated print table */
-                        .payslip-print-area .payslip-print-table {
-                            display: table !important;
-                            width: 100% !important;
-                            max-width: 100% !important;
-                            table-layout: fixed !important;
-                            font-size: 8.5pt !important;
-                            border-collapse: collapse !important;
-                        }
-
-                        .payslip-print-area .payslip-print-table th,
-                        .payslip-print-area .payslip-print-table td {
-                            padding: 2px 4px !important;
-                            word-break: break-word !important;
-                            overflow-wrap: break-word !important;
-                            white-space: normal !important;
-                            vertical-align: top !important;
-                        }
-
-                        /* Proportional column widths (total 100%) */
-                        .payslip-print-area .payslip-print-table th:nth-child(1),
-                        .payslip-print-area .payslip-print-table td:nth-child(1) { width: 12% !important; min-width: 0 !important; }
-                        .payslip-print-area .payslip-print-table th:nth-child(2),
-                        .payslip-print-area .payslip-print-table td:nth-child(2) { width: 25% !important; min-width: 0 !important; }
-                        .payslip-print-area .payslip-print-table th:nth-child(3),
-                        .payslip-print-area .payslip-print-table td:nth-child(3) { width: 23% !important; min-width: 0 !important; }
-                        .payslip-print-area .payslip-print-table th:nth-child(4),
-                        .payslip-print-area .payslip-print-table td:nth-child(4) { width: 10% !important; min-width: 0 !important; }
-                        .payslip-print-area .payslip-print-table th:nth-child(5),
-                        .payslip-print-area .payslip-print-table td:nth-child(5) { width: 15% !important; min-width: 0 !important; }
-                        .payslip-print-area .payslip-print-table th:nth-child(6),
-                        .payslip-print-area .payslip-print-table td:nth-child(6) { width: 15% !important; min-width: 0 !important; }
-
-                        /* Inline-flex tag rows should wrap like normal text */
-                        .payslip-print-area .payslip-print-table td .inline-flex {
-                            display: inline !important;
-                        }
-
-                        /* Subtotal and total rows */
-                        .payslip-print-area .payslip-print-table .item-subtotal td,
-                        .payslip-print-area .payslip-print-table .grand-total td {
-                            border-top: 1px solid #d4d4d8 !important;
-                        }
-
-                        /* Keep header / footer band backgrounds */
-                        .payslip-print-area thead tr,
-                        .payslip-print-area tfoot tr { background: #f4f4f5 !important; }
-
-                        /* overflow-hidden wrappers can clip rows at page-break edges */
-                        .payslip-print-area .overflow-hidden { overflow: visible !important; }
-
-                        /* Grand-total / generated-by block */
-                        .payslip-print-area .flex.break-inside-avoid {
-                            width: 100% !important;
-                            max-width: 100% !important;
-                            box-sizing: border-box !important;
-                            padding: 6px 8px !important;
-                        }
-
-                        /* Reduce heading sizes */
-                        .payslip-print-area h2 { font-size: 12pt !important; }
-                    }
-                `}</style>
-
-                <div className="payslip-print-area space-y-4">
-                    <div className="no-print flex items-center justify-between">
+            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
                         <DialogHeader>
                             <DialogTitle>Sewed Items Payslip</DialogTitle>
                         </DialogHeader>
@@ -249,7 +305,7 @@ export default function PayslipDialog({
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => window.print()}
+                                onClick={handlePrint}
                             >
                                 <Printer className="mr-1.5 h-4 w-4" />
                                 Print
@@ -257,14 +313,8 @@ export default function PayslipDialog({
                         </div>
                     </div>
 
-                    <div className="hidden text-center print:block">
-                        <h2 className="text-lg font-bold">
-                            SEWED ITEMS PAYSLIP
-                        </h2>
-                    </div>
-
-                    {/* Screen layout: cards with per-item tables */}
-                    <div className="screen-only space-y-4">
+                    {/* Screen preview: one card per item */}
+                    <div className="space-y-4">
                         {items.map((item) => (
                             <div
                                 key={item.id}
@@ -301,11 +351,7 @@ export default function PayslipDialog({
                                         <tbody>
                                             {(item.tags ?? []).map((tag) => {
                                                 const qty = tag.pivot.quantity;
-                                                const price = Number(
-                                                    tag.pivot.price_per_piece ??
-                                                        tag.price_per_piece ??
-                                                        0,
-                                                );
+                                                const price = tagPrice(tag);
                                                 const amount = qty * price;
 
                                                 return (
@@ -329,10 +375,10 @@ export default function PayslipDialog({
                                                             {qty}
                                                         </td>
                                                         <td className="px-3 py-1.5 text-right tabular-nums">
-                                                            ₱{price.toFixed(2)}
+                                                            {peso(price)}
                                                         </td>
                                                         <td className="px-3 py-1.5 text-right tabular-nums">
-                                                            ₱{amount.toFixed(2)}
+                                                            {peso(amount)}
                                                         </td>
                                                     </tr>
                                                 );
@@ -346,10 +392,7 @@ export default function PayslipDialog({
                                                 </td>
                                                 <td className="px-3 py-1.5" />
                                                 <td className="px-3 py-1.5 text-right tabular-nums">
-                                                    ₱
-                                                    {Number(
-                                                        item.amount,
-                                                    ).toFixed(2)}
+                                                    {peso(Number(item.amount))}
                                                 </td>
                                             </tr>
                                         </tfoot>
@@ -359,112 +402,7 @@ export default function PayslipDialog({
                         ))}
                     </div>
 
-                    {/* Print layout: single consolidated table */}
-                    <table className="payslip-print-table hidden w-full border-collapse text-sm print:table">
-                        <thead>
-                            <tr className="border-b bg-muted/50">
-                                <th className="px-2 py-1 text-left font-medium">
-                                    Date
-                                </th>
-                                <th className="px-2 py-1 text-left font-medium">
-                                    Description
-                                </th>
-                                <th className="px-2 py-1 text-left font-medium">
-                                    Category
-                                </th>
-                                <th className="px-2 py-1 text-right font-medium">
-                                    Qty
-                                </th>
-                                <th className="px-2 py-1 text-right font-medium">
-                                    Price/piece
-                                </th>
-                                <th className="px-2 py-1 text-right font-medium">
-                                    Amount
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {items.map((item) => (
-                                <>
-                                    {(item.tags ?? []).map((tag, index) => {
-                                        const qty = tag.pivot.quantity;
-                                        const price = Number(
-                                            tag.pivot.price_per_piece ??
-                                                tag.price_per_piece ??
-                                                0,
-                                        );
-                                        const amount = qty * price;
-
-                                        return (
-                                            <tr
-                                                key={`${item.id}-${tag.id}`}
-                                                className="border-b"
-                                            >
-                                                <td className="px-2 py-1">
-                                                    {index === 0
-                                                        ? toManilaTime(
-                                                              item.created_at,
-                                                              'MMM DD, YYYY',
-                                                          )
-                                                        : ''}
-                                                </td>
-                                                <td className="px-2 py-1">
-                                                    {index === 0
-                                                        ? (item.sublimation
-                                                              ?.description ??
-                                                          '—')
-                                                        : ''}
-                                                </td>
-                                                <td className="px-2 py-1">
-                                                    <span className="inline-flex items-center gap-1.5">
-                                                        <span
-                                                            className="inline-block h-2.5 w-2.5 rounded-full"
-                                                            style={{
-                                                                backgroundColor:
-                                                                    tag.color,
-                                                            }}
-                                                        />
-                                                        {tag.name}
-                                                    </span>
-                                                </td>
-                                                <td className="px-2 py-1 text-right tabular-nums">
-                                                    {qty}
-                                                </td>
-                                                <td className="px-2 py-1 text-right tabular-nums">
-                                                    ₱{price.toFixed(2)}
-                                                </td>
-                                                <td className="px-2 py-1 text-right tabular-nums">
-                                                    ₱{amount.toFixed(2)}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                    <tr className="item-subtotal border-b bg-muted/30 font-medium">
-                                        <td className="px-2 py-1" colSpan={3} />
-                                        <td className="px-2 py-1 text-right tabular-nums">
-                                            {item.quantity}
-                                        </td>
-                                        <td className="px-2 py-1" />
-                                        <td className="px-2 py-1 text-right tabular-nums">
-                                            ₱{Number(item.amount).toFixed(2)}
-                                        </td>
-                                    </tr>
-                                </>
-                            ))}
-                        </tbody>
-                        <tfoot>
-                            <tr className="grand-total font-bold">
-                                <td className="px-2 py-1" colSpan={5}>
-                                    Grand Total
-                                </td>
-                                <td className="px-2 py-1 text-right tabular-nums">
-                                    ₱{grandTotal.toFixed(2)}
-                                </td>
-                            </tr>
-                        </tfoot>
-                    </table>
-
-                    <div className="flex break-inside-avoid items-center justify-between rounded-md border bg-sidebar px-4 py-3">
+                    <div className="flex items-center justify-between rounded-md border bg-sidebar px-4 py-3">
                         <div className="text-sm">
                             <p>
                                 Generated by:{' '}
@@ -481,7 +419,7 @@ export default function PayslipDialog({
                                 Total Amount
                             </p>
                             <p className="text-lg font-bold tabular-nums">
-                                ₱{grandTotal.toFixed(2)}
+                                {peso(grandTotal)}
                             </p>
                         </div>
                     </div>

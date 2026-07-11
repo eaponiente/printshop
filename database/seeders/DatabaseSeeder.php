@@ -17,6 +17,8 @@ class DatabaseSeeder extends Seeder
                 BranchSeeder::class,
                 UsersSeeder::class,
                 CustomerSeeder::class,
+                TagsSeeder::class,
+                SublimationSeeder::class,
                 // TransactionSeeder::class,
                 // PurchaseOrderSeeder::class,
                 // ExpenseSeeder::class,

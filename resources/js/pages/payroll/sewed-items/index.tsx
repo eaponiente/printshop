@@ -65,6 +65,7 @@ type Filters = {
     date_to?: string;
     branch_id?: string;
     user_id?: string;
+    search?: string;
     include_completed?: boolean;
 };
 
@@ -109,6 +110,7 @@ export default function SewedItemsIndex({
 
     const [dateFrom, setDateFrom] = useState(filters.date_from ?? '');
     const [dateTo, setDateTo] = useState(filters.date_to ?? '');
+    const [search, setSearch] = useState(filters.search ?? '');
     const [branchId, setBranchId] = useState(filters.branch_id ?? '');
     const [userId, setUserId] = useState(filters.user_id ?? '');
     const [includeCompleted, setIncludeCompleted] = useState(
@@ -177,6 +179,10 @@ export default function SewedItemsIndex({
             params.date_to = dateTo;
         }
 
+        if (search.trim()) {
+            params.search = search.trim();
+        }
+
         if (canFilter && branchId) {
             params.branch_id = branchId;
         }
@@ -198,6 +204,7 @@ export default function SewedItemsIndex({
     const resetFilters = () => {
         setDateFrom('');
         setDateTo('');
+        setSearch('');
         setBranchId('');
         setUserId('');
         setIncludeCompleted(false);
@@ -217,6 +224,23 @@ export default function SewedItemsIndex({
                 </div>
 
                 <div className="flex flex-wrap items-end gap-2">
+                    <div className="flex flex-col gap-1">
+                        <label className="text-xs text-muted-foreground">
+                            Search
+                        </label>
+                        <Input
+                            type="text"
+                            placeholder="Sublimation description"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    applyFilters();
+                                }
+                            }}
+                            className="h-8 w-52"
+                        />
+                    </div>
                     <div className="flex flex-col gap-1">
                         <label className="text-xs text-muted-foreground">
                             Date From
@@ -339,9 +363,9 @@ export default function SewedItemsIndex({
                                                 (i) => !i.completed_at,
                                             ).length > 0 &&
                                             selectedIds.size ===
-                                            sewedItems.data.filter(
-                                                (i) => !i.completed_at,
-                                            ).length
+                                                sewedItems.data.filter(
+                                                    (i) => !i.completed_at,
+                                                ).length
                                         }
                                         onCheckedChange={toggleSelectAll}
                                     />
@@ -566,11 +590,23 @@ export default function SewedItemsIndex({
                                                     size="icon"
                                                     className="text-destructive hover:text-destructive"
                                                     onClick={() => {
-                                                        if (!confirm('Delete this sewed item? This cannot be undone.')) {
-return;
-}
+                                                        if (
+                                                            !confirm(
+                                                                'Delete this sewed item? This cannot be undone.',
+                                                            )
+                                                        ) {
+                                                            return;
+                                                        }
 
-                                                        router.delete(route('payroll.sewed-items.destroy', item.id), { preserveScroll: true });
+                                                        router.delete(
+                                                            route(
+                                                                'payroll.sewed-items.destroy',
+                                                                item.id,
+                                                            ),
+                                                            {
+                                                                preserveScroll: true,
+                                                            },
+                                                        );
                                                     }}
                                                 >
                                                     <Trash2 className="h-4 w-4" />

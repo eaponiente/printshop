@@ -742,3 +742,68 @@ it('staff with can_edit_sewed_items sees all branch items in index', function ()
     expect($ids)->toContain($myItem->id);
     expect($ids)->toContain($theirItem->id);
 });
+
+it('filters index by sublimation description search', function () {
+    $this->actingAs($this->adminA);
+
+    $sublimationJersey = $this->sublimationA; // description "Team Jersey A"
+
+    $sublimationBanner = Sublimation::create([
+        'branch_id' => $this->branchA->id,
+        'customer_id' => $this->customer->id,
+        'amount_total' => 1500,
+        'status' => SublimationStatus::SEWED,
+        'description' => 'Vinyl Banner',
+        'due_at' => now()->addDays(7),
+        'quantity' => 5,
+        'notes' => 'Test',
+        'transaction_type' => 'retail',
+    ]);
+
+    $jerseyItem = SewedItem::create([
+        'sublimation_id' => $sublimationJersey->id,
+        'quantity' => 5,
+        'amount' => 500,
+        'branch_id' => $this->branchA->id,
+        'user_id' => $this->adminA->id,
+        'sewed_date' => now()->toDateString(),
+    ]);
+
+    $bannerItem = SewedItem::create([
+        'sublimation_id' => $sublimationBanner->id,
+        'quantity' => 5,
+        'amount' => 750,
+        'branch_id' => $this->branchA->id,
+        'user_id' => $this->adminA->id,
+        'sewed_date' => now()->toDateString(),
+    ]);
+
+    $response = $this->get('/payroll/sewed-items?search=jersey');
+    $response->assertOk();
+
+    $props = $response->viewData('page')['props'];
+    $ids = array_column($props['sewedItems']['data'], 'id');
+
+    expect($ids)->toContain($jerseyItem->id);
+    expect($ids)->not->toContain($bannerItem->id);
+});
+
+it('uses default page size without a date filter', function () {
+    $this->actingAs($this->adminA);
+
+    $response = $this->get('/payroll/sewed-items');
+    $response->assertOk();
+
+    $props = $response->viewData('page')['props'];
+    expect($props['sewedItems']['per_page'])->toBe(20);
+});
+
+it('widens page size to 200 when a date filter is applied', function () {
+    $this->actingAs($this->adminA);
+
+    $response = $this->get('/payroll/sewed-items?date_from='.now()->toDateString());
+    $response->assertOk();
+
+    $props = $response->viewData('page')['props'];
+    expect($props['sewedItems']['per_page'])->toBe(200);
+});

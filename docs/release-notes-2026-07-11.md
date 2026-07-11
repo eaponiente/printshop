@@ -47,3 +47,21 @@ Payroll periods can only be approved once their attendance is fully complete —
 - The **Delete** button for **approved** payroll periods (added July 10) has been **removed** from both the period detail page and the periods list. The Delete button now shows for **draft** periods only again.
 - **Void** is unchanged and remains the way to reverse an approved period (superadmin-only, keeps the period on record as `voided`).
 - Reviewer note: frontend-only revert of PR #96's UI — the delete guards on `period-show.tsx` and `periods.tsx` are back to `status === 'draft'`. The backend `payroll-periods.delete` route/service still accepts approved periods (unchanged, and still covered by tests); it is simply no longer reachable from the UI.
+
+---
+
+## Sewed Items
+
+### Search by sublimation description
+- The Sewed Items filter bar now has a **Search** box that matches on the linked **sublimation's description**. Type any part of a description and click **Filter** (or press Enter) to narrow the list; **Reset** clears it along with the other filters.
+
+### Date filter shows more rows per page
+- When a **Date From** and/or **Date To** filter is applied, the page now shows up to **200** rows instead of 20, so a full date range is visible without paging. With no date filter, the default page size (20) is unchanged.
+
+### Rebuilt print payslip
+- **Printing a sewed-items payslip** now renders from a clean, dedicated print window instead of restyling the on-screen dialog. This fixes the layout breaking across pages (clipped rows, trailing blank pages) that came from the old print-CSS overrides fighting the modal. The on-screen preview is unchanged.
+
+### Notes for reviewers
+- `SewedItemController::index` gained a `search` filter (`whereHas('sublimation', description LIKE %search%)`) and computes `$perPage = (date_from || date_to) ? 200 : 20` before `paginate()`. Both are covered by new cases in `tests/Feature/Payroll/SewedItemTest.php` (description search narrows the list; `per_page` is 20 by default and 200 with a date filter).
+- `resources/js/pages/payroll/sewed-items/index.tsx` adds the Search input (local state, wired through `applyFilters`/`resetFilters`) and the `Filters.search` type.
+- `payslip-dialog.tsx` `Print` now builds a self-contained HTML document and prints it via `window.open` — no more `@media print` overrides, `visibility` toggles, or repositioning of the fixed dialog. Requires pop-ups to be allowed (a toast prompts if blocked).
