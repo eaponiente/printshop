@@ -91,6 +91,69 @@ class PayrollPeriodService
         return $result;
     }
 
+    /**
+     * Active, non-superadmin employees in the period's branch that have no
+     * payroll item — e.g. hired or reactivated after the period was generated.
+     * These block approval: the period would otherwise pay out with someone
+     * missing. Mirrors the population generate() computes items for.
+     *
+     * @return array<int, array{employee_id: int, employee: string}>
+     */
+    public function findUncomputedEmployees(PayrollPeriod $period): array
+    {
+        $computedIds = $period->items()->pluck('employee_id')->all();
+
+        return Employee::where('branch_id', $period->branch_id)
+            ->where('status', 'active')
+            ->whereDoesntHave('user', fn ($q) => $q->where('role', 'superadmin'))
+            ->whereNotIn('id', $computedIds)
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->get(['id', 'first_name', 'last_name'])
+            ->map(fn ($e) => [
+                'employee_id' => $e->id,
+                'employee' => $e->last_name.', '.$e->first_name,
+            ])
+            ->all();
+    }
+
+    /**
+     * Items whose net pay was floored to zero because deductions exceeded
+     * earnings (the pre-floor net would have been negative). Warning only —
+     * this never blocks approval.
+     *
+     * Detected from stored columns: computeCADeduction skips once the
+     * post-statutory pool is non-positive, so a raw net below zero means the
+     * statutory deductions alone outran earnings. `net` is that raw negative
+     * amount (the stored net_pay is clamped to 0).
+     *
+     * @return array<int, array{employee_id: int, employee: string, net: float}>
+     */
+    public function findNegativeNetPay(PayrollPeriod $period): array
+    {
+        return $period->items()
+            ->with('employee:id,first_name,last_name')
+            ->get()
+            ->map(fn ($item) => [
+                'employee_id' => $item->employee_id,
+                'employee' => $item->employee
+                    ? $item->employee->last_name.', '.$item->employee->first_name
+                    : (string) $item->employee_id,
+                'net' => round(
+                    (float) $item->gross_pay
+                    + (float) $item->deminimis_earnings
+                    - (float) $item->sss_deduction
+                    - (float) $item->philhealth_deduction
+                    - (float) $item->pagibig_deduction
+                    - (float) $item->ca_deduction,
+                    2
+                ),
+            ])
+            ->filter(fn ($row) => $row['net'] < 0)
+            ->values()
+            ->all();
+    }
+
     public function generate(Branch $branch, string $periodStart, string $periodEnd): PayrollPeriod
     {
         return DB::transaction(function () use ($branch, $periodStart, $periodEnd) {

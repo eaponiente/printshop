@@ -72,6 +72,17 @@ type IncompleteSheet = {
     reason: string;
 };
 
+type UncomputedEmployee = {
+    employee: string;
+    employee_id: number;
+};
+
+type NegativeNetPay = {
+    employee: string;
+    employee_id: number;
+    net: number;
+};
+
 type Props = {
     period: {
         id: number;
@@ -84,6 +95,8 @@ type Props = {
     };
     items: PaginatedResponse<PeriodItem>;
     incompleteSheets: IncompleteSheet[];
+    uncomputedEmployees: UncomputedEmployee[];
+    negativeNetPay: NegativeNetPay[];
     canApprove: boolean;
     canDelete: boolean;
     isSuperAdmin: boolean;
@@ -93,11 +106,18 @@ export default function PayrollPeriodShow({
     period,
     items,
     incompleteSheets,
+    uncomputedEmployees,
+    negativeNetPay,
     canApprove,
     canDelete,
     isSuperAdmin,
 }: Props) {
     const [recomputing, setRecomputing] = useState(false);
+
+    // Blocking Check Payroll issues gate the Approve button. Negative net pay is
+    // a warning only and is intentionally excluded here.
+    const hasBlockingIssues =
+        incompleteSheets.length > 0 || uncomputedEmployees.length > 0;
 
     const columns: ColumnDef<PeriodItem>[] = [
         {
@@ -243,7 +263,9 @@ export default function PayrollPeriodShow({
                         )}
                         {canApprove &&
                             period.status === 'draft' &&
-                            period.checked_at && (
+                            period.checked_at &&
+                            incompleteSheets.length === 0 &&
+                            uncomputedEmployees.length === 0 && (
                                 <Button
                                     variant="default"
                                     size="sm"
@@ -264,67 +286,61 @@ export default function PayrollPeriodShow({
                                     Approve
                                 </Button>
                             )}
-                        {canDelete &&
-                            (period.status === 'draft' ||
-                                period.status === 'approved') && (
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button variant="destructive" size="sm">
-                                            <Trash2 className="mr-1 h-4 w-4" />{' '}
+                        {canDelete && period.status === 'draft' && (
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="destructive" size="sm">
+                                        <Trash2 className="mr-1 h-4 w-4" />{' '}
+                                        Delete
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>
+                                            Delete draft period?
+                                        </AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This will delete the draft payroll
+                                            period and unlock all attendance
+                                            sheets. This cannot be undone.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>
+                                            Cancel
+                                        </AlertDialogCancel>
+                                        <AlertDialogAction
+                                            onClick={() =>
+                                                router.delete(
+                                                    `/payroll/periods/${period.id}`,
+                                                    {
+                                                        onSuccess: () =>
+                                                            toast.success(
+                                                                'Period deleted.',
+                                                                {
+                                                                    position:
+                                                                        'top-center',
+                                                                },
+                                                            ),
+                                                        onError: (err: any) =>
+                                                            toast.error(
+                                                                err.message ??
+                                                                    'Deletion failed.',
+                                                                {
+                                                                    position:
+                                                                        'top-center',
+                                                                },
+                                                            ),
+                                                    },
+                                                )
+                                            }
+                                        >
                                             Delete
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>
-                                                {period.status === 'approved'
-                                                    ? 'Delete approved period?'
-                                                    : 'Delete draft period?'}
-                                            </AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                {period.status === 'approved'
-                                                    ? 'This will permanently delete this approved payroll period, unlock all attendance sheets, and restore any cash-advance balances it deducted. This cannot be undone.'
-                                                    : 'This will delete the draft payroll period and unlock all attendance sheets. This cannot be undone.'}
-                                            </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>
-                                                Cancel
-                                            </AlertDialogCancel>
-                                            <AlertDialogAction
-                                                onClick={() =>
-                                                    router.delete(
-                                                        `/payroll/periods/${period.id}`,
-                                                        {
-                                                            onSuccess: () =>
-                                                                toast.success(
-                                                                    'Period deleted.',
-                                                                    {
-                                                                        position:
-                                                                            'top-center',
-                                                                    },
-                                                                ),
-                                                            onError: (
-                                                                err: any,
-                                                            ) =>
-                                                                toast.error(
-                                                                    err.message ??
-                                                                        'Deletion failed.',
-                                                                    {
-                                                                        position:
-                                                                            'top-center',
-                                                                    },
-                                                                ),
-                                                        },
-                                                    )
-                                                }
-                                            >
-                                                Delete
-                                            </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            )}
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        )}
                         {isSuperAdmin &&
                             (period.status === 'approved' ||
                                 period.status === 'paid') && (
@@ -353,64 +369,148 @@ export default function PayrollPeriodShow({
                 {period.checked_at && (
                     <div
                         className={`rounded-md border p-4 text-sm ${
-                            incompleteSheets.length > 0
+                            hasBlockingIssues
                                 ? 'border-amber-200 bg-amber-50'
                                 : 'border-green-200 bg-green-50'
                         }`}
                     >
                         <div className="mb-1 flex items-center gap-2 font-semibold">
-                            {incompleteSheets.length > 0 ? (
+                            {hasBlockingIssues ? (
                                 <>
                                     <AlertTriangle className="h-4 w-4 text-amber-600" />
                                     <span className="text-amber-700">
-                                        {incompleteSheets.length} incomplete
-                                        attendance record
-                                        {incompleteSheets.length !== 1
-                                            ? 's'
-                                            : ''}{' '}
-                                        found
+                                        Resolve the issues below before this
+                                        period can be approved
                                     </span>
                                 </>
                             ) : (
                                 <>
                                     <CheckCircle className="h-4 w-4 text-green-600" />
                                     <span className="text-green-700">
-                                        All attendance records are complete
+                                        All checks passed — ready to approve
                                     </span>
                                 </>
                             )}
                         </div>
+
                         {incompleteSheets.length > 0 && (
-                            <ul className="mt-2 space-y-1">
-                                {incompleteSheets.map((s, i) => (
-                                    <li
-                                        key={i}
-                                        className="flex items-center gap-2 text-amber-800"
-                                    >
-                                        <span className="font-medium">
-                                            {s.employee}
-                                        </span>
-                                        <span className="text-amber-500">
-                                            —
-                                        </span>
-                                        <span className="font-mono text-xs">
-                                            {s.date}
-                                        </span>
-                                        <span className="text-amber-600">
-                                            {s.reason}
-                                        </span>
-                                        <a
-                                            href={`/payroll/attendance-sheets/${s.employee_id}?date=${s.date}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="ml-auto text-xs text-blue-600 underline hover:text-blue-800"
+                            <div className="mt-3">
+                                <div className="text-xs font-semibold text-amber-700">
+                                    {incompleteSheets.length} incomplete
+                                    attendance record
+                                    {incompleteSheets.length !== 1 ? 's' : ''}
+                                </div>
+                                <ul className="mt-1 space-y-1">
+                                    {incompleteSheets.map((s, i) => (
+                                        <li
+                                            key={i}
+                                            className="flex items-center gap-2 text-amber-800"
                                         >
-                                            View attendance →
-                                        </a>
-                                    </li>
-                                ))}
-                            </ul>
+                                            <span className="font-medium">
+                                                {s.employee}
+                                            </span>
+                                            <span className="text-amber-500">
+                                                —
+                                            </span>
+                                            <span className="font-mono text-xs">
+                                                {s.date}
+                                            </span>
+                                            <span className="text-amber-600">
+                                                {s.reason}
+                                            </span>
+                                            <a
+                                                href={`/payroll/attendance-sheets/${s.employee_id}?date=${s.date}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="ml-auto text-xs text-blue-600 underline hover:text-blue-800"
+                                            >
+                                                View attendance →
+                                            </a>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
                         )}
+
+                        {uncomputedEmployees.length > 0 && (
+                            <div className="mt-3">
+                                <div className="text-xs font-semibold text-amber-700">
+                                    {uncomputedEmployees.length} employee
+                                    {uncomputedEmployees.length !== 1
+                                        ? 's'
+                                        : ''}{' '}
+                                    not included in this period
+                                </div>
+                                <ul className="mt-1 space-y-1">
+                                    {uncomputedEmployees.map((e, i) => (
+                                        <li
+                                            key={i}
+                                            className="flex items-center gap-2 text-amber-800"
+                                        >
+                                            <span className="font-medium">
+                                                {e.employee}
+                                            </span>
+                                            <span className="text-amber-500">
+                                                —
+                                            </span>
+                                            <span className="text-amber-600">
+                                                no payroll computed
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                                <p className="mt-1 text-xs text-amber-600">
+                                    Recompute the period to include{' '}
+                                    {uncomputedEmployees.length !== 1
+                                        ? 'them'
+                                        : 'this employee'}
+                                    .
+                                </p>
+                            </div>
+                        )}
+
+                        {hasBlockingIssues && (
+                            <p className="mt-2 text-xs font-medium text-amber-700">
+                                Resolve these and re-run Check Payroll before
+                                the period can be approved.
+                            </p>
+                        )}
+
+                        {negativeNetPay.length > 0 && (
+                            <div className="mt-3 rounded border border-orange-200 bg-orange-50 p-2">
+                                <div className="text-xs font-semibold text-orange-700">
+                                    Warning: {negativeNetPay.length} employee
+                                    {negativeNetPay.length !== 1
+                                        ? 's'
+                                        : ''}{' '}
+                                    with net pay floored to zero
+                                </div>
+                                <ul className="mt-1 space-y-1">
+                                    {negativeNetPay.map((n, i) => (
+                                        <li
+                                            key={i}
+                                            className="flex items-center gap-2 text-orange-800"
+                                        >
+                                            <span className="font-medium">
+                                                {n.employee}
+                                            </span>
+                                            <span className="text-orange-500">
+                                                —
+                                            </span>
+                                            <span className="font-mono text-xs">
+                                                computed {formatCurrency(n.net)}
+                                                , paid {formatCurrency(0)}
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                                <p className="mt-1 text-xs text-orange-600">
+                                    Deductions exceeded earnings. This does not
+                                    block approval.
+                                </p>
+                            </div>
+                        )}
+
                         <p className="mt-2 text-xs text-muted-foreground">
                             Last checked:{' '}
                             {new Date(period.checked_at).toLocaleString()}
