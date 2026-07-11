@@ -14,6 +14,7 @@ Payroll periods can only be approved once their attendance is fully complete —
 ### Notes for reviewers
 - Visibility-only change in `resources/js/pages/payroll/payroll/period-show.tsx`: the Approve button guard gained `incompleteSheets.length === 0` (alongside the existing `canApprove`, `status === 'draft'`, and `checked_at` conditions). `incompleteSheets` is already computed server-side in `PayrollPeriodController::show` via `PayrollPeriodService::findIncompleteSheets`, only after `checked_at` is set.
 - Consistent with the existing check→approve convention, which is frontend-gated. Server-side hard enforcement on the approve endpoint was intentionally deferred — the current approve/delete test fixtures create attendance sheets without punches, so every sheet reads as incomplete; enforcing it would require reworking those fixtures across the suite.
+- The visibility contract is covered by new cases in `tests/Feature/Payroll/PayrollPeriodTest.php` that assert the `show` page's Inertia props (`canApprove`, `period.checked_at`, `incompleteSheets`): button hidden before Check Payroll, shown when the check finds attendance complete, hidden when it finds incomplete records, and the completeness check scoped to the period's branch and date range.
 
 ### Approved-period Delete removed from the UI
 - The **Delete** button for **approved** payroll periods (added July 10) has been **removed** from both the period detail page and the periods list. The Delete button now shows for **draft** periods only again.

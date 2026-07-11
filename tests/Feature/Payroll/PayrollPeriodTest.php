@@ -15,6 +15,7 @@ use App\Models\Payroll\SssContributionBracket;
 use App\Models\Payroll\TimeLog;
 use App\Models\User;
 use Carbon\Carbon;
+use Inertia\Testing\AssertableInertia;
 use Payroll\Attendance\Enums\HolidayType;
 use Payroll\Attendance\Enums\PayrollPeriodStatus;
 use Payroll\Attendance\Enums\PunchSource;
@@ -104,6 +105,31 @@ function createEmployeeWithAttendance(
     }
 
     return $emp;
+}
+
+/**
+ * Give an employee a complete pair of punches (IN + OUT) for each date, so
+ * PayrollPeriodService::findIncompleteSheets treats those days as complete.
+ * The five dates seeded by createEmployeeWithAttendance are used by default.
+ */
+function addCompletePunches(
+    Employee $emp,
+    array $dates = ['2026-05-25', '2026-05-26', '2026-05-27', '2026-05-28', '2026-05-29']
+): void {
+    foreach ($dates as $date) {
+        TimeLog::create([
+            'employee_id' => $emp->id,
+            'type' => PunchType::IN,
+            'source' => PunchSource::SELF_SERVICE,
+            'timestamp' => $date.' 08:00:00',
+        ]);
+        TimeLog::create([
+            'employee_id' => $emp->id,
+            'type' => PunchType::OUT,
+            'source' => PunchSource::SELF_SERVICE,
+            'timestamp' => $date.' 17:00:00',
+        ]);
+    }
 }
 
 // ──────────── Batch 1: Basic generation ────────────
@@ -1604,4 +1630,122 @@ it('lets a superadmin delete an approved period in any branch', function () {
         ->assertRedirect(route('payroll.periods.index'));
 
     expect(PayrollPeriod::find($period->id))->toBeNull();
+});
+
+// ──────────── Batch: Approve-button visibility (Check Payroll gating) ────────────
+//
+// The Approve button on period-show.tsx renders only when
+//   canApprove && status === 'draft' && checked_at && incompleteSheets.length === 0
+// Those are all props from PayrollPeriodController::show, so these tests assert the
+// data contract that drives the button rather than the rendered DOM.
+
+it('does not expose the approve button before Check Payroll is run', function () {
+    // A complete-attendance period, but never checked.
+    $emp = createEmployeeWithAttendance($this->branchA, 'Emp');
+    addCompletePunches($emp);
+
+    $period = app(PayrollPeriodService::class)->generate($this->branchA, '2026-05-25', '2026-05-30');
+    expect($period->checked_at)->toBeNull();
+
+    // checked_at === null → the Approve button guard is false regardless of completeness.
+    // incompleteSheets is intentionally not computed until the period is checked.
+    $this->actingAs($this->adminA)
+        ->get(route('payroll.periods.show', $period))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('payroll/payroll/period-show')
+            ->where('period.status', 'draft')
+            ->where('canApprove', true)
+            ->where('period.checked_at', null)
+            ->where('incompleteSheets', [])
+        );
+});
+
+it('exposes the approve button after Check Payroll finds attendance complete', function () {
+    $emp = createEmployeeWithAttendance($this->branchA, 'Emp');
+    addCompletePunches($emp);
+
+    $period = app(PayrollPeriodService::class)->generate($this->branchA, '2026-05-25', '2026-05-30');
+
+    // Run Check Payroll.
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.check', $period))
+        ->assertRedirect();
+
+    $period->refresh();
+    expect($period->checked_at)->not->toBeNull();
+
+    // checked_at set AND incompleteSheets empty → the Approve button renders.
+    $this->actingAs($this->adminA)
+        ->get(route('payroll.periods.show', $period))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('payroll/payroll/period-show')
+            ->where('period.status', 'draft')
+            ->where('canApprove', true)
+            ->where('period.checked_at', fn ($v) => $v !== null)
+            ->where('incompleteSheets', [])
+        );
+});
+
+it('keeps the approve button hidden when Check Payroll finds incomplete attendance', function () {
+    // Attendance sheets exist but there are no punches → every day is incomplete.
+    createEmployeeWithAttendance($this->branchA, 'Emp');
+
+    $period = app(PayrollPeriodService::class)->generate($this->branchA, '2026-05-25', '2026-05-30');
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.check', $period))
+        ->assertRedirect();
+
+    $period->refresh();
+    expect($period->checked_at)->not->toBeNull();
+
+    // checked_at set but incompleteSheets is non-empty (5 unpunched days) → button hidden.
+    $this->actingAs($this->adminA)
+        ->get(route('payroll.periods.show', $period))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('payroll/payroll/period-show')
+            ->where('canApprove', true)
+            ->where('period.checked_at', fn ($v) => $v !== null)
+            ->has('incompleteSheets', 5)
+        );
+});
+
+it('scopes the completeness check to the period branch and date range', function () {
+    // Branch A: fully complete attendance inside the period.
+    $empA = createEmployeeWithAttendance($this->branchA, 'AComplete');
+    addCompletePunches($empA);
+
+    // Branch B: incomplete attendance in the SAME date range — must not leak into branch A's check.
+    createEmployeeWithAttendance($this->branchB, 'BIncomplete');
+
+    // Branch A: an incomplete day OUTSIDE the period range — must not leak either.
+    AttendanceSheet::create([
+        'employee_id' => $empA->id,
+        'date' => '2026-06-02',
+        'schedule_start_time' => '08:00',
+        'schedule_end_time' => '17:00',
+        'rest_days' => [0, 6],
+        'daily_rate' => 510,
+        'hours_worked' => 8,
+        'daily_wage' => 510,
+        'is_present' => true,
+    ]);
+
+    $period = app(PayrollPeriodService::class)->generate($this->branchA, '2026-05-25', '2026-05-30');
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.check', $period))
+        ->assertRedirect();
+
+    // Only branch A sheets within the period range are considered → all complete.
+    $this->actingAs($this->adminA)
+        ->get(route('payroll.periods.show', $period))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('canApprove', true)
+            ->where('incompleteSheets', [])
+        );
 });
