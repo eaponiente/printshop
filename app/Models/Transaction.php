@@ -161,7 +161,7 @@ class Transaction extends Model
                 throw new \Exception('Only partial/paid transactions can be refunded.');
             }
 
-            $positivePayments = $fresh->payments()->where('amount', '>', 0)->get();
+            $positivePayments = $fresh->payments()->live()->get();
 
             if ($positivePayments->isEmpty()) {
                 throw new \Exception('There is no collected amount available to refund.');
@@ -178,6 +178,10 @@ class Transaction extends Model
                     'staff_id' => auth()->id(),
                 ]);
             }
+
+            // Mark the reversed rows explicitly so scopeLive can exclude them
+            // without inferring anything from id ordering.
+            $fresh->payments()->whereKey($positivePayments->pluck('id'))->update(['refunded_at' => now()]);
 
             $fresh->update([
                 'amount_paid' => 0,
