@@ -197,8 +197,8 @@ class SaleController extends Controller
     {
         try {
             $cashRefund = $transaction->payments()
+                ->live()
                 ->where('payment_type', TransactionTypeOfPaymentEnum::CASH->value)
-                ->where('amount', '>', 0)
                 ->sum('amount');
 
             $transaction->refundPayment();
