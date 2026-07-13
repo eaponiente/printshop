@@ -43,6 +43,60 @@ it('fully refunds a paid transaction and resets it to pending', function () {
         ->and($latestPayment->payment_type)->toEqual('cash');
 });
 
+it('allows an admin to refund a transaction in their own branch', function () {
+    $branch = Branch::factory()->create();
+    CashOnHand::create(['branch_id' => $branch->id, 'amount' => 100]);
+
+    $transaction = Transaction::factory()->create([
+        'amount_total' => 100,
+        'amount_paid' => 100,
+        'status' => 'paid',
+        'branch_id' => $branch->id,
+    ]);
+
+    $admin = User::factory()->create([
+        'branch_id' => $branch->id,
+        'role' => 'admin',
+    ]);
+
+    $transaction->payments()->create([
+        'amount' => 100,
+        'payment_type' => 'cash',
+        'staff_id' => $admin->id,
+    ]);
+
+    $this->actingAs($admin)
+        ->patch(route('sales.refund-payment', $transaction))
+        ->assertSessionHasNoErrors();
+
+    expect($transaction->fresh()->amount_paid)->toEqual(0.0)
+        ->and($transaction->fresh()->status)->toEqual('pending');
+});
+
+it('forbids an admin from refunding a transaction in another branch', function () {
+    $branch = Branch::factory()->create();
+    $otherBranch = Branch::factory()->create();
+
+    $transaction = Transaction::factory()->create([
+        'amount_total' => 100,
+        'amount_paid' => 100,
+        'status' => 'paid',
+        'branch_id' => $otherBranch->id,
+    ]);
+
+    $admin = User::factory()->create([
+        'branch_id' => $branch->id,
+        'role' => 'admin',
+    ]);
+
+    $this->actingAs($admin)
+        ->patch(route('sales.refund-payment', $transaction))
+        ->assertForbidden();
+
+    expect($transaction->fresh()->amount_paid)->toEqual(100.0)
+        ->and($transaction->fresh()->status)->toEqual('paid');
+});
+
 it('rejects refund for pending transactions', function () {
     $branch = Branch::factory()->create();
     $transaction = Transaction::factory()->create([

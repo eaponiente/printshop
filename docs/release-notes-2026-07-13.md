@@ -6,6 +6,11 @@ Refunded payments no longer double up on the Sales page. After a refund, the Par
 
 ## Sales
 
+### Admins can now process refunds
+
+- The **Refund** button on the Sales page is now available to **admins** (for transactions in their own branch), not just superadmins. Staff still don't see it. The backend already authorized same-branch admins — this exposes it in the UI.
+- Reviewer note: `resources/js/pages/sales/list.tsx` refund-button guard widened from `role === 'superadmin'` to `superadmin || admin` (the Collection column is already hidden from staff). `RefundTransactionPaymentRequest::authorize()` was unchanged (`isSuperAdmin() || branch_id === transaction.branch_id`); new `RefundPaymentTest` cases lock the contract: a same-branch admin can refund, a cross-branch admin gets 403.
+
 ### Refunds no longer inflate the payment list or the sales totals
 
 A refund keeps the original payments on record (as an immutable ledger) and appends negative entries that cancel them. Previously the Sales page still listed those cancelled payments as if they were live, so a re-paid transaction showed **every** payment ever taken and the daily **Total Sales** counted them all.

@@ -461,7 +461,8 @@ export default function SaleIndex({
                                       )}
                                       {(status === 'partial' ||
                                           status === 'paid') &&
-                                          auth.user.role === 'superadmin' && (
+                                          (auth.user.role === 'superadmin' ||
+                                              auth.user.role === 'admin') && (
                                               <Button
                                                   size="sm"
                                                   variant="outline"
