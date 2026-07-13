@@ -74,7 +74,7 @@ class SalesService
                 },
                 'staff:id,first_name,last_name',
             ])
-            ->where('payments.amount', '>', 0)
+            ->live()
             ->whereHas('transaction', function ($q) use ($user, $filters) {
                 $filterId = $filters['branch_id'] ?? null;
 
