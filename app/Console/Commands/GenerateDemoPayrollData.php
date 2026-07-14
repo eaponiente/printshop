@@ -489,7 +489,8 @@ class GenerateDemoPayrollData extends Command
 
     private function planRestDayWork(int $empId, array $saturdays, bool $hasSaturdayRest): void
     {
-        // Only meaningful when Saturday is a rest day; demonstrates 1.30x rest-day pay
+        // Only meaningful when Saturday is a rest day; demonstrates rest-day work
+        // (paid pro-rata at the regular rate, no premium)
         if (! $hasSaturdayRest || empty($saturdays)) {
             return;
         }
