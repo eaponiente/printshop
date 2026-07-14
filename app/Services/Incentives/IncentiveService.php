@@ -48,7 +48,7 @@ class IncentiveService
         foreach ($branches as $branch) {
             $revenue = (float) Payment::query()
                 ->whereHas('transaction', fn ($q) => $q->where('branch_id', $branch->id))
-                ->where('amount', '>', 0)
+                ->live()
                 ->whereBetween('created_at', [$date, $monthEnd])
                 ->sum('amount');
 
@@ -105,7 +105,7 @@ class IncentiveService
 
             $revenue = (float) Payment::query()
                 ->whereHas('transaction', fn ($q) => $q->where('branch_id', $branchId))
-                ->where('amount', '>', 0)
+                ->live()
                 ->whereBetween('created_at', [$date, $monthEnd])
                 ->sum('amount');
 

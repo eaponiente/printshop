@@ -521,7 +521,8 @@ monthly_salary = daily_rate × 26  (for government deduction computation only)
 ```
 base_pay = isPresent ? (basePaidHours × hourly_rate) : 0
   - On regular days without approved OT, paid hours capped at max(480 − late_minutes, 240)
-  - On rest days, base_pay = hours_worked × hourly_rate × 1.30
+  - On rest days (incl. Sunday), base_pay = hours_worked × hourly_rate
+    (paid as an ordinary working day — no premium)
 
 daily_wage = base_pay − undertime_deduction − fine_deduction + overtime_pay + holiday_pay
   floor: 0
@@ -545,11 +546,11 @@ ot_pay = ot_hours × hourly_rate × multiplier
 | Day Type                         | OT Multiplier |
 | -------------------------------- | ------------- |
 | Ordinary working day             | **1.25x**     |
-| Rest day                         | **1.69x**     |
+| Rest day (incl. Sunday), worked  | **1.25x** — paid as an ordinary day, no premium |
 | Special non-working day (worked) | **1.69x**     |
-| Rest day + Special holiday       | **1.95x**     |
 | Regular holiday (worked)         | **2.60x**     |
-| Rest day + Regular holiday       | **3.38x**     |
+
+A rest day that also falls on a holiday takes the holiday multiplier (the rest-day component no longer adds a premium).
 
 **Examples (daily_rate = ₱510, hourly_rate = ₱63.75)**:
 
@@ -557,7 +558,7 @@ ot_pay = ot_hours × hourly_rate × multiplier
 | ------------ | -------- | -------------------- | ------- |
 | Ordinary day | 2.0      | `2 × 63.75 × 1.25`   | ₱159.38 |
 | Ordinary day | 1.5      | `1.5 × 63.75 × 1.25` | ₱119.53 |
-| Rest day     | 2.0      | `2 × 63.75 × 1.69`   | ₱215.48 |
+| Rest day     | 2.0      | `2 × 63.75 × 1.25`   | ₱159.38 |
 | Reg. holiday | 1.0      | `1 × 63.75 × 2.60`   | ₱165.75 |
 
 **No rate snapshot at approval time**: The multiplier is determined at computation time based on `shift_type` from the approved OT request.
@@ -1040,7 +1041,7 @@ Admin     → Superadmin (never self-approved)
 | E4  | Only IN, no OUT (day closed)          | Marked unexcused absence; flagged for admin review        |
 | E5  | Only OUT, no IN                       | Anomaly; 0 hours; admin review recommended                |
 | E6  | Punch on rest day (no OT)             | Blocked: "Today is your rest day"                         |
-| E7  | Punch on rest day (OT approved)       | Allowed; rest day OT rate applied                         |
+| E7  | Punch on rest day (OT approved)       | Allowed; paid as an ordinary day (regular rate + regular 1.25x OT, no premium) |
 | E8  | Punch > 18 hours after schedule start | Logged but flagged as anomaly warning                     |
 
 ### Computation-Related

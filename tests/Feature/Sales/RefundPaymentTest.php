@@ -4,6 +4,7 @@ use App\Models\Branch;
 use App\Models\CashOnHand;
 use App\Models\Transaction;
 use App\Models\User;
+use Payroll\Audit\Models\AuditLog;
 
 it('fully refunds a paid transaction and resets it to pending', function () {
     $branch = Branch::factory()->create();
@@ -266,4 +267,85 @@ it('creates separate negative entries per payment type when refunding mixed paym
         ->and($negativeEntries->where('payment_type', 'cash')->sum('amount'))->toEqual(-80.0)
         ->and($negativeEntries->where('payment_type', 'gcash')->sum('amount'))->toEqual(-40.0)
         ->and((float) CashOnHand::query()->where('branch_id', $branch->id)->value('amount'))->toEqual(20.0);
+});
+
+it('records an audit log entry for every refund', function () {
+    $branch = Branch::factory()->create();
+    CashOnHand::create(['branch_id' => $branch->id, 'amount' => 100]);
+
+    $transaction = Transaction::factory()->create([
+        'amount_total' => 100,
+        'amount_paid' => 100,
+        'status' => 'paid',
+        'branch_id' => $branch->id,
+    ]);
+
+    $user = User::factory()->create([
+        'branch_id' => $branch->id,
+        'role' => 'superadmin',
+    ]);
+
+    $transaction->payments()->create([
+        'amount' => 100,
+        'payment_type' => 'cash',
+        'staff_id' => $user->id,
+    ]);
+
+    $this->actingAs($user)
+        ->patch(route('sales.refund-payment', $transaction))
+        ->assertSessionHasNoErrors();
+
+    $log = AuditLog::query()
+        ->where('model_type', Transaction::class)
+        ->where('model_id', $transaction->id)
+        ->where('action', 'refunded')
+        ->first();
+
+    expect($log)->not->toBeNull()
+        ->and($log->user_id)->toEqual($user->id)
+        ->and($log->after['status'])->toEqual('pending')
+        ->and((float) $log->after['refunded_total'])->toEqual(100.0);
+});
+
+it('does not double-refund when the same transaction is refunded twice', function () {
+    $branch = Branch::factory()->create();
+    CashOnHand::create(['branch_id' => $branch->id, 'amount' => 100]);
+
+    $transaction = Transaction::factory()->create([
+        'amount_total' => 100,
+        'amount_paid' => 100,
+        'status' => 'paid',
+        'branch_id' => $branch->id,
+    ]);
+
+    $user = User::factory()->create([
+        'branch_id' => $branch->id,
+        'role' => 'superadmin',
+    ]);
+
+    $transaction->payments()->create([
+        'amount' => 100,
+        'payment_type' => 'cash',
+        'staff_id' => $user->id,
+    ]);
+
+    // First refund succeeds.
+    $this->actingAs($user)
+        ->patch(route('sales.refund-payment', $transaction))
+        ->assertSessionHasNoErrors();
+
+    // Second refund on the now-pending transaction is rejected — the model
+    // locks the row and only partial/paid transactions can be refunded.
+    $this->actingAs($user)
+        ->patch(route('sales.refund-payment', $transaction))
+        ->assertSessionHasErrors(['payment_type']);
+
+    $refreshed = $transaction->fresh();
+
+    // Exactly one reversal happened: a single -100 entry and cash-on-hand
+    // deducted once (100 - 100 = 0), never doubled.
+    expect($refreshed->payments()->where('amount', '<', 0)->count())->toEqual(1)
+        ->and((float) $refreshed->payments()->where('amount', '<', 0)->sum('amount'))->toEqual(-100.0)
+        ->and($refreshed->amount_paid)->toEqual(0.0)
+        ->and((float) CashOnHand::query()->where('branch_id', $branch->id)->value('amount'))->toEqual(0.0);
 });

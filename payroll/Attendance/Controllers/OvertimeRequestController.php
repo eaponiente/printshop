@@ -5,10 +5,8 @@ namespace Payroll\Attendance\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\Payroll\AttendanceSheet;
 use App\Models\Payroll\Employee;
-use App\Models\Payroll\EmployeeSchedule;
 use App\Models\Payroll\Holiday;
 use App\Models\Payroll\OvertimeRequest;
-use Carbon\Carbon;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -109,14 +107,9 @@ class OvertimeRequestController extends Controller
 
     protected function resolveShiftType(Employee $employee, string $date): string
     {
-        $dateObj = Carbon::parse($date);
-        $schedule = EmployeeSchedule::activeForDate($employee->id, $date);
-        $restDays = $schedule?->rest_days ?? [];
-
-        if (in_array($dateObj->dayOfWeek, $restDays)) {
-            return 'rest_day';
-        }
-
+        // Rest days are paid as regular days (no premium), so overtime on a rest
+        // day resolves like a normal working day — holiday type still takes
+        // precedence when a holiday falls on the date.
         $holiday = Holiday::forDate($date);
 
         if ($holiday) {
