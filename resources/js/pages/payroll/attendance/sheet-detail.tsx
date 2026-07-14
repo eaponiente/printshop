@@ -84,17 +84,11 @@ export default function SheetDetail({
     const [adding, setAdding] = useState(false);
 
     const hourLabel = (h: number) => (h === 8 ? 'Full Day' : `${h}h`);
-    const dailyRate = Number(sheet?.daily_rate) || 0;
-    const hourlyRate = dailyRate / 8;
-    const restDayPremium =
-        sheet?.is_rest_day && sheet?.is_present
-            ? Math.round(sheet.hours_worked * hourlyRate * 0.3 * 100) / 100
-            : 0;
 
     function handleAddPunch() {
         if (!addTime) {
-return;
-}
+            return;
+        }
 
         setAdding(true);
         router.post(
@@ -112,10 +106,13 @@ return;
     }
 
     function handleDeletePunch(logId: number) {
-        router.delete(`/payroll/attendance-sheets/${employee.id}/logs/${logId}`, {
-            onSuccess: () => toast.success('Punch removed.'),
-            onError: () => toast.error('Failed to remove punch.'),
-        });
+        router.delete(
+            `/payroll/attendance-sheets/${employee.id}/logs/${logId}`,
+            {
+                onSuccess: () => toast.success('Punch removed.'),
+                onError: () => toast.error('Failed to remove punch.'),
+            },
+        );
     }
 
     const showPunchesCard = timeLogs.length > 0 || canEdit;
@@ -147,7 +144,7 @@ return;
                     {/* Punches — always visible to admin */}
                     {showPunchesCard && (
                         <div className="rounded-md border border-sidebar-border bg-sidebar p-4 text-sm">
-                            <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
+                            <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
                                 Punches
                             </h3>
 
@@ -266,7 +263,7 @@ return;
                                 (l) => ['in', 'out'].includes(l.type) && l.note,
                             ).length > 0 && (
                                 <div className="rounded-md border border-sidebar-border bg-sidebar p-4 text-sm">
-                                    <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
+                                    <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
                                         Punch Locations
                                     </h3>
                                     {timeLogs
@@ -300,7 +297,7 @@ return;
                             {(sheet.late_deduction > 0 ||
                                 sheet.undertime_deduction > 0) && (
                                 <div className="rounded-md border border-sidebar-border bg-sidebar p-4 text-sm">
-                                    <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
+                                    <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
                                         Deductions
                                     </h3>
                                     {sheet.late_deduction > 0 && (
@@ -322,18 +319,11 @@ return;
 
                             {/* Additions */}
                             {(sheet.overtime_pay > 0 ||
-                                sheet.holiday_pay > 0 ||
-                                restDayPremium > 0) && (
+                                sheet.holiday_pay > 0) && (
                                 <div className="rounded-md border border-sidebar-border bg-sidebar p-4 text-sm">
-                                    <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
+                                    <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
                                         Additions
                                     </h3>
-                                    {restDayPremium > 0 && (
-                                        <Row
-                                            label="Rest Day"
-                                            value={`${sheet.hours_worked}h × 1.30× → +${formatCurrency(restDayPremium)}`}
-                                        />
-                                    )}
                                     {sheet.overtime_pay > 0 && (
                                         <Row
                                             label="Overtime"
@@ -352,7 +342,7 @@ return;
                             {/* Leave */}
                             {sheet.leave_type && (
                                 <div className="rounded-md border border-sidebar-border bg-sidebar p-4 text-sm">
-                                    <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
+                                    <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
                                         Leave
                                     </h3>
                                     <Row
@@ -391,7 +381,7 @@ return;
 
                             {/* Daily Wage */}
                             <div className="rounded-md border border-sidebar-border bg-sidebar p-4 text-sm">
-                                <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
+                                <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
                                     Daily Wage
                                 </h3>
                                 <Row
