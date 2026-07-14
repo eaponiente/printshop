@@ -248,7 +248,10 @@ class AttendanceService
                     $overtimeMultiplier = $multiplier;
                     $overtimePay = round(($otMins / 60) * $hourlyRate * $multiplier, 2);
                 } elseif ($isRestDay && $outPunch) {
-                    // Working on rest day — count the in-to-out span (minus lunch) as OT-rate hours
+                    // Rest day worked is paid as a regular day: the in-to-out span
+                    // (minus lunch) is regular hours at the normal rate, and any OT
+                    // (from OT punches or an approved request) is billed at the
+                    // regular OT rate — no rest-day premium.
                     $restDayMinutes = (int) abs($inTime->diffInMinutes($outPunch->timestamp));
                     if ($lunchOut && $lunchIn) {
                         $lunchTaken = (int) abs($lunchOut->timestamp->diffInMinutes($lunchIn->timestamp));
@@ -256,12 +259,12 @@ class AttendanceService
                     } else {
                         $restDayMinutes -= 60;
                     }
-                    if ($restDayMinutes > 0) {
-                        $multiplier = $this->getOTMultiplier('rest_day');
-                        $overtimeMinutes = $restDayMinutes;
-                        $overtimeMultiplier = $multiplier;
-                        $hoursWorked = round($restDayMinutes / 60, 2);
-                        $overtimePay = 0;
+                    $hoursWorked = $restDayMinutes > 0 ? round($restDayMinutes / 60, 2) : 0;
+
+                    if ($otMins > 0) {
+                        $overtimeMinutes = $otMins;
+                        $overtimeMultiplier = $this->getOTMultiplier('regular_day');
+                        $overtimePay = round(($otMins / 60) * $hourlyRate * $overtimeMultiplier, 2);
                     }
                 }
             }
@@ -355,7 +358,9 @@ class AttendanceService
             }
         } else {
             if ($isRestDay && $isPresent) {
-                $basePay = round($hoursWorked * $hourlyRate * 1.30, 2);
+                // Rest day worked is paid as a regular day: hours actually worked
+                // at the normal hourly rate, no premium.
+                $basePay = round($hoursWorked * $hourlyRate, 2);
             } else {
                 $basePay = $isPresent ? $dailyRate : 0;
             }
