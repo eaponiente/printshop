@@ -13,9 +13,10 @@ use Payroll\Attendance\Enums\PunchSource;
 use Payroll\Attendance\Enums\PunchType;
 use Payroll\Attendance\Services\AttendanceService;
 
-// Rest days (incl. Sunday) are paid as ordinary working days: hours worked at
-// the normal hourly rate with no premium, and any overtime at the regular OT
-// rate. Not working a rest day stays a day off (no absence).
+// A worked rest day (incl. Sunday) is paid exactly like a regular working day:
+// flat daily rate when present, hours capped at the paid end, normal
+// late/undertime/half-day rules, and overtime only via an approved request.
+// The one difference from a weekday: not working a rest day is not an absence.
 
 beforeEach(function () {
     Cache::flush();
@@ -71,12 +72,12 @@ it('pays a full worked rest day as one regular daily rate — no premium', funct
 
     expect((bool) $sheet->is_rest_day)->toBeTrue();
     expect((float) $sheet->hours_worked)->toBe(8.0);
-    // 8h × ₱75 = ₱600 (a plain daily rate). The old premium would have been ₱780.
+    // Present → flat daily rate ₱600, same as a weekday. Old premium was ₱780.
     expect((float) $sheet->daily_wage)->toBe(600.0);
     expect((float) $sheet->overtime_pay)->toBe(0.0);
 });
 
-it('pays a partial worked rest day pro-rata by hours', function () {
+it('charges undertime on a partial rest day, just like a weekday', function () {
     $date = $this->sunday;
 
     foreach ([
@@ -97,11 +98,13 @@ it('pays a partial worked rest day pro-rata by hours', function () {
 
     expect((bool) $sheet->is_rest_day)->toBeTrue();
     expect((float) $sheet->hours_worked)->toBe(6.0);
-    // 6h × ₱75 = ₱450 (pro-rata, no premium). Premium would have been ₱585.
+    // Left 2h early (15:00 vs 17:00 paid end) → flat ₱600 base minus 2h
+    // undertime (2 × ₱75 = ₱150) = ₱450, exactly as on a weekday.
+    expect((int) $sheet->undertime_minutes)->toBe(120);
     expect((float) $sheet->daily_wage)->toBe(450.0);
 });
 
-it('bills overtime on a rest day at the regular OT rate, not the rest-day rate', function () {
+it('bills overtime on a rest day at the regular OT rate', function () {
     $date = $this->sunday;
 
     // Full 8h worked...
@@ -119,14 +122,14 @@ it('bills overtime on a rest day at the regular OT rate, not the rest-day rate',
         ]);
     }
 
-    // ...plus 2h approved overtime. shift_type intentionally 'rest_day' to prove
-    // the service overrides it to the regular multiplier.
+    // ...plus 2h approved overtime. On a rest day the OT request resolves to
+    // 'regular_day' (see resolveShiftType), so OT is billed at the regular rate.
     OvertimeRequest::create([
         'employee_id' => $this->employee->id,
         'date' => $date,
         'start_time' => $date.' 17:00:00',
         'end_time' => $date.' 19:00:00',
-        'shift_type' => 'rest_day',
+        'shift_type' => 'regular_day',
         'reason' => 'Rush order',
         'status' => 'approved',
         'approved_by' => $this->admin->id,
@@ -136,11 +139,38 @@ it('bills overtime on a rest day at the regular OT rate, not the rest-day rate',
     $sheet = $this->service->processDailyAttendance($this->employee, $date);
 
     expect((int) $sheet->overtime_minutes)->toBe(120);
-    expect((float) $sheet->overtime_multiplier)->toBe(1.25); // regular OT, not 1.69
+    expect((float) $sheet->overtime_multiplier)->toBe(1.25);
     // 2h × ₱75 × 1.25 = ₱187.50
     expect((float) $sheet->overtime_pay)->toBe(187.5);
-    // Base ₱600 + OT ₱187.50
+    // Base ₱600 (flat) + OT ₱187.50
     expect((float) $sheet->daily_wage)->toBe(787.5);
+});
+
+it('caps a worked rest day at one daily rate when there is no approved overtime', function () {
+    $date = $this->sunday;
+
+    // Stays until 18:00 — an hour past the 17:00 paid end — but has no OT
+    // request. Like a weekday, the extra hour is not paid, so hours cap at 8
+    // and the wage stays at one flat daily rate (never pro-rata beyond 8h).
+    foreach ([
+        ['08:00', PunchType::IN],
+        ['12:00', PunchType::LUNCH_OUT],
+        ['13:00', PunchType::LUNCH_IN],
+        ['18:00', PunchType::OUT],
+    ] as [$time, $type]) {
+        TimeLog::create([
+            'employee_id' => $this->employee->id,
+            'timestamp' => Carbon::parse("{$date} {$time}"),
+            'type' => $type,
+            'source' => PunchSource::SELF_SERVICE,
+        ]);
+    }
+
+    $sheet = $this->service->processDailyAttendance($this->employee, $date);
+
+    expect((float) $sheet->hours_worked)->toBe(8.0);
+    expect((float) $sheet->overtime_pay)->toBe(0.0);
+    expect((float) $sheet->daily_wage)->toBe(600.0);
 });
 
 it('does not mark an absence when a rest day is not worked', function () {

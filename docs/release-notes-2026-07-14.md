@@ -1,30 +1,29 @@
 # What's New — July 14, 2026
 
-Working on a rest day (Sunday, or any configured rest day) is now paid like an ordinary working day — no premium.
+A worked rest day (Sunday, or any configured rest day) is now paid **exactly like a regular working day** — no premium, and no special pro-rata rules.
 
 ---
 
 ## Payroll / Attendance
 
-### Rest-day work is paid at the regular rate
+### Rest-day work is treated as a regular working day
 
-Previously, an employee who worked a rest day earned a **1.30× base-pay premium** and any overtime was billed at the **1.69× rest-day rate**. That premium is gone. A worked rest day now pays:
+Previously, a worked rest day earned a **1.30× base-pay premium** with **1.69× overtime**. Then (interim) it was paid **pro-rata by hours, uncapped** — which meant working past 8 hours could pay *more* than one daily rate. Both are gone. A worked rest day now runs through the **exact same computation as a weekday**:
 
-- **Base pay** = `hours_worked × hourly_rate` (pro-rata by the hours actually worked, no premium).
-- **Overtime** = the regular **1.25×** rate, same as any weekday.
+- **Flat daily rate** when present (e.g. ₱510), not pro-rata by hours.
+- **Hours capped at the paid end (~8h)** — extra time is paid **only via an approved OT request** (regular 1.25×).
+- Normal **late / undertime / half-day / no-break-fine** rules apply.
 
-**Example** (daily rate ₱600, hourly ₱75): a full 8-hour Sunday pays **₱600** (one plain daily rate) instead of the old ₱780; a 4-hour Sunday pays **₱300**. Two hours of approved OT on that Sunday pays `2 × ₱75 × 1.25 = ₱187.50` instead of the old 1.69× amount.
+**Example** (daily rate ₱510): clock in 1 minute late and stay past 5 PM with no OT request → **₱500** (₱510 − ₱10 late), *not* the ₱522.31 the uncapped pro-rata model produced.
 
-Not working a rest day is unchanged — it's still a normal day off, so no absence is recorded and no deduction applies.
+The **only** way a rest day differs from a weekday: **not working one is not an absence** — no sheet is created and no deduction applies. Employees are never docked for taking their rest day off.
 
-**Scope:** this applies to every configured rest day, not only literal Sunday. Holiday pay is unchanged — a holiday that falls on a Sunday still behaves exactly as before.
+**Holiday exception:** a holiday that falls on a rest day still uses the existing rest-day holiday rules (and a holiday on Sunday is still suppressed). This is now the *only* place rest-day status affects pay; collapsing it into regular-holiday behavior is a separate decision.
 
 ### Notes for reviewers
 
-- `AttendanceService::processDailyAttendance` (`payroll/Attendance/Services/AttendanceService.php`):
-  - Rest-day base pay dropped from `hours_worked × hourly_rate × 1.30` to `hours_worked × hourly_rate`.
-  - The rest-day worked branch now keeps `hours_worked` from the in→out span (minus lunch) and pays OT (from OT punches or an approved `OvertimeRequest`) at `getOTMultiplier('regular_day')` = 1.25×, instead of zeroing `overtime_pay` and tagging a 1.69× display multiplier. `overtime_minutes` on a rest day now means *actual* OT (the worked span lives in `hours_worked`).
-  - `$isRestDay` still suppresses absence-marking, half-day, undertime (early-departure), and the no-break fine, so days off remain unpenalized. Late/undertime/fine deductions on a worked rest day are unchanged.
-- `OvertimeRequestController::resolveShiftType` no longer returns `rest_day`; a rest-day OT request records `regular_day` (or the holiday type when applicable), keeping the stored `shift_type` truthful. `getOTMultiplier()` itself is untouched — its holiday entries still serve the unchanged holiday paths.
-- `PayrollPeriodService` needed no change: it sums `daily_wage`, which now already reflects the regular rate.
-- Covered by new `tests/Feature/Payroll/RestDayPayTest.php` (full 8h = ₱600, partial 6h = ₱450, worked + OT billed at 1.25× not 1.69×, unworked rest day records no absence, rest-day OT request stores `regular_day`). Full suite green (451 passing).
+- `AttendanceService::processDailyAttendance` (`payroll/Attendance/Services/AttendanceService.php`): removed every `! $isRestDay` guard on the **pay** paths (half-day detection, early-departure undertime, the 8h hours cap, the no-break fine) and deleted the special rest-day base-pay / OT branch. Base pay is now `isPresent ? daily_rate : 0` and OT flows through the standard path for all days. The **one** `! $isRestDay` guard that remains is on absence marking, so a rest day with no punches is still not an absence.
+- `OvertimeRequestController::resolveShiftType` records `regular_day` for a rest-day OT request (unchanged from the interim step). The holiday `$isRestDay` branches are intentionally left as-is.
+- Frontend: the attendance sheet-detail page no longer shows the phantom "Rest Day × 1.30×" addition (it re-derived a premium the backend never paid); `daily_wage` is canonical.
+- `PayrollPeriodService` needed no change — it sums `daily_wage`.
+- Covered by `tests/Feature/Payroll/RestDayPayTest.php`: full 8h = ₱600 (flat), partial day charges undertime like a weekday, **>8h with no OT caps at one daily rate**, OT via request at 1.25×, unworked rest day has no sheet/absence. Full suite green (455 passing).
