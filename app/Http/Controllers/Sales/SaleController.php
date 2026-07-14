@@ -21,12 +21,16 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
+use Payroll\Audit\Traits\Auditable;
 
 class SaleController extends Controller
 {
+    use Auditable;
+
     public function __construct(protected SalesService $salesService) {}
 
     public function index(GetTransactionsRequest $request): Response
@@ -196,20 +200,36 @@ class SaleController extends Controller
     public function refundPayment(RefundTransactionPaymentRequest $request, Transaction $transaction): RedirectResponse
     {
         try {
-            $cashRefund = $transaction->payments()
-                ->live()
-                ->where('payment_type', TransactionTypeOfPaymentEnum::CASH->value)
-                ->sum('amount');
+            DB::transaction(function () use ($transaction) {
+                $before = [
+                    'status' => $transaction->status,
+                    'amount_paid' => $transaction->amount_paid,
+                ];
 
-            $transaction->refundPayment();
+                $cashRefund = $transaction->payments()
+                    ->live()
+                    ->where('payment_type', TransactionTypeOfPaymentEnum::CASH->value)
+                    ->sum('amount');
 
-            if ($cashRefund > 0) {
-                app(CashOnHandService::class)->adjustBalance(
-                    $transaction->branch_id,
-                    (float) $cashRefund,
-                    'expense'
-                );
-            }
+                $refundedTotal = $transaction->refundPayment();
+
+                if ($cashRefund > 0) {
+                    app(CashOnHandService::class)->adjustBalance(
+                        $transaction->branch_id,
+                        (float) $cashRefund,
+                        'expense'
+                    );
+                }
+
+                $transaction->refresh();
+
+                $this->audit('refunded', $transaction, $before, [
+                    'status' => $transaction->status,
+                    'amount_paid' => $transaction->amount_paid,
+                    'refunded_total' => $refundedTotal,
+                    'cash_refunded' => (float) $cashRefund,
+                ]);
+            });
 
             return back()->with('success', 'Full refund recorded.');
         } catch (\Exception $e) {

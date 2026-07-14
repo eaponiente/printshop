@@ -112,13 +112,12 @@ class AttendanceService
                 // Half-day detection (must precede late calculation).
                 // Arriving 1 hour or more (configurable) after schedule start makes
                 // the whole morning unpaid — we pay only the afternoon session.
-                $isAfternoonHalf = $rawInTime->gte($halfDayCutoff) && ! $isRestDay;
+                $isAfternoonHalf = $rawInTime->gte($halfDayCutoff);
                 // Worked the morning only and left at/before the afternoon starts.
                 $isMorningHalf = ! $isAfternoonHalf
                     && $outPunch
                     && $rawInTime->lt($lunchStart)
-                    && Carbon::parse($outPunch->timestamp)->lt($afternoonStart)
-                    && ! $isRestDay;
+                    && Carbon::parse($outPunch->timestamp)->lt($afternoonStart);
 
                 // Tardy:
                 //  - Regular / morning: minutes past schedule start.
@@ -178,7 +177,7 @@ class AttendanceService
                 $undertimeMinutes = $lunchDeductionMinutes;
                 if ($outPunch) {
                     $outTimeRaw = Carbon::parse($outPunch->timestamp);
-                    if (! $isRestDay && $outTimeRaw->lt($paidEndTime)) {
+                    if ($outTimeRaw->lt($paidEndTime)) {
                         $undertimeMinutes += (int) abs($paidEndTime->diffInMinutes($outTimeRaw));
                     }
                 }
@@ -203,7 +202,7 @@ class AttendanceService
 
                 // Hours worked (uses capped inTime)
                 $endTime = $outPunch ? Carbon::parse($outPunch->timestamp) : $paidEndTime;
-                if (! $isRestDay && $endTime->gt($paidEndTime)) {
+                if ($endTime->gt($paidEndTime)) {
                     $endTime = $paidEndTime;
                 }
 
@@ -242,27 +241,11 @@ class AttendanceService
                     }
                 }
 
-                if (! $isRestDay && $otMins > 0) {
+                if ($otMins > 0) {
                     $overtimeMinutes = $otMins;
                     $multiplier = $this->getOTMultiplier($shiftType);
                     $overtimeMultiplier = $multiplier;
                     $overtimePay = round(($otMins / 60) * $hourlyRate * $multiplier, 2);
-                } elseif ($isRestDay && $outPunch) {
-                    // Working on rest day — count the in-to-out span (minus lunch) as OT-rate hours
-                    $restDayMinutes = (int) abs($inTime->diffInMinutes($outPunch->timestamp));
-                    if ($lunchOut && $lunchIn) {
-                        $lunchTaken = (int) abs($lunchOut->timestamp->diffInMinutes($lunchIn->timestamp));
-                        $restDayMinutes -= min($lunchTaken, 60);
-                    } else {
-                        $restDayMinutes -= 60;
-                    }
-                    if ($restDayMinutes > 0) {
-                        $multiplier = $this->getOTMultiplier('rest_day');
-                        $overtimeMinutes = $restDayMinutes;
-                        $overtimeMultiplier = $multiplier;
-                        $hoursWorked = round($restDayMinutes / 60, 2);
-                        $overtimePay = 0;
-                    }
                 }
             }
         } elseif (! $hasAnyPunch && ! $isRestDay) {
@@ -342,7 +325,7 @@ class AttendanceService
 
         // Break fine when employee completed their day (punched out) but skipped lunch punches.
         // Skipped when punch-out is absent — day is still in progress, lunch may come later.
-        if ($isPresent && $outPunch && ! $isRestDay && ! $hasFullDayLeave && (! $lunchOut || ! $lunchIn) && ! $isMorningHalf && ! $isAfternoonHalf) {
+        if ($isPresent && $outPunch && ! $hasFullDayLeave && (! $lunchOut || ! $lunchIn) && ! $isMorningHalf && ! $isAfternoonHalf) {
             $noBreakFine = (float) app(PayrollSettingService::class)->get('no_break_fine', config('payroll.no_break_fine'));
             $fineDeduction += $noBreakFine;
         }
@@ -354,11 +337,12 @@ class AttendanceService
                 $dailyWage = 0;
             }
         } else {
-            if ($isRestDay && $isPresent) {
-                $basePay = round($hoursWorked * $hourlyRate * 1.30, 2);
-            } else {
-                $basePay = $isPresent ? $dailyRate : 0;
-            }
+            // A worked rest day is paid exactly like a regular working day:
+            // flat daily rate when present, hours capped at the paid end, and
+            // overtime only via an approved request. Rest days differ from
+            // regular days in one way only — not working one is not an absence
+            // (see the `! $isRestDay` guard on absence marking above).
+            $basePay = $isPresent ? $dailyRate : 0;
             $dailyWage = round($basePay - $lateDeduction - $undertimeDeduction - $fineDeduction + $overtimePay + $holidayPay, 2);
             if ($dailyWage < 0) {
                 $dailyWage = 0;
