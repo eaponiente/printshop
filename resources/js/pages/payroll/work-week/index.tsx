@@ -20,7 +20,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Work Week Table', href: '/payroll/work-week' },
 ];
 
-const dayLabels = ['Sat', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+const dayLabels = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
 type EmployeeListEntry = {
     id: number;
