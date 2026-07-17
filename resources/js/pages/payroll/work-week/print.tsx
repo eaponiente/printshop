@@ -10,7 +10,7 @@ import type {
     EmployeeRowTotals,
 } from './types';
 
-const dayLabels = ['Sat', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+const dayLabels = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
 type Props = {
     branch: { id: number; name: string };

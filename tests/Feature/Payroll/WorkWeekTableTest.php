@@ -173,7 +173,7 @@ it('surfaces raw day-cell fields for each attendance status', function () {
     expect($full['cells']["{$onRest->id}-2026-05-25"]['is_rest_day'])->toBeTrue();
 });
 
-it('folds Sunday activity into totals without a dedicated column', function () {
+it('shows Sunday as its own column and still folds it into totals', function () {
     $emp = createWorkWeekEmployee($this->branchA, 'SundayWorker');
     createWorkWeekSheet($emp, '2026-05-24', [ // Sunday
         'is_rest_day' => true,
@@ -182,9 +182,20 @@ it('folds Sunday activity into totals without a dedicated column', function () {
         'daily_wage' => 250,
     ]);
 
-    $dayColumns = ['2026-05-23', '2026-05-25', '2026-05-26', '2026-05-27', '2026-05-28', '2026-05-29'];
-    expect($dayColumns)->not->toContain('2026-05-24');
+    // Sunday is now a dedicated grid column (Sat -> Fri, 7 columns in order).
+    $this->actingAs($this->adminA)
+        ->get(route('payroll.work-week.index', [
+            'start_date' => WW_START,
+            'end_date' => WW_END,
+        ]))
+        ->assertOk()
+        ->assertInertia(
+            fn (AssertableInertia $page) => $page
+                ->where('dayColumns', ['2026-05-23', '2026-05-24', '2026-05-25', '2026-05-26', '2026-05-27', '2026-05-28', '2026-05-29'])
+                ->etc()
+        );
 
+    // Sunday data still feeds the row/footer totals and has its own cell.
     $service = app(WorkWeekTableService::class);
     $full = $service->buildFull($this->branchA, WW_START, WW_END);
 

@@ -1244,7 +1244,7 @@ A read-only, live preview of payroll numbers for an arbitrary date range — an 
 
 ### Day-column contract
 
-The grid shows **6 columns: Saturday, Monday, Tuesday, Wednesday, Thursday, Friday** — Sunday is intentionally omitted as a column (universal rest day) even though the underlying date range spans all 7 days. Any Sunday activity (e.g. holiday work, approved OT) still folds into the row and footer totals; it just has no dedicated cell.
+The grid shows **7 columns: Saturday, Sunday, Monday, Tuesday, Wednesday, Thursday, Friday** — the full payroll week in calendar order. A Sunday cell is usually a rest day (rendered with the rest-day glyph), and its activity (e.g. holiday work, approved OT) folds into the row and footer totals exactly like any other day. `dayColumns` is emitted by `WorkWeekTableController::dayColumns()` and the frontend `dayLabels` arrays (`index.tsx`, `print.tsx`) are paired to it by index.
 
 ### Day-cell status precedence
 

@@ -99,9 +99,9 @@ class WorkWeekTableController extends Controller
     }
 
     /**
-     * The 6 columns shown on the grid: Saturday, then Monday through Friday of
-     * the same payroll week. Sunday is intentionally excluded as a column
-     * (universal rest day) though its data still feeds the row/footer totals.
+     * The 7 columns shown on the grid: Saturday through Friday of the same
+     * payroll week, in calendar order (Sunday included). A Sunday sheet is
+     * usually a rest day, but its data feeds the row/footer totals either way.
      *
      * @return array<int, string>
      */
@@ -111,6 +111,7 @@ class WorkWeekTableController extends Controller
 
         return [
             $saturday->toDateString(),
+            $saturday->copy()->addDays(1)->toDateString(),
             $saturday->copy()->addDays(2)->toDateString(),
             $saturday->copy()->addDays(3)->toDateString(),
             $saturday->copy()->addDays(4)->toDateString(),
