@@ -85,6 +85,17 @@ class LeaveRequestController extends Controller
             'reason' => ['required', 'string', 'max:500'],
         ]);
 
+        // A (employee_id, date) unique index guards this at the DB level; check
+        // here first so a same-day re-file returns a friendly validation error
+        // instead of a 500. Unconditional to match the index (any status counts).
+        $alreadyFiled = LeaveRequest::where('employee_id', $employee->id)
+            ->whereDate('date', $validated['date'])
+            ->exists();
+
+        if ($alreadyFiled) {
+            return back()->withErrors(['date' => 'A leave has already been filed for this date.']);
+        }
+
         LeaveRequest::create([
             'employee_id' => $employee->id,
             ...$validated,
