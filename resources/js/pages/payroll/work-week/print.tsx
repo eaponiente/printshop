@@ -28,7 +28,9 @@ const cellGlyph = (cell: DayCellData | undefined): string => {
         return STATUS_GLYPHS.empty;
     }
 
-    if (cell.is_rest_day) {
+    // Only an unworked rest day shows "Rest"; a worked rest day is paid like a
+    // regular day, so it falls through to the present/late glyph below.
+    if (cell.is_rest_day && !cell.is_present) {
         return STATUS_GLYPHS.rest;
     }
 
