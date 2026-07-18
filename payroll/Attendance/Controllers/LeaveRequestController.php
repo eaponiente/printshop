@@ -38,7 +38,12 @@ class LeaveRequestController extends Controller
             }
         }
 
-        $requests = $query->orderBy('created_at', 'desc')->paginate(20);
+        // Pending requests always surface on top (they need action), then the
+        // rest by leave date, most recent first. CASE keeps this SQLite-safe.
+        $requests = $query
+            ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")
+            ->orderBy('date', 'desc')
+            ->paginate(20);
 
         $employeeSummary = null;
         if ($user->isStaff() && $user->employee_id) {
