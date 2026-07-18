@@ -310,7 +310,11 @@ deductions (restoring `remaining_balance`), but differ in what survives and who 
 - **Delete** hard-deletes the period and its items (an `Auditable` `deleted` entry preserves
   the before-state). Allowed for `draft` **and `approved`** periods only — `paid` and `voided`
   stay non-deletable. **Branch-scoped** (`payroll-periods.delete`): superadmin any branch,
-  admin their own branch, staff denied. See `PayrollPeriodService::delete()`.
+  admin their own branch, staff denied. See `PayrollPeriodService::delete()`. The period-show
+  UI surfaces the **Delete** button for both `draft` and `approved` periods (the approved
+  variant shows a confirmation that spells out the cash-advance reversal); deleting a prior
+  approved period reverses only that period's own ledger entries and unlocks only its own date
+  range, leaving any other period's cash-advance deductions untouched.
 
 **Check Payroll → Approve gate.** A draft period must pass **Check Payroll** (`payroll.periods.check`,
 which stamps `checked_at`) before the **Approve** button appears. `PayrollPeriodController::show`
