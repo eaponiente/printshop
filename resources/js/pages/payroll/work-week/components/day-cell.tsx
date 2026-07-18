@@ -23,7 +23,10 @@ export function DayCell({ cell }: DayCellProps) {
         );
     }
 
-    if (cell.is_rest_day) {
+    // An UNWORKED rest day shows only the rest glyph. A worked rest day is paid
+    // exactly like a regular working day (see July 14 change), so it falls
+    // through to the present branch below to render its wage — flagged "Rest".
+    if (cell.is_rest_day && !cell.is_present) {
         return (
             <div
                 className={`rounded border p-1 text-center text-xs font-medium ${STATUS_COLORS.rest}`}
@@ -71,6 +74,11 @@ export function DayCell({ cell }: DayCellProps) {
             className={`rounded border p-1 text-center text-xs font-medium ${STATUS_COLORS.present}`}
         >
             {isHalfDay(cell) ? 'Half Day' : STATUS_GLYPHS.present}
+            {cell.is_rest_day && (
+                <div className="text-[10px] font-normal text-blue-500">
+                    {STATUS_GLYPHS.rest}
+                </div>
+            )}
             <div className="font-mono text-[10px] font-normal">
                 {formatCurrency(cell.daily_wage)}
             </div>
