@@ -673,6 +673,7 @@ export default function SublimationIndex({
                                     <a
                                         href={route('payroll.sewed-items.index', {
                                             id: row.original.sewed_item.id,
+                                            include_completed: '1',
                                         })}
                                     >
                                         <Scissors className="mr-2 h-4 w-4" />

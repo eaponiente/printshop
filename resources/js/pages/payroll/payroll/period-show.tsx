@@ -286,61 +286,67 @@ export default function PayrollPeriodShow({
                                     Approve
                                 </Button>
                             )}
-                        {canDelete && period.status === 'draft' && (
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="destructive" size="sm">
-                                        <Trash2 className="mr-1 h-4 w-4" />{' '}
-                                        Delete
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>
-                                            Delete draft period?
-                                        </AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            This will delete the draft payroll
-                                            period and unlock all attendance
-                                            sheets. This cannot be undone.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>
-                                            Cancel
-                                        </AlertDialogCancel>
-                                        <AlertDialogAction
-                                            onClick={() =>
-                                                router.delete(
-                                                    `/payroll/periods/${period.id}`,
-                                                    {
-                                                        onSuccess: () =>
-                                                            toast.success(
-                                                                'Period deleted.',
-                                                                {
-                                                                    position:
-                                                                        'top-center',
-                                                                },
-                                                            ),
-                                                        onError: (err: any) =>
-                                                            toast.error(
-                                                                err.message ??
-                                                                    'Deletion failed.',
-                                                                {
-                                                                    position:
-                                                                        'top-center',
-                                                                },
-                                                            ),
-                                                    },
-                                                )
-                                            }
-                                        >
+                        {canDelete &&
+                            (period.status === 'draft' ||
+                                period.status === 'approved') && (
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="destructive" size="sm">
+                                            <Trash2 className="mr-1 h-4 w-4" />{' '}
                                             Delete
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        )}
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>
+                                                {period.status === 'approved'
+                                                    ? 'Delete approved period?'
+                                                    : 'Delete draft period?'}
+                                            </AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                {period.status === 'approved'
+                                                    ? 'This will delete the approved payroll period, restore any cash-advance deductions it made, unlock all attendance sheets, and remove all payroll items. This cannot be undone.'
+                                                    : 'This will delete the draft payroll period and unlock all attendance sheets. This cannot be undone.'}
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>
+                                                Cancel
+                                            </AlertDialogCancel>
+                                            <AlertDialogAction
+                                                onClick={() =>
+                                                    router.delete(
+                                                        `/payroll/periods/${period.id}`,
+                                                        {
+                                                            onSuccess: () =>
+                                                                toast.success(
+                                                                    'Period deleted.',
+                                                                    {
+                                                                        position:
+                                                                            'top-center',
+                                                                    },
+                                                                ),
+                                                            onError: (
+                                                                err: any,
+                                                            ) =>
+                                                                toast.error(
+                                                                    err.message ??
+                                                                        'Deletion failed.',
+                                                                    {
+                                                                        position:
+                                                                            'top-center',
+                                                                    },
+                                                                ),
+                                                        },
+                                                    )
+                                                }
+                                            >
+                                                Delete
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            )}
                         {isSuperAdmin &&
                             (period.status === 'approved' ||
                                 period.status === 'paid') && (

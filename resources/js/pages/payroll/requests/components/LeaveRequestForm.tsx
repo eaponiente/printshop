@@ -52,7 +52,12 @@ return;
                     onClose();
                 },
                 onError: (err: any) =>
-                    toast.error(err.message ?? 'Failed to submit.'),
+                    toast.error(
+                        err?.date ??
+                            err?.error ??
+                            err?.message ??
+                            'Failed to submit.',
+                    ),
                 onFinish: () => setSubmitting(false),
             },
         );

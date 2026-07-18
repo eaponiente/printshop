@@ -180,6 +180,26 @@ it('allows full-day leave submission', function () {
     expect(LeaveRequest::count())->toBe(1);
 });
 
+it('rejects a duplicate leave for the same date with a friendly error', function () {
+    $payload = [
+        'date' => '2026-06-15',
+        'leave_type' => 'vacation',
+        'duration' => 'full_day',
+        'is_paid' => true,
+        'reason' => 'First filing',
+    ];
+
+    $this->actingAs($this->staff)->post('/payroll/leave-requests', $payload)->assertRedirect();
+
+    // Re-filing the same date must fail gracefully (validation error on `date`),
+    // not throw the DB unique-constraint exception, and not create a second row.
+    $response = $this->actingAs($this->staff)
+        ->post('/payroll/leave-requests', [...$payload, 'reason' => 'Second filing']);
+
+    $response->assertSessionHasErrors('date');
+    expect(LeaveRequest::count())->toBe(1);
+});
+
 it('superadmin can reset leave balances between Jan 1-15', function () {
     Carbon::setTestNow(Carbon::parse('2026-01-10'));
 

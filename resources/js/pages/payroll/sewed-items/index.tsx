@@ -523,9 +523,12 @@ export default function SewedItemsIndex({
                                                     <div className="border-t pt-1.5">
                                                         <Link
                                                             href={route(
-                                                                'sublimations.show',
-                                                                item.sublimation
-                                                                    ?.id,
+                                                                'sublimations.index',
+                                                                {
+                                                                    id: item
+                                                                        .sublimation
+                                                                        ?.id,
+                                                                },
                                                             )}
                                                             className="text-xs text-primary hover:underline"
                                                         >

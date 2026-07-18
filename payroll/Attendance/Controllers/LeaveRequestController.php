@@ -38,7 +38,12 @@ class LeaveRequestController extends Controller
             }
         }
 
-        $requests = $query->orderBy('created_at', 'desc')->paginate(20);
+        // Pending requests always surface on top (they need action), then the
+        // rest by leave date, most recent first. CASE keeps this SQLite-safe.
+        $requests = $query
+            ->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")
+            ->orderBy('date', 'desc')
+            ->paginate(20);
 
         $employeeSummary = null;
         if ($user->isStaff() && $user->employee_id) {
@@ -79,6 +84,17 @@ class LeaveRequestController extends Controller
             'is_paid' => ['boolean'],
             'reason' => ['required', 'string', 'max:500'],
         ]);
+
+        // A (employee_id, date) unique index guards this at the DB level; check
+        // here first so a same-day re-file returns a friendly validation error
+        // instead of a 500. Unconditional to match the index (any status counts).
+        $alreadyFiled = LeaveRequest::where('employee_id', $employee->id)
+            ->whereDate('date', $validated['date'])
+            ->exists();
+
+        if ($alreadyFiled) {
+            return back()->withErrors(['date' => 'A leave has already been filed for this date.']);
+        }
 
         LeaveRequest::create([
             'employee_id' => $employee->id,

@@ -1632,6 +1632,44 @@ it('lets a superadmin delete an approved period in any branch', function () {
     expect(PayrollPeriod::find($period->id))->toBeNull();
 });
 
+it('reverts the cash advance and everything connected when an approved period is deleted via HTTP', function () {
+    $emp = createEmployeeWithAttendance($this->branchA, 'Emp', 510, ['sss' => null, 'phic' => null, 'pagibig' => null]);
+
+    $ca = CashAdvance::create([
+        'employee_id' => $emp->id,
+        'amount' => 1000,
+        'remaining_balance' => 1000,
+        'reason' => 'Test',
+        'status' => 'approved',
+    ]);
+
+    // Generate pays the CA down and locks the sheets; approve then locks the period.
+    $period = app(PayrollPeriodService::class)->generate($this->branchA, '2026-05-25', '2026-05-30');
+    app(PayrollPeriodService::class)->approve($period, $this->adminA->id);
+
+    $ca->refresh();
+    expect((float) $ca->remaining_balance)->toBe(0.0);
+    expect($ca->status)->toBe('paid');
+    expect(CashAdvanceDeduction::count())->toBeGreaterThan(0);
+    expect(AttendanceSheet::whereBetween('date', ['2026-05-25', '2026-05-30'])->whereNotNull('locked_at')->count())->toBeGreaterThan(0);
+
+    // Delete the APPROVED period through the HTTP route as an authorized admin.
+    $this->actingAs($this->adminA)
+        ->delete(route('payroll.periods.destroy', $period))
+        ->assertRedirect(route('payroll.periods.index'));
+
+    // Cash advance fully reverted…
+    $ca->refresh();
+    expect((float) $ca->remaining_balance)->toBe(1000.0);
+    expect($ca->status)->toBe('approved');
+
+    // …and everything else connected is gone/unlocked.
+    expect(CashAdvanceDeduction::count())->toBe(0);
+    expect(PayrollPeriodItem::where('payroll_period_id', $period->id)->count())->toBe(0);
+    expect(PayrollPeriod::find($period->id))->toBeNull();
+    expect(AttendanceSheet::whereBetween('date', ['2026-05-25', '2026-05-30'])->whereNotNull('locked_at')->count())->toBe(0);
+});
+
 // ──────────── Batch: Approve-button visibility (Check Payroll gating) ────────────
 //
 // The Approve button on period-show.tsx renders only when
