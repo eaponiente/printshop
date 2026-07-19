@@ -32,7 +32,7 @@ trait SaleFilterTrait
             })(),
             'monthly' => $query->whereMonth($column, Carbon::parse($date)->month)
                 ->whereYear($column, Carbon::parse($date)->year),
-            'yearly' => $query->whereYear($column, $date), // Added yearly
+            'yearly' => $query->whereYear($column, is_numeric($date) ? $date : Carbon::parse($date)->year),
             default => $query->whereDate($column, now()->toDateString()),
         };
     }

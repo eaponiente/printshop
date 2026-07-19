@@ -115,7 +115,7 @@ class SalesService
             ]),
             'monthly' => $query->whereMonth('payments.created_at', Carbon::parse($date)->month)
                 ->whereYear('payments.created_at', Carbon::parse($date)->year),
-            'yearly' => $query->whereYear('payments.created_at', $date),
+            'yearly' => $query->whereYear('payments.created_at', is_numeric($date) ? $date : Carbon::parse($date)->year),
             default => $query->whereDate('payments.created_at', now()->toDateString()),
         };
 
