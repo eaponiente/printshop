@@ -61,19 +61,53 @@ const typeBadge = (type: string) => {
 };
 
 export default function HolidayIndex({ holidays, types }: Props) {
+    // "Today" in Manila as an ISO date string (en-CA yields YYYY-MM-DD), so a
+    // plain lexicographic compare against holiday.date flags past holidays.
+    const todayManila = new Date().toLocaleDateString('en-CA', {
+        timeZone: 'Asia/Manila',
+    });
+    const isPast = (date: string) => date < todayManila;
+    // Display without the year, e.g. "August 21". Parsed as UTC so the stored
+    // Y-m-d renders exactly, with no timezone drift.
+    const formatMonthDay = (date: string) =>
+        new Date(`${date}T00:00:00Z`).toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            timeZone: 'UTC',
+        });
+
     const columns: ColumnDef<Holiday>[] = [
         {
             accessorKey: 'name',
             header: 'Name',
             cell: ({ row }: CellContext<Holiday, any>) => (
-                <span className="font-medium">{row.original.name}</span>
+                <span
+                    className={
+                        isPast(row.original.date)
+                            ? 'font-medium text-muted-foreground'
+                            : 'font-medium'
+                    }
+                >
+                    {row.original.name}
+                </span>
             ),
         },
         {
             accessorKey: 'date',
             header: 'Date',
             cell: ({ row }: CellContext<Holiday, any>) => (
-                <span className="font-mono text-sm">{row.original.date}</span>
+                <span className="flex items-center gap-2">
+                    <span
+                        className={`text-sm ${isPast(row.original.date) ? 'text-muted-foreground' : ''}`}
+                    >
+                        {formatMonthDay(row.original.date)}
+                    </span>
+                    {isPast(row.original.date) && (
+                        <span className="rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                            Passed
+                        </span>
+                    )}
+                </span>
             ),
         },
         {
