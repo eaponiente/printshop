@@ -146,11 +146,16 @@ function PayslipCard({
         (item.pagibig_deduction || 0) +
         (item.ca_deduction || 0);
 
-    const grossPay =
-        (item.gross_pay || 0) +
-        (item.overtime_pay || 0) +
-        (item.holiday_pay || 0) +
-        (item.deminimis_earnings || 0);
+    // gross_pay (= SUM of daily_wage) already includes overtime_pay and
+    // holiday_pay (see AttendanceService::processDailyAttendance). So the true
+    // basic is gross_pay minus those, and GROSS must not re-add them — doing so
+    // double-counts OT/holiday. Only de-minimis perks sit outside gross_pay.
+    const basicPay =
+        (item.gross_pay || 0) -
+        (item.overtime_pay || 0) -
+        (item.holiday_pay || 0);
+
+    const grossPay = (item.gross_pay || 0) + (item.deminimis_earnings || 0);
 
     const now = new Date().toLocaleDateString('en-PH', {
         year: 'numeric',
@@ -229,7 +234,7 @@ function PayslipCard({
                         Earnings
                     </h3>
                     <div className="space-y-0 text-[7px]">
-                        <PayslipRow label="Basic" value={item.gross_pay} />
+                        <PayslipRow label="Basic" value={basicPay} />
                         {item.total_overtime_minutes > 0 && (
                             <PayslipRow label="OT" value={item.overtime_pay} />
                         )}
