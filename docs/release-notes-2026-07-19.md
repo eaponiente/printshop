@@ -44,3 +44,18 @@ The **Holidays** page moved from the superadmin-only _Administration_ menu into 
 - `payroll/Attendance/Controllers/HolidayController.php` — `index()` orders `CASE WHEN date < today THEN 1 ELSE 0 END`, then `date`.
 - `resources/js/pages/payroll/holidays/list.tsx` — `Month Day` formatting (parsed UTC to avoid drift), `Passed` tag, and muted styling for past rows; "today" computed in Manila.
 - Full suite green (471 passing).
+
+---
+
+## Reports
+
+### Fix double-counted overtime on the printed payslip
+
+The **reports print payslip** (`resources/js/pages/payroll/reports/print.tsx`) was inflating GROSS. `gross_pay` (= `SUM(daily_wage)`) already contains `overtime_pay` and `holiday_pay` (see `AttendanceService::processDailyAttendance`), but the print card labeled `gross_pay` as **"Basic"** and then re-added OT and holiday into the GROSS total — counting them twice. The report's own GROSS no longer reconciled with its NET (which the backend computes correctly).
+
+Example (₱600/day, 5 days, 5.7h OT, de-minimis perk ₱600, deductions ₱700): GROSS was showing **4,662.52** while NET was **3,431.26** (`4,662.52 − 700 ≠ 3,431.26`).
+
+- **Basic** now shows `gross_pay − overtime_pay − holiday_pay` (the true basic, e.g. `3,000`).
+- **GROSS** now shows `gross_pay + deminimis_earnings` (no OT/holiday re-add, e.g. `4,131.26`), matching how `payslip.tsx` already computed it and reconciling with NET (`4,131.26 − 700 = 3,431.26`).
+
+Frontend-only fix; the backend net was always correct. De-minimis inclusion in GROSS is a separate, unchanged behavior.
