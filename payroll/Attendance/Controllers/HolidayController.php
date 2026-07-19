@@ -17,7 +17,14 @@ class HolidayController extends Controller
     {
         $this->authorize('viewAny', Holiday::class);
 
-        $holidays = Holiday::orderBy('date')->paginate(50);
+        // Upcoming holidays (today included) sort first, chronologically; those
+        // that have already passed sink below, still chronological among
+        // themselves. Ordering lives in the query so it survives pagination.
+        $today = now()->toDateString();
+
+        $holidays = Holiday::orderByRaw('CASE WHEN date < ? THEN 1 ELSE 0 END', [$today])
+            ->orderBy('date')
+            ->paginate(50);
 
         return Inertia::render('payroll/holidays/list', [
             'holidays' => $holidays,

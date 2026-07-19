@@ -33,12 +33,12 @@ time_logs  ──→  attendance_sheets  ──→  payroll_period_items
 
 ### Computation Triggers
 
-| Trigger                   | What Runs                                      | Purpose                                         |
-| ------------------------- | ---------------------------------------------- | ----------------------------------------------- |
-| Per punch (event-driven)  | `processDailyAttendance()` for employee + date | Real-time status: late warnings, daily wage, OT |
-| On correction approval    | `processDailyAttendance()` for employee + date | Regenerate corrected sheet                      |
-| Payroll period generation | Lock sheets, aggregate into period items       | Finalize pay period                             |
-| Payroll period void       | Unlock all sheets in period                    | Enable corrections then re-generate             |
+| Trigger                   | What Runs                                      | Purpose                                          |
+| ------------------------- | ---------------------------------------------- | ------------------------------------------------ |
+| Per punch (event-driven)  | `processDailyAttendance()` for employee + date | Real-time status: late warnings, daily wage, OT  |
+| On correction approval    | `processDailyAttendance()` for employee + date | Regenerate corrected sheet                       |
+| Payroll period generation | Lock sheets, aggregate into period items       | Finalize pay period                              |
+| Payroll period void       | Unlock all sheets in period                    | Enable corrections then re-generate              |
 | Payroll period delete     | Unlock sheets, reverse cash advances, drop row | Undo a `draft` **or `approved`** period entirely |
 
 ### Auth Architecture
@@ -329,7 +329,7 @@ which reveals Approve only when there are no **blocking** issues:
 - **Not already approved** — `check` is refused unless the period is `draft`; Approve is `draft`-only.
   _Blocks (enforced server-side)._
 - **No negative net pay** — `findNegativeNetPay()`: items whose pre-floor net (`gross + deminimis −
-  SSS − PhilHealth − Pag-IBIG − CA`) is below zero because deductions outran earnings (stored
+SSS − PhilHealth − Pag-IBIG − CA`) is below zero because deductions outran earnings (stored
   `net_pay` is clamped to 0). **Warning only — does not block approval.**
 
 The "No payroll errors" idea from early scoping was intentionally dropped. Enforcement of the two
@@ -381,6 +381,10 @@ Additional index: `employee_id`
 | `created_at`, `updated_at` | timestamps  |                                                       |
 
 Indexes: `date`, `type`
+
+**Seeding / year rollover.** `Holiday::defaultsForYear($year)` is the canonical Philippine calendar; `Holiday::seedYear($year)` persists it idempotently (existing rows untouched) and returns the count created. Fixed-date holidays are seeded `recurring` (so `forDate()` resolves them by month+day even in an unseeded year); the movable **National Heroes Day** (last Monday of August) is emitted as a concrete, non-recurring row per year. `HolidaySeeder` seeds the current year; run `php artisan holidays:seed {year}` to seed a future year (also prints a reminder that proclamation-based movable holidays — Eid'l Fitr, Eid'l Adha, Chinese New Year — must be added manually once proclaimed).
+
+**Management UI.** `/payroll/holidays` (nav: **Management**) lets **superadmin and admin** add/edit/delete holidays (`HolidayPolicy`); staff cannot. The list sorts **upcoming holidays first** (today counts as upcoming), with already-passed holidays sunk below and tagged **Passed**; dates render as `Month Day` (e.g. `August 21`).
 
 ### 2.15 `sss_contribution_brackets`
 
@@ -536,7 +540,7 @@ daily_wage = base_pay − late_deduction − undertime_deduction − fine_deduct
 ```
 
 **Rest day vs. regular day**: identical for pay when worked; a rest day is simply a
-*non-mandatory* day, so skipping it never creates an absence. (Holiday pay still
+_non-mandatory_ day, so skipping it never creates an absence. (Holiday pay still
 treats a rest day specially — see §Holiday — that is the only remaining place
 rest-day status affects pay.)
 
@@ -553,12 +557,12 @@ ot_pay = ot_hours × hourly_rate × multiplier
 
 **OT threshold**: OT starts at `480 + unpaid_tail_minutes` total work minutes. The `unpaid_tail_minutes` is configured per schedule (default 30 minutes for 5:00–5:30 PM buffer).
 
-| Day Type                         | OT Multiplier |
-| -------------------------------- | ------------- |
-| Ordinary working day             | **1.25x**     |
+| Day Type                         | OT Multiplier                                    |
+| -------------------------------- | ------------------------------------------------ |
+| Ordinary working day             | **1.25x**                                        |
 | Rest day (incl. Sunday), worked  | **1.25x** — treated exactly like an ordinary day |
-| Special non-working day (worked) | **1.69x**     |
-| Regular holiday (worked)         | **2.60x**     |
+| Special non-working day (worked) | **1.69x**                                        |
+| Regular holiday (worked)         | **2.60x**                                        |
 
 A rest day that also falls on a holiday takes the holiday multiplier (the rest-day component no longer adds a premium).
 
@@ -879,16 +883,16 @@ All payroll routes are under `/payroll` prefix with `payroll.` name prefix. All 
 
 ### Payroll Periods
 
-| Method | Path                                       | Name                       | Auth                 |
-| ------ | ------------------------------------------ | -------------------------- | -------------------- |
-| `GET`  | `/payroll/periods`                         | `payroll.periods.index`    | Auth (admin+)        |
-| `POST` | `/payroll/periods/generate`                | `payroll.periods.generate` | Auth (admin+)        |
-| `GET`  | `/payroll/periods/{period}`                | `payroll.periods.show`     | Auth (admin+)        |
+| Method | Path                                       | Name                        | Auth                      |
+| ------ | ------------------------------------------ | --------------------------- | ------------------------- |
+| `GET`  | `/payroll/periods`                         | `payroll.periods.index`     | Auth (admin+)             |
+| `POST` | `/payroll/periods/generate`                | `payroll.periods.generate`  | Auth (admin+)             |
+| `GET`  | `/payroll/periods/{period}`                | `payroll.periods.show`      | Auth (admin+)             |
 | `POST` | `/payroll/periods/{period}/recompute`      | `payroll.periods.recompute` | Auth (admin+), draft only |
-| `POST` | `/payroll/periods/{period}/approve`        | `payroll.periods.approve`  | Auth (superadmin)    |
-| `POST` | `/payroll/periods/{period}/void`           | `payroll.periods.void`     | Auth (superadmin)    |
-| `GET`  | `/payroll/periods/{period}/payslip/{item}` | `payroll.payslip`          | Auth (branch-scoped) |
-| `GET`  | `/payroll/my-payslip`                      | `payroll.my-payslip`       | Auth                 |
+| `POST` | `/payroll/periods/{period}/approve`        | `payroll.periods.approve`   | Auth (superadmin)         |
+| `POST` | `/payroll/periods/{period}/void`           | `payroll.periods.void`      | Auth (superadmin)         |
+| `GET`  | `/payroll/periods/{period}/payslip/{item}` | `payroll.payslip`           | Auth (branch-scoped)      |
+| `GET`  | `/payroll/my-payslip`                      | `payroll.my-payslip`        | Auth                      |
 
 ### Work Week Table
 
@@ -931,14 +935,14 @@ All payroll routes are under `/payroll` prefix with `payroll.` name prefix. All 
 
 ### Leave Requests
 
-| Method | Path                                   | Name                     | Auth                 |
-| ------ | -------------------------------------- | ------------------------ | -------------------- |
-| `GET`  | `/payroll/leave-requests`              | `payroll.leaves.index`   | Auth                 |
-| `POST` | `/payroll/leave-requests`              | `payroll.leaves.store`   | Auth                 |
-| `POST` | `/payroll/leave-requests/{lr}/approve` | `payroll.leaves.approve` | Auth (superior role) |
-| `POST` | `/payroll/leave-requests/{lr}/deny`    | `payroll.leaves.deny`    | Auth (superior role) |
-| `POST` | `/payroll/leave-requests/{lr}/cancel`  | `payroll.leaves.cancel`  | Auth (owner/admin)   |
-| `DELETE` | `/payroll/leave-requests/{lr}`       | `payroll.leaves.destroy` | Auth (superior role) |
+| Method   | Path                                   | Name                     | Auth                 |
+| -------- | -------------------------------------- | ------------------------ | -------------------- |
+| `GET`    | `/payroll/leave-requests`              | `payroll.leaves.index`   | Auth                 |
+| `POST`   | `/payroll/leave-requests`              | `payroll.leaves.store`   | Auth                 |
+| `POST`   | `/payroll/leave-requests/{lr}/approve` | `payroll.leaves.approve` | Auth (superior role) |
+| `POST`   | `/payroll/leave-requests/{lr}/deny`    | `payroll.leaves.deny`    | Auth (superior role) |
+| `POST`   | `/payroll/leave-requests/{lr}/cancel`  | `payroll.leaves.cancel`  | Auth (owner/admin)   |
+| `DELETE` | `/payroll/leave-requests/{lr}`         | `payroll.leaves.destroy` | Auth (superior role) |
 
 ### Correction Requests
 
@@ -1005,37 +1009,37 @@ Admin     → Superadmin (never self-approved)
 
 ### Policy Matrix
 
-| Action                                        | Staff     | Admin                 | Superadmin        |
-| --------------------------------------------- | --------- | --------------------- | ----------------- |
-| Punch IN/OUT                                  | Self only | Self only             | Self only         |
-| View own attendance                           | ✓         | ✓                     | ✓                 |
-| View branch attendance                        | —         | Branch only           | All branches      |
-| Create manual time_log                        | —         | Branch employees only | All employees     |
-| Submit correction request                     | Self only | Branch + self         | All               |
-| Approve correction request                    | —         | Staff in branch       | All (incl. admin) |
-| Submit OT request                             | Self only | Self only             | Self only         |
-| Approve OT request                            | —         | Branch employees      | All               |
-| Submit leave request                          | Self only | Self only             | Self only         |
-| Approve leave request                         | —         | Branch employees      | All               |
-| Delete leave request                          | —         | Own + branch staff    | All               |
-| Request cash advance                          | Self only | Self only             | Self only         |
-| Approve cash advance                          | —         | Branch employees      | All               |
-| Manage employee schedules                     | —         | Branch employees      | All               |
-| Mark fine on employee                         | —         | Branch employees      | All               |
-| Manage fine types/amounts                     | —         | —                     | ✓                 |
-| Generate payroll period                       | —         | Branch only           | All branches      |
-| Approve payroll period                        | —         | —                     | ✓                 |
-| Void payroll period                           | —         | —                     | ✓                 |
-| View payslip                                  | Own only  | Branch employees      | All               |
-| View employee profile                         | Own only  | Branch employees      | All               |
-| Create employee (onboarding)                  | —         | Branch only           | All branches      |
-| Update employee                               | —         | Branch only           | All branches      |
-| Deactivate employee                           | —         | Branch only           | All branches      |
-| Rehire employee                               | —         | Branch only           | All branches      |
-| Manage holidays                               | —         | —                     | ✓                 |
-| Edit company config (SSS/PhilHealth/Pag-IBIG) | —         | —                     | ✓                 |
-| View audit logs                               | —         | Branch only           | All branches      |
-| View work week payroll table                  | —         | Branch only           | All (defaults to first branch)   |
+| Action                                        | Staff     | Admin                 | Superadmin                     |
+| --------------------------------------------- | --------- | --------------------- | ------------------------------ |
+| Punch IN/OUT                                  | Self only | Self only             | Self only                      |
+| View own attendance                           | ✓         | ✓                     | ✓                              |
+| View branch attendance                        | —         | Branch only           | All branches                   |
+| Create manual time_log                        | —         | Branch employees only | All employees                  |
+| Submit correction request                     | Self only | Branch + self         | All                            |
+| Approve correction request                    | —         | Staff in branch       | All (incl. admin)              |
+| Submit OT request                             | Self only | Self only             | Self only                      |
+| Approve OT request                            | —         | Branch employees      | All                            |
+| Submit leave request                          | Self only | Self only             | Self only                      |
+| Approve leave request                         | —         | Branch employees      | All                            |
+| Delete leave request                          | —         | Own + branch staff    | All                            |
+| Request cash advance                          | Self only | Self only             | Self only                      |
+| Approve cash advance                          | —         | Branch employees      | All                            |
+| Manage employee schedules                     | —         | Branch employees      | All                            |
+| Mark fine on employee                         | —         | Branch employees      | All                            |
+| Manage fine types/amounts                     | —         | —                     | ✓                              |
+| Generate payroll period                       | —         | Branch only           | All branches                   |
+| Approve payroll period                        | —         | —                     | ✓                              |
+| Void payroll period                           | —         | —                     | ✓                              |
+| View payslip                                  | Own only  | Branch employees      | All                            |
+| View employee profile                         | Own only  | Branch employees      | All                            |
+| Create employee (onboarding)                  | —         | Branch only           | All branches                   |
+| Update employee                               | —         | Branch only           | All branches                   |
+| Deactivate employee                           | —         | Branch only           | All branches                   |
+| Rehire employee                               | —         | Branch only           | All branches                   |
+| Manage holidays                               | —         | —                     | ✓                              |
+| Edit company config (SSS/PhilHealth/Pag-IBIG) | —         | —                     | ✓                              |
+| View audit logs                               | —         | Branch only           | All branches                   |
+| View work week payroll table                  | —         | Branch only           | All (defaults to first branch) |
 
 ---
 
@@ -1043,16 +1047,16 @@ Admin     → Superadmin (never self-approved)
 
 ### Punch-Related
 
-| #   | Scenario                              | Behavior                                                  |
-| --- | ------------------------------------- | --------------------------------------------------------- |
-| E1  | Two IN punches within 5 min           | Earliest kept; later marked `duplicate_of`                |
-| E2  | Two OUT punches within 5 min          | Same throttling                                           |
-| E3  | Only IN, no OUT (day in progress)     | Sheet computed with estimated end; "Currently clocked in" |
-| E4  | Only IN, no OUT (day closed)          | Marked unexcused absence; flagged for admin review        |
-| E5  | Only OUT, no IN                       | Anomaly; 0 hours; admin review recommended                |
-| E6  | Punch on rest day (no OT)             | Blocked: "Today is your rest day"                         |
+| #   | Scenario                              | Behavior                                                                               |
+| --- | ------------------------------------- | -------------------------------------------------------------------------------------- |
+| E1  | Two IN punches within 5 min           | Earliest kept; later marked `duplicate_of`                                             |
+| E2  | Two OUT punches within 5 min          | Same throttling                                                                        |
+| E3  | Only IN, no OUT (day in progress)     | Sheet computed with estimated end; "Currently clocked in"                              |
+| E4  | Only IN, no OUT (day closed)          | Marked unexcused absence; flagged for admin review                                     |
+| E5  | Only OUT, no IN                       | Anomaly; 0 hours; admin review recommended                                             |
+| E6  | Punch on rest day (no OT)             | Blocked: "Today is your rest day"                                                      |
 | E7  | Punch on rest day (OT approved)       | Allowed; paid exactly like an ordinary working day (flat rate, 8h cap, OT via request) |
-| E8  | Punch > 18 hours after schedule start | Logged but flagged as anomaly warning                     |
+| E8  | Punch > 18 hours after schedule start | Logged but flagged as anomaly warning                                                  |
 
 ### Computation-Related
 
@@ -1214,20 +1218,20 @@ Admin     → Superadmin (never self-approved)
 
 ### Design Rules
 
-| Rule                | Detail                                                                                                             |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| IDs in header       | SSS, PhilHealth, Pag-IBIG, TIN displayed. Missing IDs shown as `—`.                                                |
-| No daily rows       | Compact Attendance Summary line (Present, Late, OT hours, Absent, Holiday).                                        |
-| Two-column body     | Earnings left (Basic Pay, OT, Holiday Pay, De Minimis perks). Deductions right (Late, Fines, Gov't, Cash Advance). |
-| OT visibility       | Shows hours worked × multiplier label (e.g., `2h × 1.25x` = `₱159.38`). Rates are labor law multipliers.           |
-| Holiday pay         | Shown as separate line item with percentage label (100%, 130%, 200%). 0% holidays not shown.                       |
-| De minimis benefits | Shown under Earnings with `*` prefix and "Non-taxable" footnote. Label from `payslip_label`. Prorated (÷4).        |
-| Deduction ordering  | Late + Fines first (behavioral), then statutory (SSS/PhilHealth/Pag-IBIG), then voluntary (Cash Advance).          |
+| Rule                | Detail                                                                                                                                                                                                                                 |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| IDs in header       | SSS, PhilHealth, Pag-IBIG, TIN displayed. Missing IDs shown as `—`.                                                                                                                                                                    |
+| No daily rows       | Compact Attendance Summary line (Present, Late, OT hours, Absent, Holiday).                                                                                                                                                            |
+| Two-column body     | Earnings left (Basic Pay, OT, Holiday Pay, De Minimis perks). Deductions right (Late, Fines, Gov't, Cash Advance).                                                                                                                     |
+| OT visibility       | Shows hours worked × multiplier label (e.g., `2h × 1.25x` = `₱159.38`). Rates are labor law multipliers.                                                                                                                               |
+| Holiday pay         | Shown as separate line item with percentage label (100%, 130%, 200%). 0% holidays not shown.                                                                                                                                           |
+| De minimis benefits | Shown under Earnings with `*` prefix and "Non-taxable" footnote. Label from `payslip_label`. Prorated (÷4).                                                                                                                            |
+| Deduction ordering  | Late + Fines first (behavioral), then statutory (SSS/PhilHealth/Pag-IBIG), then voluntary (Cash Advance).                                                                                                                              |
 | Cash advance detail | Each cash advance deducted this period is itemized on its own line with the advance's reason (from the `cash_advance_deductions` ledger). When an advance is only partially settled, the remaining outstanding balance is shown below. |
-| Missing gov't IDs   | Deduction line shown as `—` and no amount deducted.                                                                |
-| Net pay ≥ 0         | Cash advance deduction capped so net pay never goes negative.                                                      |
-| Signature blocks    | Employee, preparer, and approver signature lines in footer.                                                        |
-| Contribution basis  | All government deductions computed on `daily_rate × 26`. NOT on variable attendance earnings.                      |
+| Missing gov't IDs   | Deduction line shown as `—` and no amount deducted.                                                                                                                                                                                    |
+| Net pay ≥ 0         | Cash advance deduction capped so net pay never goes negative.                                                                                                                                                                          |
+| Signature blocks    | Employee, preparer, and approver signature lines in footer.                                                                                                                                                                            |
+| Contribution basis  | All government deductions computed on `daily_rate × 26`. NOT on variable attendance earnings.                                                                                                                                          |
 
 ---
 
@@ -1241,9 +1245,9 @@ A read-only, live preview of payroll numbers for an arbitrary date range — an 
 
 ### Filters
 
-| Filter     | Admin                          | Superadmin                                                    |
-| ---------- | ------------------------------- | --------------------------------------------------------------- |
-| Branch     | Locked to own branch, no picker | Defaults to the alphabetically-first branch; can pick any branch |
+| Filter     | Admin                                                            | Superadmin                                                       |
+| ---------- | ---------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Branch     | Locked to own branch, no picker                                  | Defaults to the alphabetically-first branch; can pick any branch |
 | Date range | Defaults to last Saturday → this week's Friday (7 calendar days) | Same default, same picker                                        |
 
 ### Day-column contract
@@ -1254,14 +1258,14 @@ The grid shows **7 columns: Saturday, Sunday, Monday, Tuesday, Wednesday, Thursd
 
 Evaluated in this exact order per `attendance_sheets` row:
 
-| Order | Condition                          | Label      | Color        |
-| ----- | ----------------------------------- | ---------- | ------------ |
-| 1     | No sheet exists for the date        | `—`        | Gray         |
-| 2     | `is_rest_day = true`                 | `Rest`     | Blue (muted) |
-| 3     | `leave_type` is set                  | `Leave`    | Purple       |
-| 4     | `holiday_pay_percent > 0`            | `H`        | Blue         |
-| 5a    | `is_present = true`                  | `✔` (or `Half Day` when `hours_worked ≤ 4.5`) | Green |
-| 5b    | `is_present = false`                 | `A`        | Red          |
+| Order | Condition                    | Label                                         | Color        |
+| ----- | ---------------------------- | --------------------------------------------- | ------------ |
+| 1     | No sheet exists for the date | `—`                                           | Gray         |
+| 2     | `is_rest_day = true`         | `Rest`                                        | Blue (muted) |
+| 3     | `leave_type` is set          | `Leave`                                       | Purple       |
+| 4     | `holiday_pay_percent > 0`    | `H`                                           | Blue         |
+| 5a    | `is_present = true`          | `✔` (or `Half Day` when `hours_worked ≤ 4.5`) | Green        |
+| 5b    | `is_present = false`         | `A`                                           | Red          |
 
 Late (`late_minutes > 0`) and overtime (`overtime_minutes > 0`) are **annotations** on top of a Present cell, not separate exclusive states.
 

@@ -68,7 +68,7 @@ class Transaction extends Model
 
     /**
      * Generate a unique invoice number.
-     * Format: INV-2026-0001
+     * Format: INV-2026-00001 (year prefix + 5-digit, per-year sequence).
      */
     public static function generateNumber(): string
     {
@@ -76,16 +76,21 @@ class Transaction extends Model
             $year = now()->year;
             $prefix = "INV-{$year}-";
 
-            // Use lockForUpdate to serialize concurrency
-            $lastInvoiceNumber = self::whereYear('created_at', $year)
-                ->where('invoice_number', 'like', "{$prefix}%")
+            // Scope the sequence purely by the year embedded in the number, not by
+            // created_at. A row's created_at can land in a different calendar year
+            // than its number (clock skew across midnight, backdated/imported rows,
+            // a future tz change); filtering on whereYear() would then exclude the
+            // true latest row, reset the sequence to 1, and re-issue a duplicate
+            // that violates the unique invoice_number constraint. lockForUpdate
+            // serializes concurrent generation.
+            $lastInvoiceNumber = self::where('invoice_number', 'like', "{$prefix}%")
                 ->withTrashed()
                 ->lockForUpdate()
                 ->latest('id')
                 ->value('invoice_number');
 
             $lastSequence = $lastInvoiceNumber
-                ? (int) substr($lastInvoiceNumber, -5) // usually we padding 5 digits
+                ? (int) substr($lastInvoiceNumber, -5) // 5-digit zero-padded sequence
                 : 0;
 
             $sequence = $lastSequence + 1;

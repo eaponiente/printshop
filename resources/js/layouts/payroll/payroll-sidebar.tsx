@@ -60,6 +60,11 @@ const managementNav: NavItem[] = [
         icon: Banknote,
     },
     {
+        title: 'Holidays',
+        href: '/payroll/holidays',
+        icon: CalendarDays,
+    },
+    {
         title: 'Reports',
         href: '/payroll/reports',
         icon: Printer,
@@ -67,11 +72,6 @@ const managementNav: NavItem[] = [
 ];
 
 const superadminNav: NavItem[] = [
-    {
-        title: 'Holidays',
-        href: '/payroll/holidays',
-        icon: CalendarDays,
-    },
     {
         title: 'Attendance Geo',
         href: '/payroll/attendance-geo',
