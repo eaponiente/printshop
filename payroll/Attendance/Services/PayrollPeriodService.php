@@ -313,6 +313,7 @@ class PayrollPeriodService
         $overtimePay = $sheets->sum('overtime_pay');
         $holidayPayDays = $sheets->whereNotNull('holiday_pay_percent')->where('holiday_pay_percent', '>', 0)->count();
         $holidayPay = $sheets->sum('holiday_pay');
+        $incentiveTotal = $sheets->sum('incentive');
         $leavePaidDays = $sheets->where('leave_is_paid', true)->count();
         $fineDeduction = $sheets->sum('fine_deduction');
         $dailyWageTotal = $sheets->sum('daily_wage');
@@ -353,6 +354,7 @@ class PayrollPeriodService
             'overtime_pay' => $overtimePay,
             'holiday_pay_days' => $holidayPayDays,
             'holiday_pay' => $holidayPay,
+            'incentive' => $incentiveTotal,
             'leave_paid_days' => $leavePaidDays,
             'fine_deduction' => $fineDeduction,
             'gross_pay' => $grossPay,

@@ -24,6 +24,7 @@ class AttendanceSheet extends Model
             'fine_deduction' => 'decimal:2',
             'hours_worked' => 'decimal:2',
             'daily_wage' => 'decimal:2',
+            'incentive' => 'decimal:2',
             'is_present' => 'boolean',
             'is_rest_day' => 'boolean',
             'leave_is_paid' => 'boolean',

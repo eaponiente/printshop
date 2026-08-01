@@ -34,7 +34,7 @@ beforeEach(function () {
         'branch_id' => $branch->id,
         'current_daily_rate' => 600,
         'status' => 'active',
-        'hire_date' => now()->subYear()->toDateString(),
+        'hire_date' => '2025-01-01',
         'position' => 'regular',
     ]);
 
@@ -43,7 +43,9 @@ beforeEach(function () {
         'start_time' => '08:00',
         'end_time' => '17:00',
         'rest_days' => [0, 6], // Sunday + Saturday
-        'effective_from' => now()->subMonth()->toDateString(),
+        // Fixed date (not relative to now()) so the schedule always covers the
+        // hardcoded June-2026 work dates below, regardless of the wall clock.
+        'effective_from' => '2026-01-01',
     ]);
 
     $this->service = app(AttendanceService::class);

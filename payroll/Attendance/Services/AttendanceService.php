@@ -19,6 +19,12 @@ class AttendanceService
     public function processDailyAttendance(Employee $employee, string $date): AttendanceSheet
     {
         $dateObj = Carbon::parse($date)->startOfDay();
+
+        $existingSheet = AttendanceSheet::where('employee_id', $employee->id)
+            ->where('date', $date)
+            ->first();
+        $incentive = (float) ($existingSheet?->incentive ?? 0);
+
         $schedule = EmployeeSchedule::activeForDate($employee->id, $date);
 
         $restDays = $schedule?->rest_days ?? [];
@@ -332,7 +338,7 @@ class AttendanceService
 
         if ($hasFullDayLeave) {
             $basePay = $leaveIsPaid ? $dailyRate : 0;
-            $dailyWage = round($basePay - $fineDeduction, 2);
+            $dailyWage = round($basePay - $fineDeduction + $incentive, 2);
             if ($dailyWage < 0) {
                 $dailyWage = 0;
             }
@@ -343,15 +349,13 @@ class AttendanceService
             // regular days in one way only — not working one is not an absence
             // (see the `! $isRestDay` guard on absence marking above).
             $basePay = $isPresent ? $dailyRate : 0;
-            $dailyWage = round($basePay - $lateDeduction - $undertimeDeduction - $fineDeduction + $overtimePay + $holidayPay, 2);
+            $dailyWage = round($basePay - $lateDeduction - $undertimeDeduction - $fineDeduction + $overtimePay + $holidayPay + $incentive, 2);
             if ($dailyWage < 0) {
                 $dailyWage = 0;
             }
         }
 
-        $sheet = AttendanceSheet::where('employee_id', $employee->id)
-            ->where('date', $date)
-            ->first();
+        $sheet = $existingSheet;
 
         if ($sheet && $sheet->isLocked()) {
             return $sheet;
@@ -377,6 +381,7 @@ class AttendanceService
             'fine_deduction' => $fineDeduction,
             'hours_worked' => $hoursWorked,
             'daily_wage' => $dailyWage,
+            'incentive' => $incentive,
             'is_present' => $isPresent,
             'absence_type' => $absenceType,
             'is_rest_day' => $isRestDay,
