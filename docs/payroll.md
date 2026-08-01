@@ -14,6 +14,7 @@
 6. [Edge Cases](#6-edge-cases)
 7. [Payslip Design](#7-payslip-design)
 8. [Work Week Payroll Table](#8-work-week-payroll-table)
+9. [Incentive](#9-incentive)
 
 ---
 
@@ -1278,3 +1279,19 @@ Footer totals (Gross Payroll, Total Deductions, Total Net Salary, Total Cash Adv
 ### Print behavior
 
 "Print Payroll" opens a standalone route (`payroll.work-week.print`) in a new tab — the full, unpaginated employee set for the branch and range, rendered as one compact table with `@page`/`@media print` CSS (`break-inside: avoid` per row), following the same `window.print()` pattern as `payroll.reports.print`.
+
+---
+
+## 9. Incentive
+
+An admin (or superadmin) can enter a per-day **incentive** amount directly on an employee's attendance sheet — e.g. a discretionary bonus for a specific day, separate from the unrelated monthly branch-manager `Incentive` model used elsewhere in the app.
+
+- **Storage.** `attendance_sheets.incentive` (`decimal(10,2)`, default `0`). Set via `PATCH payroll/attendance-sheets/{employee}/incentive` (`payroll.attendance.incentive.update`), body `{ date, incentive }`. Non-staff only, gated by `attendance-sheets.show`, and audited (`incentive_updated`) via the `Auditable` trait.
+- **Locked sheets are immutable.** If the attendance sheet for that date is already locked inside a generated payroll period (`locked_at` set), the update is rejected with a validation error — matching every other attendance mutation (punches, fines, corrections).
+- **Flows into `daily_wage`.** `AttendanceService::processDailyAttendance` reads the sheet's existing `incentive` at the start of the run (before recomputing anything) and folds it back into the freshly-computed `daily_wage`, so the amount survives every reprocess (punch edits, correction approvals, OT/leave approvals, etc.) instead of being wiped out.
+- **Flows into payroll automatically.** Because `daily_wage` is canonical and `gross_pay = SUM(daily_wage)`, an incentive already flows into `gross_pay` and `net_pay` with no extra math anywhere else. `PayrollPeriodService::generateItemForEmployee` additionally rolls the period's incentive total into `payroll_period_items.incentive` — a **display-only** column; it is not added a second time into `gross_pay`/`net_pay`.
+- **Frontend.**
+  - `payroll/attendance/sheet-detail.tsx` — a new "Incentive" card (above the Daily Wage card) shows the current value and, when editable and unlocked, a number input + Save button; the Daily Wage card also lists the incentive as its own line when non-zero.
+  - `payroll/payroll/payslip.tsx` — an "Incentive" earnings line appears on the self-service/admin payslip when `item.incentive > 0`.
+  - `payroll/reports/print.tsx` — the printable payslip report also shows an "Incentive" earnings row, and its `basicPay` derivation was updated to subtract `incentive` (in addition to `overtime_pay`/`holiday_pay`) so Basic isn't overstated now that `gross_pay` includes it.
+- **Tests.** `tests/Feature/Payroll/AttendanceIncentiveTest.php` — incentive raises `daily_wage` by exactly its amount, survives reprocessing, rolls up into `PayrollPeriodItem.incentive`/`gross_pay`, and is rejected on a locked sheet.

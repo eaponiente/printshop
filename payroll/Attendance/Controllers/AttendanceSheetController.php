@@ -13,6 +13,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Payroll\Attendance\Enums\PunchSource;
 use Payroll\Attendance\Enums\PunchType;
@@ -178,6 +179,55 @@ class AttendanceSheetController extends Controller
         });
 
         return back()->with('success', 'Punch removed and attendance reprocessed.');
+    }
+
+    public function updateIncentive(Employee $employee, Request $request, AttendanceService $service)
+    {
+        $user = auth()->user();
+
+        if ($user->isStaff()) {
+            abort(403);
+        }
+
+        Gate::authorize('attendance-sheets.show', [$employee->branch_id]);
+
+        $validated = $request->validate([
+            'date' => ['required', 'date'],
+            'incentive' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        $lockedSheet = AttendanceSheet::where('employee_id', $employee->id)
+            ->where('date', $validated['date'])
+            ->whereNotNull('locked_at')
+            ->first();
+
+        if ($lockedSheet) {
+            throw ValidationException::withMessages([
+                'error' => 'Attendance sheet for this date is locked in a payroll period.',
+            ]);
+        }
+
+        DB::transaction(function () use ($employee, $validated, $service) {
+            $sheet = AttendanceSheet::where('employee_id', $employee->id)
+                ->where('date', $validated['date'])
+                ->first();
+
+            if (! $sheet) {
+                $service->processDailyAttendance($employee, $validated['date']);
+                $sheet = AttendanceSheet::where('employee_id', $employee->id)
+                    ->where('date', $validated['date'])
+                    ->first();
+            }
+
+            $before = ['incentive' => (float) ($sheet->incentive ?? 0)];
+            $sheet->update(['incentive' => $validated['incentive']]);
+
+            $service->processDailyAttendance($employee, $validated['date']);
+
+            $this->audit('incentive_updated', $sheet, $before, ['incentive' => (float) $validated['incentive']]);
+        });
+
+        return back()->with('success', 'Incentive updated.');
     }
 
     private function reprocessSheet(Employee $employee, string $date, AttendanceService $service): void

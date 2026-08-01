@@ -17,6 +17,7 @@ class PayrollPeriodItem extends Model
             'undertime_deduction' => 'decimal:2',
             'overtime_pay' => 'decimal:2',
             'holiday_pay' => 'decimal:2',
+            'incentive' => 'decimal:2',
             'fine_deduction' => 'decimal:2',
             'gross_pay' => 'decimal:2',
             'deminimis_earnings' => 'decimal:2',

@@ -124,6 +124,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('attendance-sheets/{employee}', [AttendanceSheetController::class, 'show'])->name('attendance.sheets.show');
         Route::post('attendance-sheets/{employee}/logs', [AttendanceSheetController::class, 'storeLog'])->name('attendance.logs.store');
         Route::delete('attendance-sheets/{employee}/logs/{log}', [AttendanceSheetController::class, 'destroyLog'])->name('attendance.logs.destroy');
+        Route::patch('attendance-sheets/{employee}/incentive', [AttendanceSheetController::class, 'updateIncentive'])->name('attendance.incentive.update');
         Route::get('attendance-geo', [AttendanceSheetController::class, 'geo'])->name('attendance.geo');
         Route::post('fines', [FineController::class, 'store'])->name('fines.store');
         Route::delete('fines/{fine}', [FineController::class, 'destroy'])->name('fines.destroy');
