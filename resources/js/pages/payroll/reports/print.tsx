@@ -29,6 +29,7 @@ type ItemData = {
     overtime_pay: number;
     holiday_pay_days: number;
     holiday_pay: number;
+    incentive: number;
     leave_paid_days: number;
     fine_deduction: number;
     gross_pay: number;
@@ -153,7 +154,8 @@ function PayslipCard({
     const basicPay =
         (item.gross_pay || 0) -
         (item.overtime_pay || 0) -
-        (item.holiday_pay || 0);
+        (item.holiday_pay || 0) -
+        (item.incentive || 0);
 
     const grossPay = (item.gross_pay || 0) + (item.deminimis_earnings || 0);
 
@@ -242,6 +244,12 @@ function PayslipCard({
                             <PayslipRow
                                 label="Holiday"
                                 value={item.holiday_pay}
+                            />
+                        )}
+                        {item.incentive > 0 && (
+                            <PayslipRow
+                                label="Incentive"
+                                value={item.incentive}
                             />
                         )}
                         {item.deminimis_earnings > 0 && (

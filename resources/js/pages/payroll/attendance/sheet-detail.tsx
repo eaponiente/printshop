@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { ArrowLeft, Plus, X } from 'lucide-react';
+import { ArrowLeft, Lock, Plus, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -41,6 +41,7 @@ type Props = {
         leave_is_paid: boolean;
         leave_hours_credited: number;
         daily_wage: number;
+        incentive: number;
     } | null;
     lockedAt: string | null;
     fines: {
@@ -82,8 +83,31 @@ export default function SheetDetail({
     const [addType, setAddType] = useState('in');
     const [addTime, setAddTime] = useState('');
     const [adding, setAdding] = useState(false);
+    const [incentiveValue, setIncentiveValue] = useState(
+        String(sheet?.incentive ?? 0),
+    );
+    const [savingIncentive, setSavingIncentive] = useState(false);
 
     const hourLabel = (h: number) => (h === 8 ? 'Full Day' : `${h}h`);
+
+    function handleSaveIncentive() {
+        const parsed = Number(incentiveValue);
+        if (incentiveValue.trim() === '' || Number.isNaN(parsed) || parsed < 0) {
+            toast.error('Enter a valid incentive amount.');
+            return;
+        }
+
+        setSavingIncentive(true);
+        router.patch(
+            `/payroll/attendance-sheets/${employee.id}/incentive`,
+            { date, incentive: parsed },
+            {
+                onSuccess: () => toast.success('Incentive updated.'),
+                onError: () => toast.error('Failed to update incentive.'),
+                onFinish: () => setSavingIncentive(false),
+            },
+        );
+    }
 
     function handleAddPunch() {
         if (!addTime) {
@@ -379,11 +403,65 @@ export default function SheetDetail({
                                 lockedAt={lockedAt}
                             />
 
+                            {/* Incentive */}
+                            <div className="rounded-md border border-sidebar-border bg-sidebar p-4 text-sm">
+                                <div className="mb-2 flex items-center gap-2">
+                                    <h3 className="text-xs font-semibold text-muted-foreground uppercase">
+                                        Incentive
+                                    </h3>
+                                    {lockedAt && (
+                                        <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                                            <Lock className="h-3 w-3" />
+                                            Locked
+                                        </span>
+                                    )}
+                                </div>
+                                <Row
+                                    label="Current"
+                                    value={formatCurrency(sheet.incentive)}
+                                />
+                                {canEdit && !lockedAt && (
+                                    <div className="mt-3 flex items-center gap-2 border-t border-sidebar-border pt-3">
+                                        <input
+                                            type="text"
+                                            inputMode="decimal"
+                                            value={incentiveValue}
+                                            onChange={(e) =>
+                                                setIncentiveValue(
+                                                    e.target.value.replace(
+                                                        /[^0-9.]/g,
+                                                        '',
+                                                    ),
+                                                )
+                                            }
+                                            className="h-7 w-28 rounded border border-input bg-background px-2 text-xs"
+                                        />
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-7 text-xs"
+                                            disabled={savingIncentive}
+                                            onClick={handleSaveIncentive}
+                                        >
+                                            Save
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+
                             {/* Daily Wage */}
                             <div className="rounded-md border border-sidebar-border bg-sidebar p-4 text-sm">
                                 <h3 className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
                                     Daily Wage
                                 </h3>
+                                {sheet.incentive > 0 && (
+                                    <Row
+                                        label="Incentive"
+                                        value={formatCurrency(
+                                            sheet.incentive,
+                                        )}
+                                    />
+                                )}
                                 <Row
                                     label="Total"
                                     value={formatCurrency(sheet.daily_wage)}

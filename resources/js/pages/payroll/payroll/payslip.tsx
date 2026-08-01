@@ -40,6 +40,7 @@ type Item = {
     overtime_pay: number;
     holiday_pay_days: number;
     holiday_pay: number;
+    incentive: number;
     leave_paid_days: number;
     fine_deduction: number;
     gross_pay: number;
@@ -399,6 +400,9 @@ function EarningsCard({ item }: { item: Item }) {
                         label={`Paid Leave (${item.leave_paid_days}d)`}
                         value={leavePay}
                     />
+                )}
+                {item.incentive > 0 && (
+                    <LineItem label="Incentive" value={item.incentive} />
                 )}
                 {(item.late_deduction > 0 ||
                     item.undertime_deduction > 0 ||
