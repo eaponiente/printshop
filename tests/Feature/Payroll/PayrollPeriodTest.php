@@ -956,6 +956,86 @@ it('computes holiday pay as 0 when employee was absent day before', function () 
     expect((float) $item->holiday_pay)->toBe(0.0);
 });
 
+// ──────────── Batch 4b: Branch-scoped holidays ────────────
+
+it('keeps branch-scoped holiday pay isolated to the branch it applies to', function () {
+    $empA = createEmployeeWithAttendance($this->branchA, 'EmpA', 510, [], 5);
+    $empB = createEmployeeWithAttendance($this->branchB, 'EmpB', 510, [], 5);
+    addCompletePunches($empA, ['2026-05-27']);
+    addCompletePunches($empB, ['2026-05-27']);
+
+    $holiday = Holiday::create([
+        'name' => 'Branch B Special',
+        'date' => '2026-05-27',
+        'type' => HolidayType::SPECIAL,
+    ]);
+    $holiday->branches()->sync([$this->branchB->id]);
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.generate'), [
+            'period_start' => '2026-05-25',
+            'period_end' => '2026-05-30',
+        ])
+        ->assertRedirect();
+
+    // Branch A does not apply — no holiday pay leaked in.
+    $sheetA = AttendanceSheet::where('employee_id', $empA->id)->where('date', '2026-05-27')->first();
+    $itemA = PayrollPeriodItem::where('employee_id', $empA->id)->first();
+    expect((float) $sheetA->holiday_pay)->toBe(0.0);
+    expect((float) $itemA->holiday_pay)->toBe(0.0);
+
+    $this->actingAs($this->superadmin)
+        ->post(route('payroll.periods.generate'), [
+            'period_start' => '2026-05-25',
+            'period_end' => '2026-05-30',
+            'branch_id' => $this->branchB->id,
+        ])
+        ->assertRedirect();
+
+    // Branch B is the scoped branch — holiday pay is granted.
+    $sheetB = AttendanceSheet::where('employee_id', $empB->id)->where('date', '2026-05-27')->first();
+    $itemB = PayrollPeriodItem::where('employee_id', $empB->id)->first();
+    expect((float) $sheetB->holiday_pay)->toBeGreaterThan(0.0);
+    expect((float) $itemB->holiday_pay)->toBeGreaterThan(0.0);
+});
+
+it('does not let a non-recurring, branch-scoped holiday outside the period leak into another branch\'s generation', function () {
+    $empA = createEmployeeWithAttendance($this->branchA, 'EmpA', 510, [], 5);
+
+    // Dated well outside 2026-05-25..30, and scoped only to Branch B — this
+    // guards the (recurring OR (non-recurring AND between)) grouping inside
+    // PayrollPeriodService::resolveHolidayDates(): if a future change broke
+    // that grouping (AND binding tighter than OR), an out-of-period holiday
+    // could wrongly become a "candidate" and leak into another branch's run.
+    $holiday = Holiday::create([
+        'name' => 'Branch B Only, Out of Period',
+        'date' => '2026-04-01',
+        'type' => HolidayType::SPECIAL,
+    ]);
+    $holiday->branches()->sync([$this->branchB->id]);
+
+    $this->actingAs($this->adminA)
+        ->post(route('payroll.periods.generate'), [
+            'period_start' => '2026-05-25',
+            'period_end' => '2026-05-30',
+        ])
+        ->assertRedirect();
+
+    // No sheet was ever created/touched for the out-of-period date.
+    expect(AttendanceSheet::where('employee_id', $empA->id)->where('date', '2026-04-01')->exists())->toBeFalse();
+
+    // The 5 pre-seeded weekday sheets are untouched — none picked up holiday pay.
+    $sheets = AttendanceSheet::where('employee_id', $empA->id)
+        ->whereBetween('date', ['2026-05-25', '2026-05-30'])
+        ->get();
+    expect($sheets)->toHaveCount(5);
+    expect((float) $sheets->sum('holiday_pay'))->toBe(0.0);
+
+    $item = PayrollPeriodItem::where('employee_id', $empA->id)->first();
+    expect((float) $item->holiday_pay)->toBe(0.0);
+    expect((float) $item->gross_pay)->toBe(2550.0); // unaffected by the unrelated holiday
+});
+
 // ──────────── Batch 5: Leave ────────────
 
 it('processes full-day paid leave', function () {
