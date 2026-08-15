@@ -92,8 +92,10 @@ export default function SheetDetail({
 
     function handleSaveIncentive() {
         const parsed = Number(incentiveValue);
+
         if (incentiveValue.trim() === '' || Number.isNaN(parsed) || parsed < 0) {
             toast.error('Enter a valid incentive amount.');
+
             return;
         }
 

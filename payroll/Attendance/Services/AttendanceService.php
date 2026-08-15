@@ -259,7 +259,7 @@ class AttendanceService
         }
 
         // Holiday check
-        $holiday = Holiday::forDate($date);
+        $holiday = Holiday::forDate($date, $employee->branch_id);
         $holidayType = null;
         $holidayPayPercent = null;
         $holidayPay = 0;

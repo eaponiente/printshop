@@ -27,7 +27,9 @@ class HolidaySeeder extends Seeder
         ];
 
         foreach ($holidays as $holiday) {
-            Holiday::firstOrCreate(
+            // Constrained to nationwide-only rows so a branch-local holiday
+            // sharing the same date+type doesn't get mistaken for this one.
+            Holiday::whereDoesntHave('branches')->firstOrCreate(
                 [
                     'date' => $holiday['date'],
                     'type' => $holiday['type']->value,

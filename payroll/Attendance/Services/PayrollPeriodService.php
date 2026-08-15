@@ -163,7 +163,7 @@ class PayrollPeriodService
                 ->with(['benefits'])
                 ->get();
 
-            $holidayDates = $this->resolveHolidayDates($periodStart, $periodEnd);
+            $holidayDates = $this->resolveHolidayDates($periodStart, $periodEnd, $branch->id);
 
             // Ensure holiday sheets exist and are computed before locking
             foreach ($holidayDates as $dateStr) {
@@ -263,18 +263,31 @@ class PayrollPeriodService
 
     /**
      * Return all date strings within [start, end] that match a holiday, fixed
-     * or recurring. Batches the holiday lookups to avoid N+1 in generate().
+     * or recurring, and apply to this branch (nationwide holidays always
+     * match; branch-scoped holidays only match their pivoted branches).
+     * Batches the holiday lookups (plus their branch pivots) to avoid N+1 in
+     * generate() — exactly two queries total regardless of employee/day count.
      */
-    protected function resolveHolidayDates(string $periodStart, string $periodEnd): array
+    protected function resolveHolidayDates(string $periodStart, string $periodEnd, int $branchId): array
     {
         $start = Carbon::parse($periodStart);
         $end = Carbon::parse($periodEnd);
 
-        $candidates = Holiday::where('recurring', true)
-            ->orWhere(function ($q) use ($periodStart, $periodEnd) {
-                $q->where('recurring', false)
-                    ->whereBetween('date', [$periodStart, $periodEnd]);
-            })
+        // The (recurring OR (non-recurring AND between)) pair must stay
+        // grouped in its own closure: a later top-level ->where() for the
+        // branch predicate would otherwise AND-bind only to the last OR
+        // branch (AND binds tighter than OR), leaking every non-recurring
+        // holiday across branches. There's no branch predicate here yet
+        // (filtering happens in-memory below via appliesToBranch()), but the
+        // grouping is kept so adding one later can't silently break this.
+        $candidates = Holiday::where(function ($q) use ($periodStart, $periodEnd) {
+            $q->where('recurring', true)
+                ->orWhere(function ($r) use ($periodStart, $periodEnd) {
+                    $r->where('recurring', false)
+                        ->whereBetween('date', [$periodStart, $periodEnd]);
+                });
+        })
+            ->with('branches:id')
             ->get();
 
         $dates = [];
@@ -285,7 +298,7 @@ class PayrollPeriodService
                 $matches = $holiday->recurring
                     ? ($hDate->month === $date->month && $hDate->day === $date->day)
                     : ($hDate->toDateString() === $dateStr);
-                if ($matches) {
+                if ($matches && $holiday->appliesToBranch($branchId)) {
                     $dates[] = $dateStr;
                     break;
                 }

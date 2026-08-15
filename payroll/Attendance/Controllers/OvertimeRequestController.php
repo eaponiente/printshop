@@ -110,7 +110,7 @@ class OvertimeRequestController extends Controller
         // Rest days are paid as regular days (no premium), so overtime on a rest
         // day resolves like a normal working day — holiday type still takes
         // precedence when a holiday falls on the date.
-        $holiday = Holiday::forDate($date);
+        $holiday = Holiday::forDate($date, $employee->branch_id);
 
         if ($holiday) {
             return $holiday->type->value === 'regular' ? 'regular_holiday' : 'special_holiday';

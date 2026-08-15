@@ -4,9 +4,11 @@ use App\Models\Branch;
 use App\Models\Payroll\AttendanceSheet;
 use App\Models\Payroll\Employee;
 use App\Models\Payroll\EmployeeSchedule;
+use App\Models\Payroll\Holiday;
 use App\Models\Payroll\OvertimeRequest;
 use App\Models\Payroll\TimeLog;
 use App\Models\User;
+use Payroll\Attendance\Enums\HolidayType;
 use Payroll\Attendance\Enums\PunchSource;
 use Payroll\Attendance\Enums\PunchType;
 use Payroll\Attendance\Services\AttendanceService;
@@ -274,6 +276,57 @@ it('caps overtime at approved amount even if employee stays longer', function ()
 
     expect($sheet)->not->toBeNull();
     expect($sheet->overtime_minutes)->toBe(120);
+});
+
+it('resolves shift type against a branch-scoped holiday: inside scope vs outside scope', function () {
+    $date = '2026-06-24'; // Wednesday — avoids weekend rest_day mismatch
+
+    $branchB = Branch::factory()->create(['name' => 'Branch B']);
+
+    $employeeB = Employee::create([
+        'first_name' => 'Staff',
+        'last_name' => 'B',
+        'hire_date' => now()->toDateString(),
+        'branch_id' => $branchB->id,
+        'current_daily_rate' => 500,
+    ]);
+
+    $staffB = User::factory()->create([
+        'branch_id' => $branchB->id,
+        'role' => 'staff',
+        'employee_id' => $employeeB->id,
+    ]);
+
+    $holiday = Holiday::create([
+        'name' => 'Branch A Special',
+        'date' => $date,
+        'type' => HolidayType::SPECIAL,
+    ]);
+    $holiday->branches()->sync([$this->branch->id]);
+
+    // Employee A's branch is inside the holiday's scope.
+    $this->actingAs($this->staff)
+        ->post(route('payroll.overtime.store'), [
+            'date' => $date,
+            'start_time' => '17:00',
+            'end_time' => '19:00',
+            'reason' => 'Inside scope',
+        ]);
+
+    $otA = OvertimeRequest::where('employee_id', $this->employee->id)->first();
+    expect($otA->shift_type)->toBe('special_holiday');
+
+    // Employee B's branch is outside the holiday's scope.
+    $this->actingAs($staffB)
+        ->post(route('payroll.overtime.store'), [
+            'date' => $date,
+            'start_time' => '17:00',
+            'end_time' => '19:00',
+            'reason' => 'Outside scope',
+        ]);
+
+    $otB = OvertimeRequest::where('employee_id', $employeeB->id)->first();
+    expect($otB->shift_type)->toBe('regular_day');
 });
 
 it('denies staff from approving overtime', function () {
