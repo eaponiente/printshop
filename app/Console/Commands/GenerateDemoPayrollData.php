@@ -199,9 +199,13 @@ class GenerateDemoPayrollData extends Command
 
     private function createHoliday(): void
     {
-        Holiday::firstOrCreate(
-            ['date' => '2026-06-12'],
-            ['name' => 'Independence Day', 'type' => HolidayType::REGULAR, 'recurring' => true]
+        // Constrained to nationwide-only rows so a branch-local holiday on the
+        // same date doesn't get mistaken for this one. Also match on `type`
+        // (not just date) — otherwise ANY holiday on this date, of any type,
+        // would suppress Independence Day from ever being created.
+        Holiday::whereDoesntHave('branches')->firstOrCreate(
+            ['date' => '2026-06-12', 'type' => HolidayType::REGULAR->value],
+            ['name' => 'Independence Day', 'recurring' => true]
         );
     }
 

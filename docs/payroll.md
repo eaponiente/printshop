@@ -383,9 +383,41 @@ Additional index: `employee_id`
 
 Indexes: `date`, `type`
 
-**Seeding / year rollover.** `Holiday::defaultsForYear($year)` is the canonical Philippine calendar; `Holiday::seedYear($year)` persists it idempotently (existing rows untouched) and returns the count created. Fixed-date holidays are seeded `recurring` (so `forDate()` resolves them by month+day even in an unseeded year); the movable **National Heroes Day** (last Monday of August) is emitted as a concrete, non-recurring row per year. `HolidaySeeder` seeds the current year; run `php artisan holidays:seed {year}` to seed a future year (also prints a reminder that proclamation-based movable holidays — Eid'l Fitr, Eid'l Adha, Chinese New Year — must be added manually once proclaimed).
+#### `branch_holiday` (pivot)
 
-**Management UI.** `/payroll/holidays` (nav: **Management**) lets **superadmin and admin** add/edit/delete holidays (`HolidayPolicy`); staff cannot. The list sorts **upcoming holidays first** (today counts as upcoming), with already-passed holidays sunk below and tagged **Passed**; dates render as `Month Day` (e.g. `August 21`).
+| Column                      | Type       | Notes                              |
+| ---------------------------- | ---------- | ----------------------------------- |
+| `id`                         | bigint PK  |                                     |
+| `branch_id`                  | bigint FK  | → `branches.id`, cascade on delete |
+| `holiday_id`                 | bigint FK  | → `holidays.id`, cascade on delete |
+| `created_at`, `updated_at`   | timestamps |                                     |
+
+Unique index: `[branch_id, holiday_id]`. Additional index: `holiday_id` (the composite unique leads with `branch_id`, so `Holiday::forDate()`'s correlated `EXISTS` on `holiday_id` needs its own index).
+
+**Branch scoping.** A holiday with **no** `branch_holiday` rows applies **nationwide**; rows in the pivot scope it to just those branches. The `holidays` table itself didn't need any schema change or backfill to support this — all 13 seeded national holidays stayed nationwide automatically because they simply have zero pivot rows. Only **special** holidays may be branch-scoped; a `type=regular` holiday with `branch_ids` in the request fails validation ("Regular holidays always apply to every branch.") — regular holidays are always nationwide.
+
+`Holiday::forDate(string $date, ?int $branchId = null)` carries the branch filter. **`$branchId = null` means "nationwide only," never "no filter"** — an employee with no branch never inherits another city's branch-local holiday. `Holiday::isNationwide()`, `appliesToBranch(?int $branchId)`, and the shared query predicate `applyBranchScope()` implement the same "nationwide OR this branch" rule for, respectively, an already-loaded model, an already-loaded model when filtering a batch, and a query builder.
+
+More than one `Holiday` row can now match the same date+branch (e.g. a nationwide regular holiday colliding with a branch-local special one). `forDate()` picks exactly **one**, in this tiebreak order:
+
+1. **REGULAR before SPECIAL** — regular pays more (200%/260% vs. 130%/150%), so ties never shortchange the employee.
+2. **Branch-scoped before nationwide** — the more specific declaration wins when both rows are the same type.
+3. **Exact date before recurring** — a concrete row entered for this year outranks a generic month+day rule.
+4. **`id` ascending** as the final stable tiebreak.
+
+This deliberately does **not** implement "double holiday" pay (regular + special stacking to 300%) — that's unchanged from before branch scoping, not a regression.
+
+**Seeding / year rollover.** `Holiday::defaultsForYear($year)` is the canonical Philippine calendar; `Holiday::seedYear($year)` persists it idempotently (existing rows untouched) and returns the count created. Fixed-date holidays are seeded `recurring` (so `forDate()` resolves them by month+day even in an unseeded year); the movable **National Heroes Day** (last Monday of August) is emitted as a concrete, non-recurring row per year. `HolidaySeeder` seeds the current year; run `php artisan holidays:seed {year}` to seed a future year (also prints a reminder that proclamation-based movable holidays — Eid'l Fitr, Eid'l Adha, Chinese New Year — must be added manually once proclaimed). Both `HolidaySeeder` and `Holiday::seedYear()`'s `firstOrCreate` lookups are constrained to nationwide rows (`whereDoesntHave('branches')`) — without that, a branch-local holiday sharing the same date+type would satisfy the match and silently prevent the national one from ever being created. `GenerateDemoPayrollData::createHoliday()` applies the same constraint for its demo Independence Day row.
+
+**Landmine:** deleting a Branch cascades away its `branch_holiday` pivot rows. A holiday whose *only* scope was that branch silently becomes nationwide (no pivot rows left = `isNationwide()`). Accepted as-is since branch deletion is rare and admin-only, but worth knowing if a holiday appears to "spread" after a branch is removed.
+
+**Management UI.** `/payroll/holidays` (nav: **Management**) lets **superadmin and admin** add/edit/delete holidays (`HolidayPolicy`); staff cannot. Note the consequence of that policy: an admin can scope a holiday to a branch other than their own — `HolidayPolicy` doesn't restrict by branch. The list sorts **upcoming holidays first** (today counts as upcoming), with already-passed holidays sunk below and tagged **Passed**; dates render as `Month Day` (e.g. `August 21`). Each row shows a **Branches** column — a "Nationwide" badge for unscoped holidays, or up to two branch-name badges plus a `+N` overflow badge. The add/edit dialog shows a branch multi-select ("Applies to", default: leave unchecked for nationwide) only when **Type** is set to `special`; switching the type away from `special` clears any selected branches client-side so a stale selection can't survive the switch.
+
+Creating, updating, or deleting a holiday goes through `HolidayService` (transactional, `Auditable` — `holiday_created` / `holiday_updated` / `holiday_deleted`). Each write **auto-reprocesses unlocked attendance sheets** on the affected dates/branches so holiday pay appears or disappears immediately, without waiting for the next natural reprocess:
+
+- On update, it reprocesses the **union of the old and new scope** — so narrowing a holiday's branches, or moving its date, correctly clears the sheets it no longer covers (it skips the second pass entirely if old and new scope are identical).
+- **Locked sheets are never touched** (attendance inside a generated payroll period is immutable), and reprocessing never creates a new sheet — it only recomputes ones that already exist.
+- For a `recurring` holiday, the reprocess only looks back **one year** from today, since there's no queue in this repo (no `app/Jobs`, no worker) and the work runs synchronously in the request — an unbounded fan-out across every past unlocked sheet was judged unsafe.
 
 ### 2.15 `sss_contribution_brackets`
 
@@ -628,6 +660,8 @@ actual_lunch   = LUNCH_IN − LUNCH_OUT (measured, not assumed)
 **Day-before lookback for regular unworked holidays**: Walk backward up to 14 days, skipping rest days, Sundays, and other holidays. Check the last working day's attendance sheet.
 
 **Recurring holidays**: Holidays with `recurring=true` match month+day regardless of year.
+
+**Branch scoping**: the holiday lookup (`Holiday::forDate($date, $employee->branch_id)`) is now branch-scoped — an employee only receives holiday pay for a holiday that is nationwide or explicitly scoped to their branch. The pay percentages above are unchanged; scoping only affects *whether* a holiday is found for that employee's date, not how much it pays once found. See §2.14 for the full tiebreak when a nationwide and a branch-local holiday both match the same date.
 
 ### 3.8 Government Deductions
 
@@ -878,9 +912,9 @@ All payroll routes are under `/payroll` prefix with `payroll.` name prefix. All 
 | Method   | Path                          | Name                       | Auth              |
 | -------- | ----------------------------- | -------------------------- | ----------------- |
 | `GET`    | `/payroll/holidays`           | `payroll.holidays.index`   | Auth              |
-| `POST`   | `/payroll/holidays`           | `payroll.holidays.store`   | Auth (superadmin) |
-| `PUT`    | `/payroll/holidays/{holiday}` | `payroll.holidays.update`  | Auth (superadmin) |
-| `DELETE` | `/payroll/holidays/{holiday}` | `payroll.holidays.destroy` | Auth (superadmin) |
+| `POST`   | `/payroll/holidays`           | `payroll.holidays.store`   | Auth (admin+)     |
+| `PUT`    | `/payroll/holidays/{holiday}` | `payroll.holidays.update`  | Auth (admin+)     |
+| `DELETE` | `/payroll/holidays/{holiday}` | `payroll.holidays.destroy` | Auth (admin+)     |
 
 ### Payroll Periods
 
@@ -1037,7 +1071,7 @@ Admin     → Superadmin (never self-approved)
 | Update employee                               | —         | Branch only           | All branches                   |
 | Deactivate employee                           | —         | Branch only           | All branches                   |
 | Rehire employee                               | —         | Branch only           | All branches                   |
-| Manage holidays                               | —         | —                     | ✓                              |
+| Manage holidays                               | —         | ✓ (any branch)        | ✓                              |
 | Edit company config (SSS/PhilHealth/Pag-IBIG) | —         | —                     | ✓                              |
 | View audit logs                               | —         | Branch only           | All branches                   |
 | View work week payroll table                  | —         | Branch only           | All (defaults to first branch) |
