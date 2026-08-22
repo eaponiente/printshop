@@ -4,6 +4,7 @@ namespace Payroll\Attendance\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
+use App\Models\Payroll\AttendanceSheet;
 use App\Models\Payroll\CompanyConfig;
 use App\Models\Payroll\PayrollPeriod;
 use App\Models\Payroll\PayrollPeriodItem;
@@ -189,11 +190,24 @@ class PayrollPeriodController extends Controller
             'approvedBy:id,first_name,last_name',
         ]);
 
+        // Days that actually earn base pay: present, and not on an unpaid
+        // full-day leave. Unlike `total_regular_days` (which excludes
+        // holiday and rest days), this includes every present day so the
+        // "Basic Pay (Nd)" label on the payslip reflects days truly worked.
+        // Paid leave gets its own line item, so it's subtracted back out.
+        $paidDays = AttendanceSheet::where('employee_id', $item->employee_id)
+            ->whereBetween('date', [$period->period_start->toDateString(), $period->period_end->toDateString()])
+            ->where('is_present', true)
+            ->where(fn ($q) => $q->whereNull('leave_type')->orWhere('leave_is_paid', true))
+            ->count();
+        $basicPayDays = max(0, $paidDays - $item->leave_paid_days);
+
         return Inertia::render('payroll/payroll/payslip', [
             'period' => $period,
             'item' => $item,
             'companyName' => CompanyConfig::getValue('company_name', 'Company Name'),
             'viewerCanSeeEmployer' => $user->isSuperAdmin() || $user->isAdmin(),
+            'basicPayDays' => $basicPayDays,
         ]);
     }
 
