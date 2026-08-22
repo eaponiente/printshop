@@ -344,7 +344,7 @@ is not hard-blocked (see the July 11 release notes for the test-fixture rational
 | `id`                       | bigint PK         |                                       |
 | `payroll_period_id`        | foreignId         | FK to payroll_periods                 |
 | `employee_id`              | foreignId         |                                       |
-| `total_regular_days`       | integer           |                                       |
+| `total_regular_days`       | integer           | Excludes worked holidays and rest days — see note below |
 | `absent_days`              | integer           |                                       |
 | `total_late_minutes`       | integer           | Total across period                   |
 | `late_deduction`           | decimal(10,2)     |                                       |
@@ -369,6 +369,31 @@ is not hard-blocked (see the July 11 release notes for the test-fixture rational
 
 Unique index: `[payroll_period_id, employee_id]`
 Additional index: `employee_id`
+
+**`total_regular_days` must never be used to derive basic pay.** It is computed in
+`PayrollPeriodService::generateItemForEmployee` as
+`sheets->where('is_present', true)->whereNull('holiday_type')->where('is_rest_day', false)->count()` —
+it deliberately **excludes** any day carrying a `holiday_type` (worked holiday) or `is_rest_day`
+(worked rest day), because those days already have their own display treatment (holiday premium,
+rest-day note). But the day's *base* pay is still folded into `daily_wage` and therefore into
+`gross_pay` (`gross_pay = SUM(daily_wage)`) — only the display-only day *count* excludes it. A
+payslip that computed `Basic Pay = daily_rate × total_regular_days` (as it used to) silently
+dropped that day's base pay from the itemized earnings while it stayed inside GROSS PAY, so the
+line items no longer summed to gross on any week containing a worked holiday or worked rest day.
+
+The fix: **Basic Pay is back-solved from the canonical `gross_pay`**, not multiplied out from a day
+count. `resources/js/pages/payroll/payroll/payslip.tsx` (`EarningsCard`) computes
+`basicPay = gross_pay − overtime_pay − holiday_pay − incentive + late_deduction +
+undertime_deduction + fine_deduction − (daily_rate × leave_paid_days)` — the penalties are added
+back because they render as their own negative line items (they'd otherwise be charged twice), and
+paid leave is subtracted because it has its own line. `resources/js/pages/payroll/reports/print.tsx`
+already did this for its own basic-pay figure and was the reference implementation. The day *count*
+shown next to "Basic Pay (Nd)" is a separate server-computed prop, `basicPayDays`
+(`PayrollPeriodController::payslip()`): present days where the employee is not on unpaid full-day
+leave, minus `leave_paid_days` (since paid leave gets its own line) — i.e. every day that actually
+contributes to basic pay, holiday and rest days included. The payslip's Attendance Summary strip
+keeps `total_regular_days` under the label **"Regular"** for reference and adds a separate **"Days
+Paid"** cell for `basicPayDays`, so the two are never conflated again.
 
 ### 2.14 `holidays`
 
@@ -1256,8 +1281,9 @@ Admin     → Superadmin (never self-approved)
 | Rule                | Detail                                                                                                                                                                                                                                 |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | IDs in header       | SSS, PhilHealth, Pag-IBIG, TIN displayed. Missing IDs shown as `—`.                                                                                                                                                                    |
-| No daily rows       | Compact Attendance Summary line (Present, Late, OT hours, Absent, Holiday).                                                                                                                                                            |
+| No daily rows       | Compact Attendance Summary line (Regular, Days Paid, Late, OT hours, Absent, Holiday).                                                                                                                                                 |
 | Two-column body     | Earnings left (Basic Pay, OT, Holiday Pay, De Minimis perks). Deductions right (Late, Fines, Gov't, Cash Advance).                                                                                                                     |
+| Basic Pay figure    | Back-solved from `gross_pay`, never `daily_rate × total_regular_days` — see §2.13 note. The "(Nd)" day count is the server-computed `basicPayDays` prop, not `total_regular_days` (which excludes worked holidays/rest days).           |
 | OT visibility       | Shows hours worked × multiplier label (e.g., `2h × 1.25x` = `₱159.38`). Rates are labor law multipliers.                                                                                                                               |
 | Holiday pay         | Shown as separate line item with percentage label (100%, 130%, 200%). 0% holidays not shown.                                                                                                                                           |
 | De minimis benefits | Shown under Earnings with `*` prefix and "Non-taxable" footnote. Label from `payslip_label`. Prorated (÷4).                                                                                                                            |
