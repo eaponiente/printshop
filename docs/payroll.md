@@ -611,9 +611,31 @@ hourly_rate = daily_rate / 8
 ot_pay = ot_hours × hourly_rate × multiplier
 ```
 
-**Lower-of-two rule**: `ot_worked_minutes = min(actual_extra_stay, approved_request_minutes)`. Unapproved extra minutes are discarded. OT must be ≥ 60 consecutive minutes AND an approved OT request must exist.
+**Source of OT minutes — punches are primary, an OT request is only the fallback.**
+`AttendanceService::processDailyAttendance` computes `ot_worked_minutes` directly from the
+day's `OVERTIME_IN` → `OVERTIME_OUT` punch diff whenever both punches exist for that date. An
+approved `OvertimeRequest` (`getApprovedMinutes()` = its own `start_time`/`end_time` diff) is
+used **only** when no OT punch pair exists that day — it is a fallback, not a cap on the punch
+diff, and there is no "lower-of-two" reconciliation between the two sources. There is also no
+60-minute floor: any positive punch diff (or approved-request duration) pays.
 
-**OT threshold**: OT starts at `480 + unpaid_tail_minutes` total work minutes. The `unpaid_tail_minutes` is configured per schedule (default 30 minutes for 5:00–5:30 PM buffer).
+**Midnight rollover.** An `OVERTIME_OUT` punch is stamped with the shift's own calendar date
+even when the employee actually punches out after midnight (e.g. OT in 19:58, OT out 01:15, both
+recorded against the same date). If the OT-out timestamp is earlier in the day than the OT-in
+timestamp, it's rolled forward one day before diffing — so 19:58 → 01:15 reads as 5h17m (317
+minutes), not the 18h43m an unadjusted same-day diff would produce.
+
+**Sanity cap (`max_overtime_minutes`).** Because the rollover can't distinguish "OT that crossed
+midnight" from "a mis-stamped punch," any resulting span longer than `max_overtime_minutes`
+(config `payroll.max_overtime_minutes`, env `PAYROLL_MAX_OVERTIME_MINUTES`, default `720` —
+resolved through `PayrollSettingService` first, same pattern as `half_day_threshold_minutes`) is
+treated as implausible: `overtime_minutes` still stores the raw computed span for a reviewer to
+see, but `overtime_pay` is forced to `0`, `overtime_multiplier` to `null`, and the sheet is
+flagged `is_incomplete = true` with a reason ending in `"verify punches"` (an earlier incomplete
+reason, e.g. a missing lunch punch, is never overwritten by this one).
+`PayrollPeriodService::findIncompleteSheets()` applies the same rollover + cap check against the
+already-fetched punches so an over-cap day surfaces in the period's Check Payroll report too, not
+only on the individual attendance sheet.
 
 | Day Type                         | OT Multiplier                                    |
 | -------------------------------- | ------------------------------------------------ |
@@ -633,7 +655,7 @@ A rest day that also falls on a holiday takes the holiday multiplier (the rest-d
 | Rest day     | 2.0      | `2 × 63.75 × 1.25`   | ₱159.38 |
 | Reg. holiday | 1.0      | `1 × 63.75 × 2.60`   | ₱165.75 |
 
-**No rate snapshot at approval time**: The multiplier is determined at computation time based on `shift_type` from the approved OT request.
+**No rate snapshot at approval time**: the multiplier is determined at computation time, not when a request is approved. When OT minutes come from the punch diff (the primary path), the multiplier is always the ordinary-day **1.25x** — punches carry no `shift_type`. Only the OT-request fallback path picks a multiplier from `shift_type` on the approved request (`regular_day`, `rest_day`, `special_holiday`, etc., per the table above).
 
 ### 3.5 Lunch — 4-Punch Model
 

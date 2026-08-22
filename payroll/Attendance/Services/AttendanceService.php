@@ -232,9 +232,19 @@ class AttendanceService
                 $shiftType = 'regular_day';
 
                 if ($otInPunch && $otOutPunch) {
-                    $otMins = (int) abs(
-                        Carbon::parse($otInPunch->timestamp)->diffInMinutes(Carbon::parse($otOutPunch->timestamp))
-                    );
+                    $otStart = Carbon::parse($otInPunch->timestamp);
+                    $otEnd = Carbon::parse($otOutPunch->timestamp);
+
+                    // An overtime-out stamped earlier in the day than the overtime-in means
+                    // the shift crossed midnight but the punch carried the shift's own date
+                    // (OT 19:58 -> 01:15 recorded against the same day). Roll it forward
+                    // rather than measuring the span backwards, which reads 18h43m for what
+                    // is really 5h17m.
+                    if ($otEnd->lt($otStart)) {
+                        $otEnd = $otEnd->addDay();
+                    }
+
+                    $otMins = (int) $otStart->diffInMinutes($otEnd);
                 } else {
                     $otRequest = OvertimeRequest::where('employee_id', $employee->id)
                         ->where('date', $date)
@@ -248,10 +258,23 @@ class AttendanceService
                 }
 
                 if ($otMins > 0) {
-                    $overtimeMinutes = $otMins;
-                    $multiplier = $this->getOTMultiplier($shiftType);
-                    $overtimeMultiplier = $multiplier;
-                    $overtimePay = round(($otMins / 60) * $hourlyRate * $multiplier, 2);
+                    $maxOtMinutes = (int) (app(PayrollSettingService::class)->get('max_overtime_minutes', config('payroll.max_overtime_minutes', 720)));
+
+                    if ($otMins > $maxOtMinutes) {
+                        // Implausible span - almost always a mis-stamped punch. Record the raw
+                        // minutes so a reviewer can see what was punched, but withhold pay and
+                        // flag the sheet rather than paying out a wrong number silently.
+                        $overtimeMinutes = $otMins;
+                        $overtimePay = 0;
+                        $overtimeMultiplier = null;
+                        $isIncomplete = true;
+                        $incompleteReason ??= 'Overtime span exceeds '.$maxOtMinutes.' minutes - verify punches';
+                    } else {
+                        $overtimeMinutes = $otMins;
+                        $multiplier = $this->getOTMultiplier($shiftType);
+                        $overtimeMultiplier = $multiplier;
+                        $overtimePay = round(($otMins / 60) * $hourlyRate * $multiplier, 2);
+                    }
                 }
             }
         } elseif (! $hasAnyPunch && ! $isRestDay) {

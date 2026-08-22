@@ -11,6 +11,7 @@ use App\Models\Payroll\Holiday;
 use App\Models\Payroll\PayrollPeriod;
 use App\Models\Payroll\PayrollPeriodItem;
 use App\Models\Payroll\TimeLog;
+use App\Services\Payroll\PayrollSettingService;
 use Carbon\Carbon;
 use DB;
 use Illuminate\Database\Eloquent\Collection;
@@ -51,6 +52,11 @@ class PayrollPeriodService
 
         $result = [];
 
+        // Resolved once outside the loop — matches the sanity cap AttendanceService applies
+        // to the same OVERTIME_IN/OVERTIME_OUT diff. Kept out of the per-row loop below to
+        // avoid adding a query per sheet.
+        $maxOtMinutes = (int) (app(PayrollSettingService::class)->get('max_overtime_minutes', config('payroll.max_overtime_minutes', 720)));
+
         foreach ($sheets as $sheet) {
             $dateStr = $sheet->date->toDateString();
 
@@ -76,6 +82,26 @@ class PayrollPeriodService
                 $reason = 'Overtime punch-out missing';
             } elseif (! $hasOvertimeIn && $hasOvertimeOut) {
                 $reason = 'Overtime punch-in missing';
+            } elseif ($hasOvertimeIn && $hasOvertimeOut) {
+                $otInPunch = $punches->firstWhere('type.value', 'overtime_in');
+                $otOutPunch = $punches->firstWhere('type.value', 'overtime_out');
+
+                $otStart = Carbon::parse($otInPunch->timestamp);
+                $otEnd = Carbon::parse($otOutPunch->timestamp);
+
+                // Same midnight-rollover adjustment as
+                // AttendanceService::processDailyAttendance — an overtime-out stamped
+                // earlier than the overtime-in means the shift crossed midnight but
+                // carried the shift's own date.
+                if ($otEnd->lt($otStart)) {
+                    $otEnd = $otEnd->addDay();
+                }
+
+                $otMins = (int) $otStart->diffInMinutes($otEnd);
+
+                if ($otMins > $maxOtMinutes) {
+                    $reason = 'Overtime span exceeds '.$maxOtMinutes.' minutes - verify punches';
+                }
             }
 
             if ($reason !== null) {
