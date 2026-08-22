@@ -4,12 +4,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { ArrowLeft, Printer } from 'lucide-react';
 import { route } from 'ziggy-js';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import PayrollLayout from '@/layouts/payroll/payroll-layout';
 import type { BreadcrumbItem } from '@/types';
 import { formatCurrency, numberToWords } from '@/utils/formatters';
@@ -85,6 +80,7 @@ type Props = {
     item: Item;
     companyName: string;
     viewerCanSeeEmployer: boolean;
+    basicPayDays: number;
 };
 
 const STATUS_STYLES: Record<Period['status'], string> = {
@@ -106,6 +102,7 @@ export default function Payslip({
     item,
     companyName,
     viewerCanSeeEmployer,
+    basicPayDays,
 }: Props) {
     const { auth } = usePage().props as { auth: { user: { role: string } } };
     const isStaff = auth?.user?.role === 'staff';
@@ -144,24 +141,16 @@ export default function Payslip({
         <PayrollLayout breadcrumbs={breadcrumbs}>
             <Head title="Payslip" />
             <div className="payslip-page mx-auto flex w-full max-w-3xl flex-col gap-4 p-4 sm:p-6">
-                <ActionBar
-                    isStaff={isStaff}
-                    periodId={period.id}
-                />
+                <ActionBar isStaff={isStaff} periodId={period.id} />
 
-                <DocumentHeader
-                    companyName={companyName}
-                    period={period}
-                />
+                <DocumentHeader companyName={companyName} period={period} />
 
-                <EmployeeCard
-                    item={item}
-                />
+                <EmployeeCard item={item} />
 
-                <AttendanceStrip item={item} />
+                <AttendanceStrip item={item} basicPayDays={basicPayDays} />
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <EarningsCard item={item} />
+                    <EarningsCard item={item} basicPayDays={basicPayDays} />
                     <DeductionsCard
                         item={item}
                         showEmployer={viewerCanSeeEmployer}
@@ -202,11 +191,7 @@ function ActionBar({
                 </span>
                 <span className="sm:hidden">Back</span>
             </Button>
-            <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.print()}
-            >
+            <Button variant="outline" size="sm" onClick={() => window.print()}>
                 <Printer className="mr-1 h-4 w-4" />
                 Print
             </Button>
@@ -310,9 +295,20 @@ function InfoRow({
     );
 }
 
-function AttendanceStrip({ item }: { item: Item }) {
+function AttendanceStrip({
+    item,
+    basicPayDays,
+}: {
+    item: Item;
+    basicPayDays: number;
+}) {
     const cells: Array<{ label: string; value: string }> = [
-        { label: 'Present', value: `${item.total_regular_days}d` },
+        // `total_regular_days` deliberately excludes holiday and rest days
+        // (see PayrollPeriodService::generateItemForEmployee), so it under-
+        // counts days actually worked. Kept here as "Regular" for reference;
+        // "Days Paid" (basicPayDays) is the true count of base-pay days.
+        { label: 'Regular', value: `${item.total_regular_days}d` },
+        { label: 'Days Paid', value: `${basicPayDays}d` },
         ...(item.total_late_minutes > 0
             ? [{ label: 'Late', value: `${item.total_late_minutes}m` }]
             : []),
@@ -361,11 +357,31 @@ function AttendanceStrip({ item }: { item: Item }) {
     );
 }
 
-function EarningsCard({ item }: { item: Item }) {
-    const basicPay =
-        (Number(item.daily_rate) || 0) * (item.total_regular_days || 0);
+function EarningsCard({
+    item,
+    basicPayDays,
+}: {
+    item: Item;
+    basicPayDays: number;
+}) {
     const leavePay =
         (Number(item.daily_rate) || 0) * (item.leave_paid_days || 0);
+    // gross_pay (= SUM of daily_wage) already contains base pay, overtime,
+    // the holiday premium and incentive, net of late/undertime/fine. Those
+    // penalties render as their own negative lines below, so add them back
+    // here or they are charged twice. Back-solving from gross keeps the line
+    // items reconciling to GROSS PAY on holiday and rest-day weeks, where
+    // total_regular_days deliberately excludes the day (see
+    // PayrollPeriodService::generateItemForEmployee).
+    const basicPay =
+        (Number(item.gross_pay) || 0) -
+        (Number(item.overtime_pay) || 0) -
+        (Number(item.holiday_pay) || 0) -
+        (Number(item.incentive) || 0) +
+        (Number(item.late_deduction) || 0) +
+        (Number(item.undertime_deduction) || 0) +
+        (Number(item.fine_deduction) || 0) -
+        leavePay;
     const grossWithPerks =
         (Number(item.gross_pay) || 0) + (Number(item.deminimis_earnings) || 0);
 
@@ -377,9 +393,9 @@ function EarningsCard({ item }: { item: Item }) {
                 </CardTitle>
             </CardHeader>
             <CardContent className="space-y-1.5 text-sm">
-                {item.total_regular_days > 0 && (
+                {basicPayDays > 0 && (
                     <LineItem
-                        label={`Basic Pay (${item.total_regular_days}d)`}
+                        label={`Basic Pay (${basicPayDays}d)`}
                         value={basicPay}
                     />
                 )}
@@ -439,11 +455,7 @@ function EarningsCard({ item }: { item: Item }) {
                     />
                 )}
                 <div className="mt-1 border-t pt-2">
-                    <LineItem
-                        label="GROSS PAY"
-                        value={grossWithPerks}
-                        bold
-                    />
+                    <LineItem label="GROSS PAY" value={grossWithPerks} bold />
                 </div>
             </CardContent>
         </Card>
@@ -483,11 +495,7 @@ function DeductionsCard({
             </CardHeader>
             <CardContent className="space-y-1.5 text-sm">
                 {item.sss_deduction > 0 && (
-                    <LineItem
-                        label="SSS"
-                        value={-item.sss_deduction}
-                        red
-                    />
+                    <LineItem label="SSS" value={-item.sss_deduction} red />
                 )}
                 {item.philhealth_deduction > 0 && (
                     <LineItem
@@ -639,10 +647,7 @@ function SignatureFooter({ period }: { period: Period }) {
 function SignatureBlock({ label, line }: { label: string; line?: string }) {
     return (
         <div className="space-y-1">
-            <div
-                data-signature-line
-                className="h-8 border-b border-border"
-            />
+            <div data-signature-line className="h-8 border-b border-border" />
             <div className="text-[10px] tracking-wide text-muted-foreground uppercase">
                 {label}
             </div>
@@ -677,11 +682,7 @@ function LineItem({
             </span>
             <span
                 className={`font-mono tabular-nums ${
-                    red
-                        ? 'text-red-600'
-                        : muted
-                          ? 'text-muted-foreground'
-                          : ''
+                    red ? 'text-red-600' : muted ? 'text-muted-foreground' : ''
                 }`}
             >
                 {formatCurrency(value)}
