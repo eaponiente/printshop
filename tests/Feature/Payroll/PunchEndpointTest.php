@@ -112,54 +112,25 @@ it('stores geolocation on overtime punches', function () {
     expect($log->note)->toContain('Test Branch');
 });
 
-it('accepts custom timestamp from any user when feature is enabled', function () {
-    config()->set('app.enable_custom_punch_time', true);
-    $backdate = now()->subDays(3)->setTime(8, 0, 0);
+it('ignores a client-supplied timestamp and always stores the server clock', function () {
+    $serverNow = now()->setDate(2026, 9, 7)->setTime(8, 0, 0);
+    $this->travelTo($serverNow);
+
+    // The employee's device clock is ~15 days ahead — a wildly wrong client
+    // timestamp must never make it into the stored punch.
+    $clientTimestamp = $serverNow->copy()->addDays(15)->format('Y-m-d H:i:s');
 
     $this->actingAs($this->staff)
         ->post(route('payroll.attendance.punch'), [
             'type' => 'in',
-            'timestamp' => $backdate->format('Y-m-d H:i:s'),
+            'timestamp' => $clientTimestamp,
         ]);
 
     $log = TimeLog::where('employee_id', $this->employee->id)->first();
 
     expect($log)->not->toBeNull();
-    expect($log->timestamp->format('Y-m-d H:i:s'))->toBe($backdate->format('Y-m-d H:i:s'));
-});
-
-it('accepts custom timestamp from superadmin when feature is enabled', function () {
-    config()->set('app.enable_custom_punch_time', true);
-    $admin = User::factory()->create([
-        'role' => 'superadmin',
-        'branch_id' => null,
-        'employee_id' => $this->employee->id,
-    ]);
-
-    $backdate = now()->subDays(3)->setTime(8, 0, 0);
-
-    $this->actingAs($admin)
-        ->post(route('payroll.attendance.punch'), [
-            'type' => 'in',
-            'timestamp' => $backdate->format('Y-m-d H:i:s'),
-        ]);
-
-    $log = TimeLog::where('employee_id', $this->employee->id)->first();
-
-    expect($log)->not->toBeNull();
-    expect($log->timestamp->format('Y-m-d H:i:s'))->toBe($backdate->format('Y-m-d H:i:s'));
-});
-
-it('rejects custom timestamp with non-strict format', function () {
-    config()->set('app.enable_custom_punch_time', true);
-
-    $response = $this->actingAs($this->staff)
-        ->post(route('payroll.attendance.punch'), [
-            'type' => 'in',
-            'timestamp' => 'yesterday',
-        ]);
-
-    $response->assertSessionHasErrors('timestamp');
+    expect($log->timestamp->format('Y-m-d H:i:s'))->toBe($serverNow->format('Y-m-d H:i:s'));
+    expect($log->timestamp->format('Y-m-d H:i:s'))->not->toBe($clientTimestamp);
 });
 
 it('marks same-type punches within 5 minutes as duplicates', function () {
@@ -191,4 +162,30 @@ it('applies throttle middleware on the punch route', function () {
 
     expect($route)->not->toBeNull();
     expect(implode(',', $route->gatherMiddleware()))->toContain('throttle:30,1');
+});
+
+it('allows admin backdating through the manual endpoint to accept overtime_in', function () {
+    $admin = User::factory()->create([
+        'role' => 'admin',
+        'branch_id' => $this->branch->id,
+    ]);
+
+    $backdate = now()->subDays(3)->setTime(19, 0, 0);
+
+    $response = $this->actingAs($admin)
+        ->post(route('payroll.attendance.manual'), [
+            'employee_id' => $this->employee->id,
+            'type' => 'overtime_in',
+            'timestamp' => $backdate->format('Y-m-d H:i:s'),
+            'note' => 'Backdated overtime',
+        ]);
+
+    $response->assertSessionDoesntHaveErrors();
+
+    $log = TimeLog::where('employee_id', $this->employee->id)
+        ->where('type', 'overtime_in')
+        ->first();
+
+    expect($log)->not->toBeNull();
+    expect($log->timestamp->format('Y-m-d H:i:s'))->toBe($backdate->format('Y-m-d H:i:s'));
 });

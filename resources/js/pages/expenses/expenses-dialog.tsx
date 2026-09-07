@@ -18,6 +18,7 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import type { TypeOfPayment } from '@/types/settings';
+import { toDateInput } from '@/utils/dateHelper';
 
 interface ExpenseDialogProps {
     branches: { id: number; name: string }[];
@@ -35,7 +36,7 @@ export default function ExpenseDialog({
     expense,
 }: ExpenseDialogProps) {
     const isEdit = !!expense;
-    const { auth } = usePage().props as any;
+    const { auth, serverToday } = usePage().props;
 
     const { data, setData, post, transform, processing, errors, reset } =
         useForm({
@@ -49,8 +50,8 @@ export default function ExpenseDialog({
             debtor_branch_id: expense?.debtor_branch_id ?? '',
             status: expense?.status ?? 'pending',
             expense_date: expense?.expense_date
-                ? new Date(expense.expense_date).toISOString().split('T')[0]
-                : new Date().toISOString().split('T')[0],
+                ? toDateInput(expense.expense_date)
+                : serverToday,
         });
 
     const isCredit = data.payment_type === 'credit';

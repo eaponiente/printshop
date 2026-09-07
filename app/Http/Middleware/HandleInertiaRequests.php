@@ -42,6 +42,7 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'name' => config('app.name'),
+            'serverToday' => now()->toDateString(),
             'auth' => [
                 'user' => $request->user()
                     ? $request->user()->load('branch', 'employee')

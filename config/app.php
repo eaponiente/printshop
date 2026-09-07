@@ -123,17 +123,4 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Enable Custom Punch Time
-    |--------------------------------------------------------------------------
-    |
-    | When enabled, the self-service punch screen shows a date/time picker
-    | allowing users to set a custom timestamp instead of using now().
-    | Intended for testing/development only.
-    |
-    */
-
-    'enable_custom_punch_time' => env('ENABLE_CUSTOM_PUNCH_TIME', false),
-
 ];
