@@ -13,9 +13,18 @@ use App\Models\Payroll\TimeLog;
 use App\Services\Payroll\PayrollSettingService;
 use Carbon\Carbon;
 use Payroll\Attendance\Enums\HolidayType;
+use Payroll\Attendance\Enums\PunchType;
 
 class AttendanceService
 {
+    /**
+     * A next-day punch stamped before this time is assumed to belong to a
+     * shift that crossed midnight rather than to a legitimate next-day shift.
+     * Safe because the default schedule starts at 08:00 (see $defaultStart
+     * below) — no real shift begins this early.
+     */
+    private const NEXT_DAY_OVERTIME_LOOKAHEAD_CUTOFF = '06:00';
+
     public function processDailyAttendance(Employee $employee, string $date): AttendanceSheet
     {
         $dateObj = Carbon::parse($date)->startOfDay();
@@ -35,6 +44,62 @@ class AttendanceService
             ->whereNull('duplicate_of')
             ->orderBy('timestamp')
             ->get();
+
+        // Symmetric half of the bounded 06:00 lookahead below: if YESTERDAY has
+        // an OVERTIME_IN with no same-date OVERTIME_OUT, its closing punch may
+        // have been stamped after midnight — i.e. on $date, before 06:00. That
+        // punch gets pulled onto yesterday's sheet (see below), so it must be
+        // excluded here or it would ALSO be read as today's own orphan
+        // overtime-out and double-count / falsely flag today's sheet.
+        $earlyOtOut = $punches->first(
+            fn ($p) => $p->type === PunchType::OVERTIME_OUT
+                && Carbon::parse($p->timestamp)->format('H:i') < self::NEXT_DAY_OVERTIME_LOOKAHEAD_CUTOFF
+        );
+
+        if ($earlyOtOut) {
+            $prevDate = $dateObj->copy()->subDay()->toDateString();
+            $prevOtIn = TimeLog::where('employee_id', $employee->id)
+                ->whereDate('timestamp', $prevDate)
+                ->where('type', PunchType::OVERTIME_IN->value)
+                ->whereNull('duplicate_of')
+                ->exists();
+
+            if ($prevOtIn) {
+                // "Yesterday has its own close" must NOT count an overtime-out
+                // on yesterday that is itself a carry-over from the day
+                // BEFORE yesterday (the same early-punch shape, one link
+                // further up the chain). Two consecutive midnight-crossing
+                // nights would otherwise fool a raw same-date existence check:
+                // yesterday's OT-out really belongs to the day before it, so
+                // it must not be read as yesterday's own close — one day
+                // further back is sufficient, no recursion needed, since each
+                // day's exclusion check only ever needs the immediately
+                // preceding OT-in.
+                $prevOtOutPunch = TimeLog::where('employee_id', $employee->id)
+                    ->whereDate('timestamp', $prevDate)
+                    ->where('type', PunchType::OVERTIME_OUT->value)
+                    ->whereNull('duplicate_of')
+                    ->first();
+
+                $prevOtOutIsOwnClose = false;
+
+                if ($prevOtOutPunch) {
+                    $prevPrevDate = $dateObj->copy()->subDays(2)->toDateString();
+                    $prevPrevOtIn = Carbon::parse($prevOtOutPunch->timestamp)->format('H:i') < self::NEXT_DAY_OVERTIME_LOOKAHEAD_CUTOFF
+                        && TimeLog::where('employee_id', $employee->id)
+                            ->whereDate('timestamp', $prevPrevDate)
+                            ->where('type', PunchType::OVERTIME_IN->value)
+                            ->whereNull('duplicate_of')
+                            ->exists();
+
+                    $prevOtOutIsOwnClose = ! $prevPrevOtIn;
+                }
+
+                if (! $prevOtOutIsOwnClose) {
+                    $punches = $punches->reject(fn ($p) => $p->is($earlyOtOut))->values();
+                }
+            }
+        }
 
         $lateMinutes = 0;
         $lateDeduction = 0;
@@ -63,6 +128,33 @@ class AttendanceService
 
         $hasAnyPunch = $punches->isNotEmpty();
 
+        // Bounded 06:00 lookahead: a shift that crosses midnight often has its
+        // OVERTIME_OUT stamped on the next calendar date. When today's
+        // OVERTIME_IN has no same-date close, look for one on tomorrow before
+        // the cutoff and treat it as today's overtime-out. The mirrored
+        // exclusion above keeps tomorrow's own sheet from also claiming it.
+        if ($otInPunch && ! $otOutPunch) {
+            $nextDate = $dateObj->copy()->addDay()->toDateString();
+            $nextDayOtOut = TimeLog::where('employee_id', $employee->id)
+                ->whereDate('timestamp', $nextDate)
+                ->where('type', PunchType::OVERTIME_OUT->value)
+                ->whereNull('duplicate_of')
+                ->orderBy('timestamp')
+                ->first();
+
+            if ($nextDayOtOut && Carbon::parse($nextDayOtOut->timestamp)->format('H:i') < self::NEXT_DAY_OVERTIME_LOOKAHEAD_CUTOFF) {
+                $otOutPunch = $nextDayOtOut;
+            }
+        }
+
+        // An "OT-only" day has no regular in/out/lunch activity at all — only
+        // overtime punches (matched or not). It pays no flat daily rate (see
+        // $basePay below) and, when the OT pair is matched, is not "incomplete"
+        // even though there's no punch-in (see the incomplete-reason logic
+        // below) — it's simply a call-in day worked entirely on overtime.
+        $hasRegularPunch = $inPunch || $outPunch || $lunchOut || $lunchIn;
+        $isOtOnlyDay = $hasAnyPunch && ! $hasRegularPunch;
+
         $configuredTail = $schedule?->unpaid_tail_minutes ?? 30;
 
         // Determine schedule times
@@ -84,25 +176,33 @@ class AttendanceService
         if ($hasAnyPunch) {
             $isPresent = true;
 
-            if (! $inPunch) {
+            if ($hasRegularPunch) {
+                if (! $inPunch) {
+                    $isIncomplete = true;
+                    $incompleteReason = 'No punch-in recorded';
+                } elseif (! $outPunch) {
+                    $isIncomplete = true;
+                    $incompleteReason = 'Punch-out missing';
+                } elseif ($lunchOut && ! $lunchIn) {
+                    $isIncomplete = true;
+                    $incompleteReason = 'Lunch return punch missing';
+                } elseif (! $lunchOut && $lunchIn) {
+                    $isIncomplete = true;
+                    $incompleteReason = 'Lunch break punch missing';
+                } elseif ($otInPunch && ! $otOutPunch) {
+                    $isIncomplete = true;
+                    $incompleteReason = 'Overtime punch-out missing';
+                } elseif (! $otInPunch && $otOutPunch) {
+                    $isIncomplete = true;
+                    $incompleteReason = 'Overtime punch-in missing';
+                }
+            } elseif ($otInPunch xor $otOutPunch) {
+                // OT-only day with a broken pair (one side missing).
                 $isIncomplete = true;
-                $incompleteReason = 'No punch-in recorded';
-            } elseif (! $outPunch) {
-                $isIncomplete = true;
-                $incompleteReason = 'Punch-out missing';
-            } elseif ($lunchOut && ! $lunchIn) {
-                $isIncomplete = true;
-                $incompleteReason = 'Lunch return punch missing';
-            } elseif (! $lunchOut && $lunchIn) {
-                $isIncomplete = true;
-                $incompleteReason = 'Lunch break punch missing';
-            } elseif ($otInPunch && ! $otOutPunch) {
-                $isIncomplete = true;
-                $incompleteReason = 'Overtime punch-out missing';
-            } elseif (! $otInPunch && $otOutPunch) {
-                $isIncomplete = true;
-                $incompleteReason = 'Overtime punch-in missing';
+                $incompleteReason = $otInPunch ? 'Overtime punch-out missing' : 'Overtime punch-in missing';
             }
+            // else: OT-only day with a MATCHED overtime_in/overtime_out pair —
+            // a complete call-in day. No punch-in flag here (see D3/D(d)).
 
             if ($inPunch) {
                 $rawInTime = Carbon::parse($inPunch->timestamp);
@@ -225,56 +325,63 @@ class AttendanceService
                     $rawMinutes = (int) abs($inTime->diffInMinutes($endTime)) - $lunchDeductionMinutes;
                     $hoursWorked = max(0, round($rawMinutes / 60, 2));
                 }
+            }
 
-                // Overtime — directly from OVERTIME_IN/OVERTIME_OUT punches (primary),
-                // or an approved OvertimeRequest as fallback.
-                $otMins = 0;
-                $shiftType = 'regular_day';
+            // Overtime — directly from OVERTIME_IN/OVERTIME_OUT punches (primary),
+            // or an approved OvertimeRequest as fallback. Hoisted out of the
+            // `if ($inPunch)` guard above: an OT-only day (rest day or otherwise
+            // worked purely on a call-in, no regular in-punch at all) must still
+            // compute overtime pay instead of silently leaving it at 0. This only
+            // depends on $hourlyRate, $otInPunch, $otOutPunch and $shiftType,
+            // all of which are available regardless of $inPunch.
+            $otMins = 0;
+            $shiftType = 'regular_day';
 
-                if ($otInPunch && $otOutPunch) {
-                    $otStart = Carbon::parse($otInPunch->timestamp);
-                    $otEnd = Carbon::parse($otOutPunch->timestamp);
+            if ($otInPunch && $otOutPunch) {
+                $otStart = Carbon::parse($otInPunch->timestamp);
+                $otEnd = Carbon::parse($otOutPunch->timestamp);
 
-                    // An overtime-out stamped earlier in the day than the overtime-in means
-                    // the shift crossed midnight but the punch carried the shift's own date
-                    // (OT 19:58 -> 01:15 recorded against the same day). Roll it forward
-                    // rather than measuring the span backwards, which reads 18h43m for what
-                    // is really 5h17m.
-                    if ($otEnd->lt($otStart)) {
-                        $otEnd = $otEnd->addDay();
-                    }
-
-                    $otMins = (int) $otStart->diffInMinutes($otEnd);
-                } else {
-                    $otRequest = OvertimeRequest::where('employee_id', $employee->id)
-                        ->where('date', $date)
-                        ->where('status', 'approved')
-                        ->first();
-
-                    if ($otRequest) {
-                        $otMins = $otRequest->getApprovedMinutes();
-                        $shiftType = $otRequest->shift_type ?? 'regular_day';
-                    }
+                // An overtime-out stamped earlier in the day than the overtime-in means
+                // the shift crossed midnight but the punch carried the shift's own date
+                // (OT 19:58 -> 01:15 recorded against the same day). Roll it forward
+                // rather than measuring the span backwards, which reads 18h43m for what
+                // is really 5h17m. When the bounded next-day lookahead above already
+                // pulled in a genuinely next-day punch, $otEnd is already ahead of
+                // $otStart, so this is a no-op and does not double-add a day.
+                if ($otEnd->lt($otStart)) {
+                    $otEnd = $otEnd->addDay();
                 }
 
-                if ($otMins > 0) {
-                    $maxOtMinutes = (int) (app(PayrollSettingService::class)->get('max_overtime_minutes', config('payroll.max_overtime_minutes', 720)));
+                $otMins = (int) $otStart->diffInMinutes($otEnd);
+            } else {
+                $otRequest = OvertimeRequest::where('employee_id', $employee->id)
+                    ->where('date', $date)
+                    ->where('status', 'approved')
+                    ->first();
 
-                    if ($otMins > $maxOtMinutes) {
-                        // Implausible span - almost always a mis-stamped punch. Record the raw
-                        // minutes so a reviewer can see what was punched, but withhold pay and
-                        // flag the sheet rather than paying out a wrong number silently.
-                        $overtimeMinutes = $otMins;
-                        $overtimePay = 0;
-                        $overtimeMultiplier = null;
-                        $isIncomplete = true;
-                        $incompleteReason ??= 'Overtime span exceeds '.$maxOtMinutes.' minutes - verify punches';
-                    } else {
-                        $overtimeMinutes = $otMins;
-                        $multiplier = $this->getOTMultiplier($shiftType);
-                        $overtimeMultiplier = $multiplier;
-                        $overtimePay = round(($otMins / 60) * $hourlyRate * $multiplier, 2);
-                    }
+                if ($otRequest) {
+                    $otMins = $otRequest->getApprovedMinutes();
+                    $shiftType = $otRequest->shift_type ?? 'regular_day';
+                }
+            }
+
+            if ($otMins > 0) {
+                $maxOtMinutes = (int) (app(PayrollSettingService::class)->get('max_overtime_minutes', config('payroll.max_overtime_minutes', 720)));
+
+                if ($otMins > $maxOtMinutes) {
+                    // Implausible span - almost always a mis-stamped punch. Record the raw
+                    // minutes so a reviewer can see what was punched, but withhold pay and
+                    // flag the sheet rather than paying out a wrong number silently.
+                    $overtimeMinutes = $otMins;
+                    $overtimePay = 0;
+                    $overtimeMultiplier = null;
+                    $isIncomplete = true;
+                    $incompleteReason ??= 'Overtime span exceeds '.$maxOtMinutes.' minutes - verify punches';
+                } else {
+                    $overtimeMinutes = $otMins;
+                    $multiplier = $this->getOTMultiplier($shiftType);
+                    $overtimeMultiplier = $multiplier;
+                    $overtimePay = round(($otMins / 60) * $hourlyRate * $multiplier, 2);
                 }
             }
         } elseif (! $hasAnyPunch && ! $isRestDay) {
@@ -371,7 +478,13 @@ class AttendanceService
             // overtime only via an approved request. Rest days differ from
             // regular days in one way only — not working one is not an absence
             // (see the `! $isRestDay` guard on absence marking above).
-            $basePay = $isPresent ? $dailyRate : 0;
+            //
+            // Exception: an OT-only day (no in/out/lunch punch at all — see
+            // $isOtOnlyDay above) has no regular shift to pay a flat day for,
+            // so it earns the overtime premium only, no base day. This is
+            // deliberately narrow — ANY regular punch (even a lone `out` with
+            // a missing `in`) still pays the full flat day exactly as before.
+            $basePay = ($isPresent && ! $isOtOnlyDay) ? $dailyRate : 0;
             $dailyWage = round($basePay - $lateDeduction - $undertimeDeduction - $fineDeduction + $overtimePay + $holidayPay + $incentive, 2);
             if ($dailyWage < 0) {
                 $dailyWage = 0;

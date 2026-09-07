@@ -1870,6 +1870,52 @@ it('scopes the completeness check to the period branch and date range', function
         );
 });
 
+it('findIncompleteSheets does not flag a leaked cross-midnight overtime-out after two consecutive OT nights', function () {
+    // Mirrors the AttendanceService regression in AttendanceOvertimeMidnightTest.php:
+    // two consecutive midnight-crossing overtime nights, where the SECOND
+    // night's closing punch (dated D3) must be recognized as a carry-over
+    // from D2's overtime-in, not read as D3's own orphan overtime-out.
+    $emp = Employee::create([
+        'first_name' => 'Chain',
+        'last_name' => 'Overtime',
+        'branch_id' => $this->branchA->id,
+        'hire_date' => '2026-01-05',
+        'position' => 'regular',
+        'status' => 'active',
+        'current_daily_rate' => 525,
+    ]);
+
+    $d1 = '2026-06-15';
+    $d2 = '2026-06-16';
+    $d3 = '2026-06-17';
+
+    foreach ([$d2, $d3] as $date) {
+        AttendanceSheet::create([
+            'employee_id' => $emp->id,
+            'date' => $date,
+            'schedule_start_time' => '08:00',
+            'schedule_end_time' => '17:00',
+            'rest_days' => [0, 6],
+            'daily_rate' => 525,
+            'hours_worked' => 0,
+            'daily_wage' => 0,
+            'is_present' => true,
+        ]);
+    }
+
+    TimeLog::create(['employee_id' => $emp->id, 'type' => PunchType::OVERTIME_IN, 'source' => PunchSource::SELF_SERVICE, 'timestamp' => "{$d1} 22:00:00"]);
+    TimeLog::create(['employee_id' => $emp->id, 'type' => PunchType::OVERTIME_OUT, 'source' => PunchSource::SELF_SERVICE, 'timestamp' => "{$d2} 01:00:00"]); // closes D1, not D2's own
+    TimeLog::create(['employee_id' => $emp->id, 'type' => PunchType::OVERTIME_IN, 'source' => PunchSource::SELF_SERVICE, 'timestamp' => "{$d2} 22:00:00"]);
+    TimeLog::create(['employee_id' => $emp->id, 'type' => PunchType::OVERTIME_OUT, 'source' => PunchSource::SELF_SERVICE, 'timestamp' => "{$d3} 02:00:00"]); // closes D2, not D3's own
+
+    // periodStart is D2 (not D1) so resolving D3's lookback to D1 exercises
+    // the query window's 2-day-before-periodStart widening, not just the
+    // in-range days.
+    $incomplete = app(PayrollPeriodService::class)->findIncompleteSheets($this->branchA, $d2, $d3);
+
+    expect($incomplete)->toBe([]);
+});
+
 it('hides the approve button when an active employee has no computed payroll', function () {
     // One employee is generated into the period with complete attendance.
     $emp1 = createEmployeeWithAttendance($this->branchA, 'Computed');
