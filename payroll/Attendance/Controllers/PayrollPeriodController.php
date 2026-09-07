@@ -99,7 +99,7 @@ class PayrollPeriodController extends Controller
 
         return Inertia::render('payroll/payroll/period-show', [
             'period' => array_merge($period->toArray(), [
-                'checked_at' => $period->checked_at?->toDateTimeString(),
+                'checked_at' => $period->checked_at?->toIso8601String(),
             ]),
             'items' => $items,
             'incompleteSheets' => $incompleteSheets,

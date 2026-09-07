@@ -42,9 +42,4 @@ class TimeLogPolicy
 
         return (int) $user->branch_id === $employeeBranchId;
     }
-
-    public function useCustomTimestamp(User $user): bool
-    {
-        return config('app.enable_custom_punch_time') || $user->isSuperAdmin();
-    }
 }

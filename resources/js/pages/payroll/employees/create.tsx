@@ -1,4 +1,4 @@
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, usePage } from '@inertiajs/react';
 import { toast } from 'sonner';
 import PayrollLayout from '@/layouts/payroll/payroll-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -18,6 +18,8 @@ export default function EmployeeCreate({
     positions,
     branches,
 }: EmployeesList) {
+    const { serverToday } = usePage().props;
+
     const form = useForm<EmployeeFormData>({
         first_name: '',
         last_name: '',
@@ -26,7 +28,7 @@ export default function EmployeeCreate({
         phone: '',
         address: '',
         birth_date: '',
-        hire_date: new Date().toISOString().slice(0, 10),
+        hire_date: serverToday,
         end_date: '',
         branch_id: '',
         position: 'regular',

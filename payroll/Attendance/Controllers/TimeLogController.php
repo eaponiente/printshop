@@ -3,6 +3,7 @@
 namespace Payroll\Attendance\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Payroll\Attendance\ManualTimeLogRequest;
 use App\Http\Requests\Payroll\Attendance\PunchRequest;
 use App\Models\Payroll\AttendanceSheet;
 use App\Models\Payroll\Employee;
@@ -59,7 +60,7 @@ class TimeLogController extends Controller
             'punchState' => $punchState,
             'employee' => $employee,
             'activeSchedule' => $employee?->activeSchedule(),
-            'enableCustomPunchTime' => config('app.enable_custom_punch_time', false),
+            'serverNow' => now()->toIso8601String(),
             'attendanceSheets' => $attendanceSheets,
             'recentTimeLogs' => $recentTimeLogs,
         ]);
@@ -77,15 +78,6 @@ class TimeLogController extends Controller
 
         $type = $request->punchType();
 
-        $customTimestamp = null;
-        if (
-            config('app.enable_custom_punch_time')
-            && $request->filled('timestamp')
-            && Gate::allows('time-logs.useCustomTimestamp')
-        ) {
-            $customTimestamp = Carbon::createFromFormat('Y-m-d H:i:s', $request->input('timestamp'));
-        }
-
         try {
             $log = $service->punch(
                 $employee,
@@ -94,7 +86,6 @@ class TimeLogController extends Controller
                 $request->input('latitude'),
                 $request->input('longitude'),
                 $request->input('accuracy_meters'),
-                $customTimestamp,
             );
         } catch (ValidationException $e) {
             throw $e;
@@ -115,15 +106,8 @@ class TimeLogController extends Controller
         return back()->with('success', $type->label().' recorded at '.$log->timestamp->format('h:i A').'.');
     }
 
-    public function manual(Request $request, TimeLogService $service)
+    public function manual(ManualTimeLogRequest $request, TimeLogService $service)
     {
-        $request->validate([
-            'employee_id' => ['required', 'exists:employees,id'],
-            'type' => ['required', 'string', 'in:in,lunch_out,lunch_in,out'],
-            'timestamp' => ['required', 'date'],
-            'note' => ['nullable', 'string', 'max:500'],
-        ]);
-
         $employee = Employee::findOrFail($request->input('employee_id'));
         Gate::authorize('time-logs.manual', [$employee->branch_id]);
 

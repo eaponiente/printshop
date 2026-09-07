@@ -1010,6 +1010,97 @@ All payroll routes are under `/payroll` prefix with `payroll.` name prefix. All 
 | `POST` | `/payroll/attendance/punch`  | `payroll.attendance.punch`  | Auth (self)   |
 | `POST` | `/payroll/attendance/manual` | `payroll.attendance.manual` | Auth (admin+) |
 
+**Punch timestamps are server-authoritative — always.** `payroll.attendance.punch`
+(`TimeLogController::punch` → `TimeLogService::punch`) stamps every self-service
+punch with the server's `now()`; no client-supplied timestamp is accepted or
+even read (`PunchRequest` has no `timestamp` rule). This closes a real
+incident: an employee's laptop clock was running ~15 days ahead, and because
+the "My Attendance" page previously read the *device* clock directly, the
+hero clock and the payload it built both showed the wrong date. The hero
+clock on that page is now seeded from a `serverNow` prop and ticks forward
+from a server-vs-client offset computed once at mount, so a wrong device
+clock can never move it or leak into a punch.
+
+**Admin backdating goes through the manual endpoint, not the punch endpoint.**
+There used to be a feature-flagged "Set Punch Time" picker on the
+self-service punch screen (`enable_custom_punch_time` / `ENABLE_CUSTOM_PUNCH_TIME`,
+`TimeLogPolicy::useCustomTimestamp`) that let a client-supplied timestamp
+override `now()`. That entire path — the config flag, the gate, the picker
+UI, and the `PunchRequest` `timestamp` rule — has been removed. Backdating a
+punch (correcting a missed clock-in, recording an off-hours arrival, etc.) is
+an admin-only action and belongs on `payroll.attendance.manual`
+(`ManualTimeLogRequest`), which now also accepts `overtime_in`/`overtime_out`
+as valid `type` values (previously limited to `in,lunch_out,lunch_in,out`),
+so admins can backdate overtime punches too.
+
+**Frontend rendering is Asia/Manila-only, regardless of the viewer's device
+timezone.** `resources/js/utils/dateHelper.ts`'s `toManilaTime()` genuinely
+converts to Asia/Manila now (it previously imported the dayjs `utc`/`timezone`
+plugins but never applied them, so it silently formatted in the device's
+local timezone). A new `toManilaClock()` helper (`hh:mm A`) covers time-of-day
+rendering. Per AGENTS.md, pages must never call `toLocaleTimeString`/
+`toLocaleDateString`/`toLocaleString` directly — always go through
+`toManilaTime`/`toManilaClock`.
+
+**The timezone contract, precisely: a value with NO timezone designator is
+Manila wall time; a value WITH one is an instant.** `toManilaTime()` branches
+on a single regex, `MANILA_LOCAL_PATTERN`
+(`/^\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2})?)?$/`), matching either a bare
+date (`"2026-09-07"`, e.g. `birth_date`) or an offset-less datetime
+(`"2026-09-07 08:00:00"` / `"2026-09-07T08:00:00"`). Anything matching is
+parsed *as* Manila local time (`dayjs.tz(date, 'Asia/Manila')`) so it can
+never shift for an off-zone viewer — because the backend's app timezone
+(`config('app.timezone')`) is `Asia/Manila`, an offset-less string coming out
+of the backend already **is** Manila wall time, not an instant to convert.
+Everything else — a trailing `Z` (`"2026-09-07T00:00:00.000000Z"`), an
+explicit `±HH:MM` offset (`"2026-09-07T08:00:00+08:00"`), a `Date`, or a
+timestamp — is treated as an unambiguous instant and converted to Manila for
+display (`dayjs(date).tz('Asia/Manila')`).
+
+This regex was originally date-only (no time-of-day branch), which was a live
+bug: `payroll/Audit/Models/AuditLog.php`'s `serializeDate()` emits offset-less
+`"Y-m-d H:i:s"` strings (e.g. `"2026-09-07 08:00:00"`, already Manila wall
+time), and `resources/js/pages/payroll/audit/list.tsx` renders `created_at`
+through `toManilaTime`. Under the narrow date-only pattern, that string fell
+into the "instant" branch and got parsed in the *viewer's device* timezone
+before being shifted to Manila — double-counting the offset (e.g. a UTC
+device saw 08:00 AM render as 04:00 PM). Widening the pattern to also match
+an offset-less datetime fixes it: any value with no timezone designator now
+takes the Manila-local branch, regardless of whether it carries a
+time-of-day component.
+
+Backend endpoints that hand a raw timestamp to Inertia props as a *string*
+should still prefer an explicit offset (`toIso8601String()`, not
+`toDateTimeString()`) where practical, so the value is unambiguous without
+relying on this fallback — but `toManilaTime()` now handles either shape
+correctly.
+
+**JS test coverage.** `resources/js/utils/dateHelper.test.ts` (Vitest) pins
+this contract — date-only, offset-less datetime, `Z`-suffixed ISO, and
+explicit-offset ISO all under a forced non-Manila (`UTC`) device timezone via
+`process.env.TZ`, since the whole bug class is invisible when the test
+runner's device timezone happens to already be Asia/Manila. Run with
+`npm run test:js` (`npm run test:js:watch` for watch mode).
+
+**Date form-defaults come from the server, never the device clock.** The same
+laptop-clock incident also exposed a second, wider bug class: form defaults
+that seeded a date field from `new Date().toISOString().slice(0, 10)` (or
+`.split('T')[0]`). This is doubly wrong — a client with a wrong clock writes
+the wrong date straight into the database, and `toISOString()` reads UTC, so
+even a *correctly* set device prefills **yesterday's** date for anyone
+submitting between midnight and 8am Manila. The fix is a shared Inertia prop,
+`serverToday` (`HandleInertiaRequests::share()` → `now()->toDateString()`,
+i.e. Manila, since `config('app.timezone')` is `Asia/Manila`), available on
+every page and typed on `sharedPageProps` in
+`resources/js/types/global.d.ts`. Any form that defaults a date field to
+"today" must read `usePage().props.serverToday` instead of constructing
+`new Date()` client-side — see `resources/js/pages/payroll/employees/create.tsx`
+(`hire_date`) and `resources/js/pages/expenses/expenses-dialog.tsx`
+(`expense_date`, create branch). An *existing* stored date being loaded into
+an edit form should go through `toDateInput()` or `toManilaTime(value, 'YYYY-MM-DD')`
+from `dateHelper.ts` — never a raw `new Date(value).toISOString()` round-trip,
+which can shift a bare `date`-column value by a day for an off-zone viewer.
+
 ### Attendance Sheets
 
 | Method | Path                                    | Name                              | Auth                 |
