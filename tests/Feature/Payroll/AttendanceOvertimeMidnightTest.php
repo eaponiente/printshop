@@ -127,6 +127,101 @@ it('keeps an earlier incomplete reason instead of overwriting it with the overti
         ->and((float) $sheet->overtime_pay)->toBe(0.0);
 });
 
+it('pays OT premium only for an OT-only weekday call-in that crosses midnight', function () {
+    // 2026-08-10 is a Monday — an ordinary working day for this employee
+    // (rest days are Sunday/Saturday). No regular in/out/lunch punches at
+    // all, only the overtime pair — a worked rest day is paid exactly like a
+    // regular day, so this must behave identically to the rest-day version
+    // in RestDayPayTest.php.
+    $date = '2026-08-10';
+    $nextDate = '2026-08-11';
+
+    otPunch($this->employee, $date, '19:44', PunchType::OVERTIME_IN);
+    otPunch($this->employee, $nextDate, '00:20', PunchType::OVERTIME_OUT);
+
+    $sheet = $this->service->processDailyAttendance($this->employee, $date);
+
+    expect((bool) $sheet->is_rest_day)->toBeFalse();
+    expect((int) $sheet->overtime_minutes)->toBe(276)
+        ->and((float) $sheet->overtime_multiplier)->toBe(1.25)
+        ->and((float) $sheet->hours_worked)->toBe(0.0)
+        ->and((float) $sheet->overtime_pay)->toBe(round((276 / 60) * $this->hourlyRate * 1.25, 2))
+        ->and((float) $sheet->daily_wage)->toBe(round((276 / 60) * $this->hourlyRate * 1.25, 2))
+        ->and((bool) $sheet->is_incomplete)->toBeFalse();
+});
+
+it('does not swallow a next-day punch stamped at or after the 06:00 cutoff', function () {
+    $date = '2026-08-10';
+    $nextDate = '2026-08-11';
+
+    otPunch($this->employee, $date, '23:00', PunchType::OVERTIME_IN);
+    // Stamped exactly at the cutoff — must NOT be treated as this OT-in's close.
+    otPunch($this->employee, $nextDate, '06:00', PunchType::OVERTIME_OUT);
+
+    $sheet = $this->service->processDailyAttendance($this->employee, $date);
+
+    expect((int) $sheet->overtime_minutes)->toBe(0)
+        ->and((float) $sheet->overtime_pay)->toBe(0.0)
+        ->and((bool) $sheet->is_incomplete)->toBeTrue()
+        ->and($sheet->incomplete_reason)->toBe('Overtime punch-out missing');
+});
+
+it('still pays the full flat daily rate when the punch-in is missing but other regular punches exist (scope-guard regression)', function () {
+    // No in-punch and no overtime punches, but lunch AND punch-out ARE
+    // recorded. This is NOT an OT-only day (there are regular punches), so
+    // the OT-only-day zeroing introduced by this change must not apply here
+    // — the employee still receives the full flat daily rate exactly as
+    // before. (Lunch punches are both present so the separate no-break-fine
+    // rule — which only requires a punch-out, not a punch-in — stays inert
+    // and doesn't muddy this assertion.)
+    $date = '2026-08-10';
+
+    otPunch($this->employee, $date, '12:00', PunchType::LUNCH_OUT);
+    otPunch($this->employee, $date, '13:00', PunchType::LUNCH_IN);
+    otPunch($this->employee, $date, '17:00', PunchType::OUT);
+
+    $sheet = $this->service->processDailyAttendance($this->employee, $date);
+
+    expect((float) $sheet->hours_worked)->toBe(0.0)
+        ->and((int) $sheet->overtime_minutes)->toBe(0)
+        ->and((float) $sheet->fine_deduction)->toBe(0.0)
+        ->and((float) $sheet->daily_wage)->toBe(525.0)
+        ->and((bool) $sheet->is_incomplete)->toBeTrue()
+        ->and($sheet->incomplete_reason)->toBe('No punch-in recorded');
+});
+
+it('resolves a chain of two consecutive midnight-crossing overtime nights without leaking an orphan onto the third day', function () {
+    // Regression for a defect where the exclusion and lookahead predicates
+    // disagreed the moment yesterday's own overtime-out was itself a
+    // carry-over from the day before: a raw "does yesterday have ANY
+    // OVERTIME_OUT" check found 08-11's 01:00 punch when processing 08-12,
+    // but that punch actually belongs to 08-10's shift, not 08-11's.
+    $d1 = '2026-08-10'; // Monday
+    $d2 = '2026-08-11'; // Tuesday
+    $d3 = '2026-08-12'; // Wednesday
+
+    otPunch($this->employee, $d1, '22:00', PunchType::OVERTIME_IN);
+    otPunch($this->employee, $d2, '01:00', PunchType::OVERTIME_OUT); // closes D1: 22:00->01:00 = 180 min
+    otPunch($this->employee, $d2, '22:00', PunchType::OVERTIME_IN);
+    otPunch($this->employee, $d3, '02:00', PunchType::OVERTIME_OUT); // closes D2: 22:00->02:00 = 240 min
+
+    $sheet1 = $this->service->processDailyAttendance($this->employee, $d1);
+    $sheet2 = $this->service->processDailyAttendance($this->employee, $d2);
+    $sheet3 = $this->service->processDailyAttendance($this->employee, $d3);
+
+    expect((int) $sheet1->overtime_minutes)->toBe(180)
+        ->and((bool) $sheet1->is_incomplete)->toBeFalse();
+
+    expect((int) $sheet2->overtime_minutes)->toBe(240)
+        ->and((bool) $sheet2->is_incomplete)->toBeFalse();
+
+    // D3's only "punch" is the tail end of D2's overtime — already fully
+    // accounted for on D2's sheet. D3 must not also claim it as its own
+    // orphan overtime-out, and must not be flagged incomplete for it.
+    expect((int) $sheet3->overtime_minutes)->toBe(0)
+        ->and((bool) $sheet3->is_incomplete)->toBeFalse();
+});
+
 it('respects a configurable max overtime minutes setting', function () {
     app(PayrollSettingService::class)->set('max_overtime_minutes', '60');
 

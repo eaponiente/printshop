@@ -90,10 +90,23 @@ export default function SheetDetail({
 
     const hourLabel = (h: number) => (h === 8 ? 'Full Day' : `${h}h`);
 
+    // An OT-only day (call-in worked entirely on overtime, no regular
+    // in/out punch) legitimately has hours_worked = 0 — overtime minutes are
+    // tracked separately (see the Additions section) and are never folded in
+    // here. Label it explicitly so "0h" doesn't read as a punch-tracking gap.
+    const hoursWorkedLabel = (s: NonNullable<Props['sheet']>) =>
+        s.hours_worked === 0 && s.overtime_minutes > 0
+            ? 'Overtime only'
+            : hourLabel(s.hours_worked);
+
     function handleSaveIncentive() {
         const parsed = Number(incentiveValue);
 
-        if (incentiveValue.trim() === '' || Number.isNaN(parsed) || parsed < 0) {
+        if (
+            incentiveValue.trim() === '' ||
+            Number.isNaN(parsed) ||
+            parsed < 0
+        ) {
             toast.error('Enter a valid incentive amount.');
 
             return;
@@ -266,9 +279,7 @@ export default function SheetDetail({
                                     <>
                                         <Row
                                             label="Hours Worked"
-                                            value={hourLabel(
-                                                sheet.hours_worked,
-                                            )}
+                                            value={hoursWorkedLabel(sheet)}
                                         />
                                         {sheet.schedule_start_time && (
                                             <Row
@@ -459,9 +470,7 @@ export default function SheetDetail({
                                 {sheet.incentive > 0 && (
                                     <Row
                                         label="Incentive"
-                                        value={formatCurrency(
-                                            sheet.incentive,
-                                        )}
+                                        value={formatCurrency(sheet.incentive)}
                                     />
                                 )}
                                 <Row

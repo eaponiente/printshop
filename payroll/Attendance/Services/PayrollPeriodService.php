@@ -19,6 +19,14 @@ use Payroll\Attendance\Enums\PayrollPeriodStatus;
 
 class PayrollPeriodService
 {
+    /**
+     * Mirrors AttendanceService::NEXT_DAY_OVERTIME_LOOKAHEAD_CUTOFF — kept as
+     * a separate constant since the two classes don't share a base, but the
+     * value MUST stay identical or period-level warnings would disagree with
+     * the underlying attendance sheets.
+     */
+    private const NEXT_DAY_OVERTIME_LOOKAHEAD_CUTOFF = '06:00';
+
     public function __construct(private AttendanceService $attendanceService) {}
 
     public function findIncompleteSheets(Branch $branch, string $periodStart, string $periodEnd): array
@@ -40,11 +48,19 @@ class PayrollPeriodService
             return [];
         }
 
-        // Batch-fetch all time logs for the period in one query.
+        // Batch-fetch all time logs for the period in one query. The window is
+        // widened (not queried per-row) so the bounded 06:00 lookahead/
+        // exclusion below — mirroring AttendanceService::processDailyAttendance
+        // — can resolve entirely in-memory: TWO days before periodStart (the
+        // exclusion check on the first sheet needs both the immediately
+        // preceding day and the day before THAT, to tell a genuine same-day
+        // close apart from a carry-over one link further up a chain of
+        // consecutive midnight-crossing nights), one day after periodEnd for
+        // the lookahead on the last sheet.
         $allLogs = TimeLog::whereIn('employee_id', $sheets->pluck('employee_id')->unique())
             ->whereBetween('timestamp', [
-                Carbon::parse($periodStart)->startOfDay(),
-                Carbon::parse($periodEnd)->endOfDay(),
+                Carbon::parse($periodStart)->subDays(2)->startOfDay(),
+                Carbon::parse($periodEnd)->addDay()->endOfDay(),
             ])
             ->whereNull('duplicate_of')
             ->get()
@@ -59,8 +75,58 @@ class PayrollPeriodService
 
         foreach ($sheets as $sheet) {
             $dateStr = $sheet->date->toDateString();
+            $dateObj = Carbon::parse($dateStr);
 
             $punches = $allLogs->get($sheet->employee_id.'|'.$dateStr) ?? collect();
+
+            // Snapshot BEFORE the exclusion below mutates $punches — "did
+            // today have any punch at all, raw". A day whose only raw punch
+            // turns out to be entirely a carry-over claimed by yesterday (see
+            // below) is not the same thing as a day with zero real activity:
+            // the former must fall through with no warning once the
+            // overtime/regular-punch checks below see nothing left; the
+            // latter still reports "No punch-in recorded" exactly as before.
+            $hasAnyRawPunch = $punches->isNotEmpty();
+
+            // Symmetric exclusion (mirrors AttendanceService): if yesterday has
+            // an unmatched OVERTIME_IN, its close may have been stamped after
+            // midnight — i.e. today, before the cutoff. Drop it here so it
+            // isn't ALSO read as today's own orphan overtime-out.
+            $prevDateStr = $dateObj->copy()->subDay()->toDateString();
+            $prevPunches = $allLogs->get($sheet->employee_id.'|'.$prevDateStr) ?? collect();
+            $prevHasOtIn = $prevPunches->contains(fn ($l) => $l->type->value === 'overtime_in');
+
+            if ($prevHasOtIn) {
+                // "Yesterday has its own close" must NOT count an
+                // overtime-out on yesterday that is itself a carry-over from
+                // the day BEFORE yesterday — the same early-punch shape one
+                // link further up the chain. Two consecutive midnight-
+                // crossing nights would otherwise fool a raw same-day
+                // existence check: yesterday's overtime-out really belongs to
+                // the day before it. One day further back is sufficient, no
+                // recursion needed — each day's exclusion check only ever
+                // needs the immediately preceding OT-in.
+                $prevOtOutPunch = $prevPunches->first(fn ($l) => $l->type->value === 'overtime_out');
+                $prevOtOutIsOwnClose = false;
+
+                if ($prevOtOutPunch) {
+                    $prevPrevDateStr = $dateObj->copy()->subDays(2)->toDateString();
+                    $prevPrevPunches = $allLogs->get($sheet->employee_id.'|'.$prevPrevDateStr) ?? collect();
+                    $prevPrevHasOtIn = $prevPrevPunches->contains(fn ($l) => $l->type->value === 'overtime_in');
+
+                    $prevOtOutIsCarryOver = Carbon::parse($prevOtOutPunch->timestamp)->format('H:i') < self::NEXT_DAY_OVERTIME_LOOKAHEAD_CUTOFF
+                        && $prevPrevHasOtIn;
+
+                    $prevOtOutIsOwnClose = ! $prevOtOutIsCarryOver;
+                }
+
+                if (! $prevOtOutIsOwnClose) {
+                    $punches = $punches->reject(
+                        fn ($l) => $l->type->value === 'overtime_out'
+                            && Carbon::parse($l->timestamp)->format('H:i') < self::NEXT_DAY_OVERTIME_LOOKAHEAD_CUTOFF
+                    )->values();
+                }
+            }
 
             $hasIn = $punches->contains(fn ($l) => $l->type->value === 'in');
             $hasOut = $punches->contains(fn ($l) => $l->type->value === 'out');
@@ -69,22 +135,55 @@ class PayrollPeriodService
             $hasOvertimeIn = $punches->contains(fn ($l) => $l->type->value === 'overtime_in');
             $hasOvertimeOut = $punches->contains(fn ($l) => $l->type->value === 'overtime_out');
 
+            // Bounded lookahead (mirrors AttendanceService): a next-day
+            // overtime-out before the cutoff closes today's unmatched
+            // overtime-in.
+            $otOutPunch = $punches->firstWhere('type.value', 'overtime_out');
+
+            if ($hasOvertimeIn && ! $hasOvertimeOut) {
+                $nextDateStr = $dateObj->copy()->addDay()->toDateString();
+                $nextPunches = $allLogs->get($sheet->employee_id.'|'.$nextDateStr) ?? collect();
+                $nextDayOtOut = $nextPunches->first(
+                    fn ($l) => $l->type->value === 'overtime_out'
+                        && Carbon::parse($l->timestamp)->format('H:i') < self::NEXT_DAY_OVERTIME_LOOKAHEAD_CUTOFF
+                );
+
+                if ($nextDayOtOut) {
+                    $otOutPunch = $nextDayOtOut;
+                    $hasOvertimeOut = true;
+                }
+            }
+
+            $hasRegularPunch = $hasIn || $hasOut || $hasLunchOut || $hasLunchIn;
+
             $reason = null;
-            if (! $hasIn) {
+            if (! $hasAnyRawPunch) {
+                // No punches at all (raw — before any exclusion), yet the
+                // sheet claims presence — flagged exactly as before.
                 $reason = 'No punch-in recorded';
-            } elseif (! $hasOut) {
-                $reason = 'Punch-out missing';
-            } elseif ($hasLunchOut && ! $hasLunchIn) {
-                $reason = 'Lunch return punch missing';
-            } elseif (! $hasLunchOut && $hasLunchIn) {
-                $reason = 'Lunch break punch missing';
-            } elseif ($hasOvertimeIn && ! $hasOvertimeOut) {
-                $reason = 'Overtime punch-out missing';
-            } elseif (! $hasOvertimeIn && $hasOvertimeOut) {
-                $reason = 'Overtime punch-in missing';
-            } elseif ($hasOvertimeIn && $hasOvertimeOut) {
+            } elseif ($hasRegularPunch) {
+                if (! $hasIn) {
+                    $reason = 'No punch-in recorded';
+                } elseif (! $hasOut) {
+                    $reason = 'Punch-out missing';
+                } elseif ($hasLunchOut && ! $hasLunchIn) {
+                    $reason = 'Lunch return punch missing';
+                } elseif (! $hasLunchOut && $hasLunchIn) {
+                    $reason = 'Lunch break punch missing';
+                } elseif ($hasOvertimeIn && ! $hasOvertimeOut) {
+                    $reason = 'Overtime punch-out missing';
+                } elseif (! $hasOvertimeIn && $hasOvertimeOut) {
+                    $reason = 'Overtime punch-in missing';
+                }
+            } elseif ($hasOvertimeIn xor $hasOvertimeOut) {
+                // OT-only day (no in/out/lunch punch at all) with a broken pair.
+                $reason = $hasOvertimeIn ? 'Overtime punch-out missing' : 'Overtime punch-in missing';
+            }
+            // else: an OT-only day with a MATCHED pair — a complete call-in
+            // day, not "No punch-in recorded".
+
+            if ($reason === null && $hasOvertimeIn && $hasOvertimeOut) {
                 $otInPunch = $punches->firstWhere('type.value', 'overtime_in');
-                $otOutPunch = $punches->firstWhere('type.value', 'overtime_out');
 
                 $otStart = Carbon::parse($otInPunch->timestamp);
                 $otEnd = Carbon::parse($otOutPunch->timestamp);
@@ -92,7 +191,8 @@ class PayrollPeriodService
                 // Same midnight-rollover adjustment as
                 // AttendanceService::processDailyAttendance — an overtime-out stamped
                 // earlier than the overtime-in means the shift crossed midnight but
-                // carried the shift's own date.
+                // carried the shift's own date. A no-op once the lookahead above has
+                // already pulled in a genuinely next-day punch.
                 if ($otEnd->lt($otStart)) {
                     $otEnd = $otEnd->addDay();
                 }
