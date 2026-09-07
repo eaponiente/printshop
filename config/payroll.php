@@ -45,4 +45,20 @@ return [
 
     'no_break_fine' => env('PAYROLL_NO_BREAK_FINE', 20),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Max Overtime Minutes
+    |--------------------------------------------------------------------------
+    |
+    | Sanity cap on the OVERTIME_IN -> OVERTIME_OUT punch diff (after the
+    | midnight-rollover adjustment). A span longer than this is treated as an
+    | implausible/mis-stamped punch: the raw minutes are still recorded on the
+    | sheet for review, but no overtime pay is computed and the sheet is
+    | flagged incomplete. Read from payroll_settings first, falling back to
+    | this env value.
+    |
+    */
+
+    'max_overtime_minutes' => env('PAYROLL_MAX_OVERTIME_MINUTES', 720),
+
 ];

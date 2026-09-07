@@ -224,3 +224,83 @@ it('keeps the rest-day OT request shift_type as a regular working day', function
     expect($ot)->not->toBeNull();
     expect($ot->shift_type)->toBe('regular_day');
 });
+
+// ──────────── OT-only rest day (call-in worked entirely on overtime) ────────────
+
+it('pays OT premium only on a rest day worked entirely as an overtime call-in', function () {
+    $date = $this->sunday; // 2026-06-21, a rest day
+    $nextDate = '2026-06-22'; // Monday — where the closing punch is stamped
+
+    TimeLog::create([
+        'employee_id' => $this->employee->id,
+        'timestamp' => Carbon::parse("{$date} 19:44"),
+        'type' => PunchType::OVERTIME_IN,
+        'source' => PunchSource::SELF_SERVICE,
+    ]);
+    TimeLog::create([
+        'employee_id' => $this->employee->id,
+        'timestamp' => Carbon::parse("{$nextDate} 00:20"),
+        'type' => PunchType::OVERTIME_OUT,
+        'source' => PunchSource::SELF_SERVICE,
+    ]);
+
+    $sheet = $this->service->processDailyAttendance($this->employee, $date);
+
+    expect((bool) $sheet->is_rest_day)->toBeTrue();
+    expect((int) $sheet->overtime_minutes)->toBe(276);
+    expect((float) $sheet->overtime_multiplier)->toBe(1.25);
+    expect((float) $sheet->hours_worked)->toBe(0.0);
+    // 4.6h × ₱75/hr × 1.25 = ₱431.25. The ONLY punches this day are the OT
+    // pair, so there is no flat daily rate — OT premium only.
+    expect((float) $sheet->overtime_pay)->toBe(431.25);
+    expect((float) $sheet->daily_wage)->toBe(431.25);
+    expect((bool) $sheet->is_incomplete)->toBeFalse();
+    expect($sheet->incomplete_reason)->toBeNull();
+});
+
+it('does not leak a cross-midnight overtime-out onto the next day as an orphan punch', function () {
+    $date = $this->sunday; // 2026-06-21, a rest day
+    $nextDate = '2026-06-22'; // Monday — an ordinary work day
+
+    TimeLog::create([
+        'employee_id' => $this->employee->id,
+        'timestamp' => Carbon::parse("{$date} 19:44"),
+        'type' => PunchType::OVERTIME_IN,
+        'source' => PunchSource::SELF_SERVICE,
+    ]);
+    TimeLog::create([
+        'employee_id' => $this->employee->id,
+        'timestamp' => Carbon::parse("{$nextDate} 00:20"),
+        'type' => PunchType::OVERTIME_OUT,
+        'source' => PunchSource::SELF_SERVICE,
+    ]);
+
+    // Monday's own ordinary shift — no overtime punches of its own.
+    foreach ([
+        ['08:00', PunchType::IN],
+        ['12:00', PunchType::LUNCH_OUT],
+        ['13:00', PunchType::LUNCH_IN],
+        ['17:00', PunchType::OUT],
+    ] as [$time, $type]) {
+        TimeLog::create([
+            'employee_id' => $this->employee->id,
+            'timestamp' => Carbon::parse("{$nextDate} {$time}"),
+            'type' => $type,
+            'source' => PunchSource::SELF_SERVICE,
+        ]);
+    }
+
+    $sundaySheet = $this->service->processDailyAttendance($this->employee, $date);
+    $mondaySheet = $this->service->processDailyAttendance($this->employee, $nextDate);
+
+    // Sunday keeps its own 276 minutes...
+    expect((int) $sundaySheet->overtime_minutes)->toBe(276);
+
+    // ...and Monday must not ALSO read the 00:20 punch as its own orphan
+    // overtime-out (which would flag "Overtime punch-in missing" and/or
+    // double-count the minutes elsewhere).
+    expect((int) $mondaySheet->overtime_minutes)->toBe(0);
+    expect((float) $mondaySheet->overtime_pay)->toBe(0.0);
+    expect((bool) $mondaySheet->is_incomplete)->toBeFalse();
+    expect((float) $mondaySheet->daily_wage)->toBe(600.0);
+});
