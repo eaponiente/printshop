@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { wayfinder } from '@laravel/vite-plugin-wayfinder';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
@@ -29,5 +30,9 @@ export default defineConfig({
         hmr: {
             host: 'localhost',
         },
+    },
+    test: {
+        environment: 'node',
+        include: ['resources/js/**/*.test.ts'],
     },
 });

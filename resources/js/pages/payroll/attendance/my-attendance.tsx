@@ -12,7 +12,7 @@ import {
     UserCog,
     UtensilsCrossed,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/data-table';
 import {
@@ -39,7 +39,7 @@ import { Textarea } from '@/components/ui/textarea';
 import PayrollLayout from '@/layouts/payroll/payroll-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { PaginatedResponse } from '@/types/pagination';
-import { toDateInput } from '@/utils/dateHelper';
+import { toDateInput, toManilaClock, toManilaTime } from '@/utils/dateHelper';
 import { formatCurrency, formatTime } from '@/utils/formatters';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -101,7 +101,7 @@ type Props = {
         effective_from: string;
         effective_to: string | null;
     } | null;
-    enableCustomPunchTime: boolean;
+    serverNow: string;
     attendanceSheets: PaginatedResponse<AttendanceSheetRow> | null;
     recentTimeLogs: TimeLogRow[];
 };
@@ -149,7 +149,7 @@ export default function MyAttendance(props: Props) {
                     punchState={punchState}
                     attendanceSheets={props.attendanceSheets}
                     recentTimeLogs={props.recentTimeLogs}
-                    enableCustomPunchTime={props.enableCustomPunchTime}
+                    serverNow={props.serverNow}
                 />
 
                 <Sheet open={profileOpen} onOpenChange={setProfileOpen}>
@@ -182,11 +182,7 @@ const attendanceColumns: ColumnDef<AttendanceSheetRow, any>[] = [
         header: 'Date',
         cell: ({ row }: CellContext<AttendanceSheetRow, any>) => (
             <span className="font-mono text-xs whitespace-nowrap">
-                {new Date(row.original.date).toLocaleDateString('en-PH', {
-                    weekday: 'short',
-                    month: 'short',
-                    day: 'numeric',
-                })}
+                {toManilaTime(row.original.date, 'ddd, MMM D')}
             </span>
         ),
     },
@@ -277,22 +273,23 @@ function PunchTab({
     punchState,
     attendanceSheets,
     recentTimeLogs,
-    enableCustomPunchTime,
+    serverNow,
 }: {
     punchState: any;
     attendanceSheets: PaginatedResponse<AttendanceSheetRow> | null;
     recentTimeLogs: TimeLogRow[];
-    enableCustomPunchTime: boolean;
+    serverNow: string;
 }) {
-    const today = new Date().toISOString().substring(0, 10);
-    const now = new Date();
-    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
-    const [selectedDate, setSelectedDate] = useState(today);
-    const [selectedTime, setSelectedTime] = useState(currentTime);
     const [confirmPunchType, setConfirmPunchType] = useState<string | null>(
         null,
     );
+
+    // The device clock can't be trusted (e.g. a laptop clock that's days off).
+    // The server-vs-client offset is computed once at mount (inside an
+    // effect, never during render — Date.now() is impure) from `serverNow`,
+    // then every tick derives from Date.now() + offset so a wrong device
+    // clock can never move the displayed time or date.
+    const offsetRef = useRef(0);
 
     const firstInLog = punchState?.logs?.find(
         (l: any) =>
@@ -305,30 +302,11 @@ function PunchTab({
                 (typeof l.type === 'string' ? l.type : l.type?.value) === 'out',
         );
 
-    const displayTime = enableCustomPunchTime
-        ? `${selectedDate} ${selectedTime}`
-        : new Date().toLocaleString('en-PH', {
-              dateStyle: 'long',
-              timeStyle: 'short',
-          });
-
-    const resetToNow = () => {
-        const fresh = new Date();
-        setSelectedDate(fresh.toISOString().substring(0, 10));
-        setSelectedTime(
-            `${String(fresh.getHours()).padStart(2, '0')}:${String(fresh.getMinutes()).padStart(2, '0')}`,
-        );
-    };
-
     const punch = (type: string) => {
         const label = typeLabel(type);
         const payload: Record<string, string | number | null> = {
             type,
         };
-
-        if (enableCustomPunchTime) {
-            payload.timestamp = `${selectedDate} ${selectedTime}:00`;
-        }
 
         const sendPunch = () => {
             router.post('/payroll/attendance/punch', payload, {
@@ -378,18 +356,24 @@ function PunchTab({
 
     const groupedLogs = groupTimeLogsByDate(recentTimeLogs);
 
-    const [clock, setClock] = useState(new Date());
+    // Pure during render: parses `serverNow` only, no Date.now()/impure calls.
+    const [clock, setClock] = useState(() => new Date(serverNow));
+
     useEffect(() => {
-        const id = window.setInterval(() => setClock(new Date()), 1000);
+        offsetRef.current = Date.parse(serverNow) - Date.now();
+        setClock(new Date(Date.now() + offsetRef.current));
+
+        const id = window.setInterval(
+            () => setClock(new Date(Date.now() + offsetRef.current)),
+            1000,
+        );
 
         return () => window.clearInterval(id);
-    }, []);
+    }, [serverNow]);
 
-    const fmtClock = (ts: string) =>
-        new Date(ts).toLocaleTimeString('en-PH', {
-            hour: '2-digit',
-            minute: '2-digit',
-        });
+    const displayTime = `${toManilaTime(clock, 'MMMM D, YYYY')} ${toManilaClock(clock)}`;
+
+    const fmtClock = (ts: string) => toManilaClock(ts);
 
     const heroStatus = (() => {
         if (!punchState) {
@@ -452,17 +436,25 @@ function PunchTab({
     })();
 
     const disabledReason = (
-        kind: 'in' | 'out' | 'lunch_out' | 'lunch_in' | 'overtime_in' | 'overtime_out',
+        kind:
+            | 'in'
+            | 'out'
+            | 'lunch_out'
+            | 'lunch_in'
+            | 'overtime_in'
+            | 'overtime_out',
     ): string | null => {
         if (!punchState) {
-return null;
-}
+            return null;
+        }
 
         const lastLabel = punchState.last_punch?.label;
 
         switch (kind) {
             case 'in':
-                return punchState.can_punch_in ? null : 'Already punched in for today.';
+                return punchState.can_punch_in
+                    ? null
+                    : 'Already punched in for today.';
             case 'out':
                 return punchState.can_punch_out
                     ? null
@@ -510,19 +502,10 @@ return null;
                 <div className="flex flex-wrap items-end justify-between gap-3">
                     <div>
                         <div className="font-mono text-3xl font-semibold tabular-nums sm:text-4xl">
-                            {clock.toLocaleTimeString('en-PH', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                second: '2-digit',
-                            })}
+                            {toManilaTime(clock, 'hh:mm:ss A')}
                         </div>
                         <div className="text-xs opacity-80 sm:text-sm">
-                            {clock.toLocaleDateString('en-PH', {
-                                weekday: 'long',
-                                month: 'long',
-                                day: 'numeric',
-                                year: 'numeric',
-                            })}
+                            {toManilaTime(clock, 'dddd, MMMM D, YYYY')}
                         </div>
                     </div>
                     <div className="flex items-center gap-2 text-sm font-medium">
@@ -558,14 +541,7 @@ return null;
                             {groupedLogs.map(([date, logs]) => (
                                 <div key={date}>
                                     <div className="mb-1 text-[11px] font-semibold text-muted-foreground uppercase">
-                                        {new Date(date).toLocaleDateString(
-                                            'en-PH',
-                                            {
-                                                weekday: 'short',
-                                                month: 'short',
-                                                day: 'numeric',
-                                            },
-                                        )}
+                                        {toManilaTime(date, 'ddd, MMM D')}
                                     </div>
                                     <ul className="space-y-0.5">
                                         {logs.map((log) => (
@@ -595,14 +571,8 @@ return null;
                                                     </span>
                                                 </div>
                                                 <span className="font-mono text-[11px]">
-                                                    {new Date(
+                                                    {toManilaClock(
                                                         log.timestamp,
-                                                    ).toLocaleTimeString(
-                                                        'en-PH',
-                                                        {
-                                                            hour: '2-digit',
-                                                            minute: '2-digit',
-                                                        },
                                                     )}
                                                 </span>
                                             </li>
@@ -624,74 +594,16 @@ return null;
                             <span className="text-muted-foreground">In</span>
                             <span className="font-mono font-medium">
                                 {firstInLog
-                                    ? new Date(
-                                          firstInLog.timestamp,
-                                      ).toLocaleTimeString('en-PH', {
-                                          hour: '2-digit',
-                                          minute: '2-digit',
-                                      })
+                                    ? toManilaClock(firstInLog.timestamp)
                                     : '—'}
                             </span>
                             <span className="text-border">|</span>
                             <span className="text-muted-foreground">Out</span>
                             <span className="font-mono font-medium">
                                 {lastOutLog
-                                    ? new Date(
-                                          lastOutLog.timestamp,
-                                      ).toLocaleTimeString('en-PH', {
-                                          hour: '2-digit',
-                                          minute: '2-digit',
-                                      })
+                                    ? toManilaClock(lastOutLog.timestamp)
                                     : '—'}
                             </span>
-                        </div>
-                    )}
-
-                    {enableCustomPunchTime && (
-                        <div className="space-y-2 rounded-md border bg-sidebar p-3">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-xs font-semibold text-muted-foreground uppercase">
-                                    Set Punch Time
-                                </h3>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 px-2 text-xs text-muted-foreground"
-                                    onClick={resetToNow}
-                                    type="button"
-                                >
-                                    <Clock className="mr-1 h-3 w-3" />
-                                    Now
-                                </Button>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="space-y-1">
-                                    <Label className="text-[10px] text-muted-foreground uppercase">
-                                        Date
-                                    </Label>
-                                    <Input
-                                        type="date"
-                                        value={selectedDate}
-                                        onChange={(e) =>
-                                            setSelectedDate(e.target.value)
-                                        }
-                                        className="h-8 text-xs"
-                                    />
-                                </div>
-                                <div className="space-y-1">
-                                    <Label className="text-[10px] text-muted-foreground uppercase">
-                                        Time
-                                    </Label>
-                                    <Input
-                                        type="time"
-                                        value={selectedTime}
-                                        onChange={(e) =>
-                                            setSelectedTime(e.target.value)
-                                        }
-                                        className="h-8 text-xs"
-                                    />
-                                </div>
-                            </div>
                         </div>
                     )}
 
@@ -749,9 +661,15 @@ return null;
                         <div className="grid grid-cols-2 gap-2">
                             <Button
                                 size="lg"
-                                onClick={() => setConfirmPunchType('overtime_in')}
-                                disabled={disabledReason('overtime_in') !== null}
-                                title={disabledReason('overtime_in') ?? undefined}
+                                onClick={() =>
+                                    setConfirmPunchType('overtime_in')
+                                }
+                                disabled={
+                                    disabledReason('overtime_in') !== null
+                                }
+                                title={
+                                    disabledReason('overtime_in') ?? undefined
+                                }
                                 className="h-14 flex-col gap-1 border border-rose-600 bg-rose-600 text-white hover:bg-rose-700"
                             >
                                 <PlusCircle className="h-4 w-4" />
@@ -760,9 +678,15 @@ return null;
 
                             <Button
                                 size="lg"
-                                onClick={() => setConfirmPunchType('overtime_out')}
-                                disabled={disabledReason('overtime_out') !== null}
-                                title={disabledReason('overtime_out') ?? undefined}
+                                onClick={() =>
+                                    setConfirmPunchType('overtime_out')
+                                }
+                                disabled={
+                                    disabledReason('overtime_out') !== null
+                                }
+                                title={
+                                    disabledReason('overtime_out') ?? undefined
+                                }
                                 className="h-14 flex-col gap-1 border border-rose-600 bg-rose-600 text-white hover:bg-rose-700"
                             >
                                 <MinusCircle className="h-4 w-4" />
@@ -834,13 +758,7 @@ return null;
                                             {typeLabel(log.type)}
                                         </span>
                                         <span className="font-mono text-xs">
-                                            {new Date(
-                                                log.timestamp,
-                                            ).toLocaleTimeString('en-PH', {
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                                second: '2-digit',
-                                            })}
+                                            {toManilaClock(log.timestamp)}
                                         </span>
                                     </li>
                                 ))}
@@ -871,8 +789,9 @@ function groupTimeLogsByDate(logs: TimeLogRow[]): [string, TimeLogRow[]][] {
     const groups = new Map<string, TimeLogRow[]>();
 
     for (const log of logs) {
-        const d = new Date(log.timestamp);
-        const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        // Bucket by the Manila calendar date, not the viewer's device
+        // timezone, so day headers never land on the wrong day.
+        const date = toManilaTime(log.timestamp, 'YYYY-MM-DD');
 
         if (!groups.has(date)) {
             groups.set(date, []);

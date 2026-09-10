@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/button';
 import PayrollLayout from '@/layouts/payroll/payroll-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { PaginatedResponse } from '@/types/pagination';
+import { toManilaTime } from '@/utils/dateHelper';
 import { formatCurrency } from '@/utils/formatters';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -519,7 +520,10 @@ export default function PayrollPeriodShow({
 
                         <p className="mt-2 text-xs text-muted-foreground">
                             Last checked:{' '}
-                            {new Date(period.checked_at).toLocaleString()}
+                            {toManilaTime(
+                                period.checked_at,
+                                'MMM D, YYYY hh:mm A',
+                            )}
                         </p>
                     </div>
                 )}

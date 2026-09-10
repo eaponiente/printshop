@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import PayrollLayout from '@/layouts/payroll/payroll-layout';
 import type { BreadcrumbItem } from '@/types';
+import { toManilaClock } from '@/utils/dateHelper';
 import { formatCurrency, formatTime } from '@/utils/formatters';
 import SheetFinesCard from './components/SheetFinesCard';
 
@@ -203,13 +204,7 @@ export default function SheetDetail({
                                     </span>
                                     <div className="flex items-center gap-2">
                                         <span className="font-mono text-xs">
-                                            {new Date(
-                                                log.timestamp,
-                                            ).toLocaleTimeString('en-PH', {
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                                second: '2-digit',
-                                            })}
+                                            {toManilaClock(log.timestamp)}
                                         </span>
                                         {canEdit && (
                                             <button

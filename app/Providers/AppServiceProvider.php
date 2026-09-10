@@ -93,7 +93,6 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('time-logs.punch', [TimeLogPolicy::class, 'punch']);
         Gate::define('time-logs.manual', [TimeLogPolicy::class, 'manualLog']);
         Gate::define('time-logs.viewAny', [TimeLogPolicy::class, 'viewAny']);
-        Gate::define('time-logs.useCustomTimestamp', [TimeLogPolicy::class, 'useCustomTimestamp']);
 
         Gate::define('overtime-requests.submit', [OvertimeRequestPolicy::class, 'submit']);
         Gate::define('overtime-requests.approve', [OvertimeRequestPolicy::class, 'approve']);

@@ -16,6 +16,7 @@ import {
 import PayrollLayout from '@/layouts/payroll/payroll-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { PaginatedResponse } from '@/types/pagination';
+import { toManilaClock, toManilaTime } from '@/utils/dateHelper';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -57,32 +58,32 @@ type Props = {
 
 const proximityBadge = (p: string | null) => {
     if (p === 'within') {
-return 'text-green-600';
-}
+        return 'text-green-600';
+    }
 
     if (p === 'outside') {
-return 'text-amber-600';
-}
+        return 'text-amber-600';
+    }
 
     return 'text-muted-foreground';
 };
 
 const proximityLabel = (p: string | null) => {
     if (p === 'within') {
-return 'Within radius';
-}
+        return 'Within radius';
+    }
 
     if (p === 'outside') {
-return 'Outside radius';
-}
+        return 'Outside radius';
+    }
 
     if (p === 'no_location') {
-return 'No location';
-}
+        return 'No location';
+    }
 
     if (p === 'no_branch_coords') {
-return 'No branch coords';
-}
+        return 'No branch coords';
+    }
 
     return '—';
 };
@@ -106,8 +107,8 @@ export default function AttendanceGeo({
 
     const handleSearch = () => {
         if (!branchId) {
-return;
-}
+            return;
+        }
 
         setHasSearched(true);
         router.get(
@@ -121,19 +122,11 @@ return;
         {
             accessorKey: 'timestamp',
             header: 'Date',
-            cell: ({ row }: CellContext<GeoTimeLog, any>) => {
-                const d = new Date(row.original.timestamp);
-
-                return (
-                    <span className="font-mono text-xs">
-                        {d.toLocaleDateString('en-PH', {
-                            year: 'numeric',
-                            month: '2-digit',
-                            day: '2-digit',
-                        })}
-                    </span>
-                );
-            },
+            cell: ({ row }: CellContext<GeoTimeLog, any>) => (
+                <span className="font-mono text-xs">
+                    {toManilaTime(row.original.timestamp, 'YYYY-MM-DD')}
+                </span>
+            ),
         },
         {
             accessorKey: 'employee',
@@ -174,14 +167,7 @@ return;
             header: 'Time',
             cell: ({ row }: CellContext<GeoTimeLog, any>) => (
                 <span className="font-mono text-xs">
-                    {new Date(row.original.timestamp).toLocaleTimeString(
-                        'en-PH',
-                        {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: false,
-                        },
-                    )}
+                    {toManilaClock(row.original.timestamp)}
                 </span>
             ),
         },

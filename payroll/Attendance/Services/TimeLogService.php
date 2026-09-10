@@ -21,10 +21,9 @@ class TimeLogService
         ?float $latitude = null,
         ?float $longitude = null,
         ?int $accuracyMeters = null,
-        ?Carbon $timestamp = null,
     ): TimeLog {
-        return DB::transaction(function () use ($employee, $type, $latitude, $longitude, $accuracyMeters, $timestamp) {
-            $now = $timestamp ?? now();
+        return DB::transaction(function () use ($employee, $type, $latitude, $longitude, $accuracyMeters) {
+            $now = now();
             $punchDate = $now->toDateString();
 
             $lockedSheet = AttendanceSheet::where('employee_id', $employee->id)
@@ -127,7 +126,7 @@ class TimeLogService
             'last_punch' => $lastLog ? [
                 'type' => $lastLog->type->value,
                 'label' => $lastLog->type->label(),
-                'timestamp' => $lastLog->timestamp->toDateTimeString(),
+                'timestamp' => $lastLog->timestamp->toIso8601String(),
             ] : null,
         ];
     }
