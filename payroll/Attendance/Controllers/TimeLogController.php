@@ -119,7 +119,7 @@ class TimeLogController extends Controller
         $employee = $this->findEmployeeForUser();
 
         if (! $employee) {
-            return back();
+            return response()->noContent();
         }
 
         Gate::authorize('time-logs.punch', [$employee->branch_id]);
@@ -140,7 +140,7 @@ class TimeLogController extends Controller
             ]);
         }
 
-        return back();
+        return response()->noContent();
     }
 
     public function manual(ManualTimeLogRequest $request, TimeLogService $service)

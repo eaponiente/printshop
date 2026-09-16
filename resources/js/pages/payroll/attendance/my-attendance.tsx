@@ -321,15 +321,32 @@ function PunchTab({
 
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                router.post(
-                    '/payroll/attendance/punch/location',
-                    {
+                // Deliberately not an Inertia visit. This is best-effort and
+                // must never reach the employee: a stale route cache or an
+                // expired session would make Inertia raise its error modal
+                // over the punch screen, and there is no page change to make
+                // anyway — the endpoint answers 204.
+                const xsrf = document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1];
+
+                fetch('/payroll/attendance/punch/location', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    keepalive: true,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                        ...(xsrf
+                            ? { 'X-XSRF-TOKEN': decodeURIComponent(xsrf) }
+                            : {}),
+                    },
+                    body: JSON.stringify({
                         latitude: position.coords.latitude,
                         longitude: position.coords.longitude,
                         accuracy_meters: Math.round(position.coords.accuracy),
-                    },
-                    { preserveScroll: true },
-                );
+                    }),
+                }).catch(() => {
+                    // The punch is saved. Losing the location is not an error.
+                });
             },
             () => {
                 // The punch is already recorded. A missing fix is not an error

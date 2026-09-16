@@ -1033,6 +1033,15 @@ coordinates are not. Only `in`, `out`, `overtime_in` and `overtime_out` carry a
 location (`TimeLogService::GEO_PUNCH_TYPES`, mirrored by `GEO_PUNCH_TYPES` in
 `my-attendance.tsx`); break punches never do.
 
+The location request is deliberately **not** an Inertia visit. It is a plain
+`fetch()` carrying `X-XSRF-TOKEN`, and the endpoint answers `204 No Content`.
+An Inertia visit that met a stale route cache or an expired session would raise
+Inertia's error modal over the punch screen — unacceptable for a request the
+employee neither made nor needs to know about — and there is no page change to
+apply, so a full Inertia round-trip and re-render per punch would be wasted
+anyway. Every failure path answers 204 too, including a user with no employee
+link; the `fetch` ignores the response entirely.
+
 This closes a second, larger incident. The punch POST used to be issued from
 *inside* the `getCurrentPosition` success/error callback, with
 `enableHighAccuracy: true`, `maximumAge: 0` and `timeout: 10000` — a forced,

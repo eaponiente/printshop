@@ -212,7 +212,7 @@ it('attaches a location to the punch that was just recorded', function () {
             'longitude' => 125.4553,
             'accuracy_meters' => 12,
         ])
-        ->assertSessionHasNoErrors();
+        ->assertNoContent();
 
     $log = TimeLog::sole();
 
@@ -234,7 +234,7 @@ it('ignores a location that arrives long after the punch', function () {
             'latitude' => 7.1907,
             'longitude' => 125.4553,
         ])
-        ->assertSessionHasNoErrors();
+        ->assertNoContent();
 
     expect(TimeLog::sole()->latitude)->toBeNull();
 });
@@ -318,4 +318,31 @@ it('still counts a log an admin backdated into an earlier day', function () {
 
     expect($state['can_punch_in'])->toBeFalse()
         ->and($log->fresh())->not->toBeNull();
+});
+
+it('answers the location endpoint with 204 so it can never disturb the punch screen', function () {
+    $this->actingAs($this->staff)
+        ->post(route('payroll.attendance.punch'), ['type' => 'in']);
+
+    $this->actingAs($this->staff)
+        ->post(route('payroll.attendance.punch.location'), [
+            'latitude' => 7.1907,
+            'longitude' => 125.4553,
+        ])
+        ->assertNoContent();
+});
+
+it('answers 204 when the user has no employee link rather than erroring', function () {
+    $orphan = User::factory()->create([
+        'role' => 'staff',
+        'branch_id' => $this->branch->id,
+        'employee_id' => null,
+    ]);
+
+    $this->actingAs($orphan)
+        ->post(route('payroll.attendance.punch.location'), [
+            'latitude' => 7.1907,
+            'longitude' => 125.4553,
+        ])
+        ->assertNoContent();
 });
