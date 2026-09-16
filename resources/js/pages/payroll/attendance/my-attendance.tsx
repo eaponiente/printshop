@@ -4,6 +4,7 @@ import {
     CheckCircle2,
     Clock,
     Coffee,
+    Loader2,
     LogIn,
     LogOut,
     MapPin,
@@ -12,6 +13,7 @@ import {
     UserCog,
     UtensilsCrossed,
 } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/data-table';
@@ -47,6 +49,9 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Payroll', href: '/payroll' },
     { title: 'My Attendance', href: '/payroll/attendance' },
 ];
+
+// Mirrors TimeLogService::GEO_PUNCH_TYPES — break punches carry no location.
+const GEO_PUNCH_TYPES = ['in', 'out', 'overtime_in', 'overtime_out'];
 
 type TimeLogRow = {
     id: number;
@@ -283,6 +288,7 @@ function PunchTab({
     const [confirmPunchType, setConfirmPunchType] = useState<string | null>(
         null,
     );
+    const [punchPending, setPunchPending] = useState<string | null>(null);
 
     // The device clock can't be trusted (e.g. a laptop clock that's days off).
     // The server-vs-client offset is computed once at mount (inside an
@@ -302,56 +308,59 @@ function PunchTab({
                 (typeof l.type === 'string' ? l.type : l.type?.value) === 'out',
         );
 
+    // The punch is sent immediately and the location follows separately.
+    // Holding the punch until `getCurrentPosition` resolved meant every fix
+    // that timed out — around half of them — cost the employee ten silent
+    // seconds on an unchanged button before anything was sent at all, and
+    // anyone who gave up in that window lost the punch entirely. That is what
+    // produced the missed punch-ins behind most correction requests.
+    const attachLocation = (type: string) => {
+        if (!GEO_PUNCH_TYPES.includes(type) || !navigator.geolocation) {
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                router.post(
+                    '/payroll/attendance/punch/location',
+                    {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                        accuracy_meters: Math.round(position.coords.accuracy),
+                    },
+                    { preserveScroll: true },
+                );
+            },
+            () => {
+                // The punch is already recorded. A missing fix is not an error
+                // worth interrupting the employee over.
+            },
+            // A coarse, briefly cached fix is ample for a 100m geofence and
+            // usually returns instantly, where a forced high-accuracy fix
+            // (maximumAge: 0) routinely ran the clock out indoors.
+            { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 },
+        );
+    };
+
     const punch = (type: string) => {
         const label = typeLabel(type);
-        const payload: Record<string, string | number | null> = {
-            type,
-        };
 
-        const sendPunch = () => {
-            router.post('/payroll/attendance/punch', payload, {
+        setPunchPending(type);
+
+        router.post(
+            '/payroll/attendance/punch',
+            { type },
+            {
                 onSuccess: () => {
                     toast.success(`${label} recorded.`);
+                    attachLocation(type);
                 },
                 onError: (err: any) => {
                     toast.error(err.message ?? 'Failed to record punch.');
                 },
-            });
-        };
-
-        if (
-            type === 'in' ||
-            type === 'out' ||
-            type === 'overtime_in' ||
-            type === 'overtime_out'
-        ) {
-            if (!navigator.geolocation) {
-                sendPunch();
-
-                return;
-            }
-
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    payload.latitude = position.coords.latitude;
-                    payload.longitude = position.coords.longitude;
-                    payload.accuracy_meters = Math.round(
-                        position.coords.accuracy,
-                    );
-                    sendPunch();
-                },
-                () => {
-                    toast.warning(
-                        'Location not captured. Punch recorded without GPS.',
-                        { position: 'top-center' },
-                    );
-                    sendPunch();
-                },
-                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
-            );
-        } else {
-            sendPunch();
-        }
+                onFinish: () => setPunchPending(null),
+            },
+        );
     };
 
     const groupedLogs = groupTimeLogsByDate(recentTimeLogs);
@@ -435,6 +444,15 @@ function PunchTab({
         };
     })();
 
+    // Pressing a punch button must always do something visible, even while the
+    // request is still in flight.
+    const punchIcon = (kind: string, idle: ReactNode): ReactNode =>
+        punchPending === kind ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+            idle
+        );
+
     const disabledReason = (
         kind:
             | 'in'
@@ -444,6 +462,12 @@ function PunchTab({
             | 'overtime_in'
             | 'overtime_out',
     ): string | null => {
+        // A punch is in flight — block the whole pad rather than let an
+        // unresponsive-looking button invite a second press.
+        if (punchPending !== null) {
+            return 'Recording your punch…';
+        }
+
         if (!punchState) {
             return null;
         }
@@ -616,7 +640,7 @@ function PunchTab({
                                 title={disabledReason('in') ?? undefined}
                                 className="h-14 flex-col gap-1 border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
                             >
-                                <LogIn className="h-4 w-4" />
+                                {punchIcon('in', <LogIn className="h-4 w-4" />)}
                                 <span className="text-xs">Punch In</span>
                             </Button>
 
@@ -627,7 +651,10 @@ function PunchTab({
                                 title={disabledReason('out') ?? undefined}
                                 className="h-14 flex-col gap-1 border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
                             >
-                                <LogOut className="h-4 w-4" />
+                                {punchIcon(
+                                    'out',
+                                    <LogOut className="h-4 w-4" />,
+                                )}
                                 <span className="text-xs">Punch Out</span>
                             </Button>
                         </div>
@@ -641,7 +668,10 @@ function PunchTab({
                                 title={disabledReason('lunch_out') ?? undefined}
                                 className="h-14 flex-col gap-1"
                             >
-                                <Coffee className="h-4 w-4" />
+                                {punchIcon(
+                                    'lunch_out',
+                                    <Coffee className="h-4 w-4" />,
+                                )}
                                 <span className="text-xs">Start Break</span>
                             </Button>
 
@@ -653,7 +683,10 @@ function PunchTab({
                                 title={disabledReason('lunch_in') ?? undefined}
                                 className="h-14 flex-col gap-1"
                             >
-                                <UtensilsCrossed className="h-4 w-4" />
+                                {punchIcon(
+                                    'lunch_in',
+                                    <UtensilsCrossed className="h-4 w-4" />,
+                                )}
                                 <span className="text-xs">End Break</span>
                             </Button>
                         </div>
@@ -672,7 +705,10 @@ function PunchTab({
                                 }
                                 className="h-14 flex-col gap-1 border border-rose-600 bg-rose-600 text-white hover:bg-rose-700"
                             >
-                                <PlusCircle className="h-4 w-4" />
+                                {punchIcon(
+                                    'overtime_in',
+                                    <PlusCircle className="h-4 w-4" />,
+                                )}
                                 <span className="text-xs">Overtime In</span>
                             </Button>
 
@@ -689,7 +725,10 @@ function PunchTab({
                                 }
                                 className="h-14 flex-col gap-1 border border-rose-600 bg-rose-600 text-white hover:bg-rose-700"
                             >
-                                <MinusCircle className="h-4 w-4" />
+                                {punchIcon(
+                                    'overtime_out',
+                                    <MinusCircle className="h-4 w-4" />,
+                                )}
                                 <span className="text-xs">Overtime Out</span>
                             </Button>
                         </div>

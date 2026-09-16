@@ -14,6 +14,16 @@ use Payroll\Attendance\Enums\PunchType;
 
 class TimeLogService
 {
+    /**
+     * Punch types that carry a geolocation. Break punches never do.
+     */
+    public const GEO_PUNCH_TYPES = ['in', 'out', 'overtime_in', 'overtime_out'];
+
+    /**
+     * How long after a punch its coordinates may still be attached.
+     */
+    private const GEO_ATTACH_WINDOW_MINUTES = 5;
+
     public function punch(
         Employee $employee,
         PunchType $type,
@@ -73,6 +83,45 @@ class TimeLogService
 
             return $log;
         });
+    }
+
+    /**
+     * Attach coordinates to the employee's most recent geo-eligible punch.
+     *
+     * A punch is never held back waiting for a GPS fix, so the browser sends
+     * the position separately once the device produces one. Only a punch made
+     * within the last few minutes that has no coordinates yet is eligible, so
+     * a slow or replayed request can never overwrite an earlier punch.
+     *
+     * Returns null when nothing is eligible — a fix that arrives too late is
+     * not an error, it just goes unrecorded.
+     */
+    public function attachLocationToRecentPunch(
+        Employee $employee,
+        float $latitude,
+        float $longitude,
+        ?int $accuracyMeters = null,
+    ): ?TimeLog {
+        $log = TimeLog::where('employee_id', $employee->id)
+            ->whereIn('type', self::GEO_PUNCH_TYPES)
+            ->whereNull('latitude')
+            ->where('timestamp', '>=', now()->subMinutes(self::GEO_ATTACH_WINDOW_MINUTES)->toDateTimeString())
+            ->orderByDesc('timestamp')
+            ->first();
+
+        if (! $log) {
+            return null;
+        }
+
+        $log->update($this->buildGeoData(
+            $employee,
+            $log->type,
+            $latitude,
+            $longitude,
+            $accuracyMeters,
+        ));
+
+        return $log;
     }
 
     public function manualLog(Employee $employee, array $data): TimeLog
@@ -149,7 +198,7 @@ class TimeLogService
             'note' => null,
         ];
 
-        if (! in_array($type->value, ['in', 'out', 'overtime_in', 'overtime_out'], true)) {
+        if (! in_array($type->value, self::GEO_PUNCH_TYPES, true)) {
             return $base;
         }
 

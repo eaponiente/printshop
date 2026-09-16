@@ -3,6 +3,7 @@
 namespace Payroll\Attendance\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Payroll\Attendance\StoreCorrectionRequest;
 use App\Models\Payroll\AttendanceSheet;
 use App\Models\Payroll\CorrectionRequest;
 use App\Models\Payroll\CorrectionRequestItem;
@@ -44,19 +45,12 @@ class CorrectionRequestController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreCorrectionRequest $request)
     {
         $employee = Employee::findOrFail($request->user()->employee_id);
         Gate::authorize('correction-requests.submit', [$employee->branch_id]);
 
-        $validated = $request->validate([
-            'date' => ['required', 'date'],
-            'correction_type' => ['required', 'string', 'in:missed_punch_in,missed_punch_out,time_adjustment,absent_to_present'],
-            'items' => ['required', 'array', 'min:1'],
-            'items.*.punch_type' => ['required', 'string', 'in:in,out'],
-            'items.*.requested_time' => ['required', 'date_format:H:i'],
-            'reason' => ['required', 'string', 'max:500'],
-        ]);
+        $validated = $request->validated();
 
         $punchTypes = array_column($validated['items'], 'punch_type');
         $inCount = count(array_keys($punchTypes, 'in'));
@@ -110,6 +104,15 @@ class CorrectionRequestController extends Controller
     public function approve(CorrectionRequest $correction)
     {
         Gate::authorize('correction-requests.approve', [$correction->employee->branch_id, $correction->employee->user?->id]);
+
+        // Requests submitted before the date bound existed can still be sitting
+        // pending with a mistyped month, so the bound is re-checked here rather
+        // than trusted from submission time.
+        if ($correction->date->isFuture()) {
+            throw ValidationException::withMessages([
+                'error' => 'This correction is dated in the future ('.$correction->date->toDateString().'). Deny it and ask for a corrected date.',
+            ]);
+        }
 
         $lockedSheet = AttendanceSheet::where('employee_id', $correction->employee_id)
             ->where('date', $correction->date->toDateString())
