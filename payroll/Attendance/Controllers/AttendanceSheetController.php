@@ -122,9 +122,13 @@ class AttendanceSheetController extends Controller
         Gate::authorize('attendance-sheets.show', [$employee->branch_id]);
 
         $validated = $request->validate([
-            'date' => ['required', 'date'],
+            // An admin correction always describes a day that has happened; the
+            // bound stops a mistyped month booking a punch months ahead.
+            'date' => ['required', 'date', 'before_or_equal:today'],
             'type' => ['required', 'string', 'in:in,lunch_out,lunch_in,out,overtime_in,overtime_out'],
             'time' => ['required', 'date_format:H:i'],
+        ], [
+            'date.before_or_equal' => 'A punch cannot be added for a future date. Check the month and day.',
         ]);
 
         $timestamp = $validated['date'].' '.$validated['time'].':00';

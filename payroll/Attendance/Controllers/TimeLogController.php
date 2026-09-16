@@ -4,6 +4,7 @@ namespace Payroll\Attendance\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Payroll\Attendance\ManualTimeLogRequest;
+use App\Http\Requests\Payroll\Attendance\PunchLocationRequest;
 use App\Http\Requests\Payroll\Attendance\PunchRequest;
 use App\Models\Payroll\AttendanceSheet;
 use App\Models\Payroll\Employee;
@@ -104,6 +105,42 @@ class TimeLogController extends Controller
         }
 
         return back()->with('success', $type->label().' recorded at '.$log->timestamp->format('h:i A').'.');
+    }
+
+    /**
+     * Attach a geolocation to the punch that was just recorded.
+     *
+     * Punching never waits for a GPS fix, so the browser calls this once the
+     * device produces one. A fix that never arrives, or arrives too late, is
+     * silently ignored: the punch is what matters, the coordinates are not.
+     */
+    public function punchLocation(PunchLocationRequest $request, TimeLogService $service)
+    {
+        $employee = $this->findEmployeeForUser();
+
+        if (! $employee) {
+            return response()->noContent();
+        }
+
+        Gate::authorize('time-logs.punch', [$employee->branch_id]);
+
+        $accuracy = $request->input('accuracy_meters');
+
+        try {
+            $service->attachLocationToRecentPunch(
+                $employee,
+                (float) $request->input('latitude'),
+                (float) $request->input('longitude'),
+                $accuracy === null ? null : (int) $accuracy,
+            );
+        } catch (\Throwable $e) {
+            Log::error('Punch location attach failed', [
+                'employee_id' => $employee->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return response()->noContent();
     }
 
     public function manual(ManualTimeLogRequest $request, TimeLogService $service)

@@ -1,4 +1,4 @@
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -41,7 +41,11 @@ type Props = {
 };
 
 export default function CorrectionForm({ onClose }: Props) {
-    const [date, setDate] = useState('');
+    // Seeded and bounded from the server. An empty date input opens its
+    // calendar on the *device's* month, and nothing stopped a day/month slip
+    // (09-11 entered as 11-09) booking a correction months ahead.
+    const { serverToday } = usePage().props;
+    const [date, setDate] = useState(serverToday);
     const [correctionType, setCorrectionType] =
         useState<CorrectionType>('missed_punch_in');
     const [reason, setReason] = useState('');
@@ -71,8 +75,8 @@ export default function CorrectionForm({ onClose }: Props) {
 
     const removeEntry = (key: number) => {
         if (items.length <= 1) {
-return;
-}
+            return;
+        }
 
         setItems(items.filter((e) => e.key !== key));
     };
@@ -148,6 +152,7 @@ return;
                         id="corr_date"
                         type="date"
                         value={date}
+                        max={serverToday}
                         onChange={(e) => setDate(e.target.value)}
                         required
                     />

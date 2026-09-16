@@ -1008,6 +1008,7 @@ All payroll routes are under `/payroll` prefix with `payroll.` name prefix. All 
 | ------ | ---------------------------- | --------------------------- | ------------- |
 | `GET`  | `/payroll/attendance`        | `payroll.attendance.index`  | Auth          |
 | `POST` | `/payroll/attendance/punch`  | `payroll.attendance.punch`  | Auth (self)   |
+| `POST` | `/payroll/attendance/punch/location` | `payroll.attendance.punch.location` | Auth (self) |
 | `POST` | `/payroll/attendance/manual` | `payroll.attendance.manual` | Auth (admin+) |
 
 **Punch timestamps are server-authoritative — always.** `payroll.attendance.punch`
@@ -1020,6 +1021,85 @@ hero clock and the payload it built both showed the wrong date. The hero
 clock on that page is now seeded from a `serverNow` prop and ticks forward
 from a server-vs-client offset computed once at mount, so a wrong device
 clock can never move it or leak into a punch.
+
+**A punch is never held back waiting for a GPS fix.** `payroll.attendance.punch`
+is posted the moment the employee confirms; coordinates arrive separately on
+`payroll.attendance.punch.location`
+(`TimeLogController::punchLocation` → `TimeLogService::attachLocationToRecentPunch`),
+which attaches them to that employee's most recent geo-eligible punch made in
+the last 5 minutes that has no coordinates yet. A fix that never arrives, or
+arrives too late, is silently ignored — the punch is what matters, the
+coordinates are not. Only `in`, `out`, `overtime_in` and `overtime_out` carry a
+location (`TimeLogService::GEO_PUNCH_TYPES`, mirrored by `GEO_PUNCH_TYPES` in
+`my-attendance.tsx`); break punches never do.
+
+The location request is deliberately **not** an Inertia visit. It is a plain
+`fetch()` carrying `X-XSRF-TOKEN`, and the endpoint answers `204 No Content`.
+An Inertia visit that met a stale route cache or an expired session would raise
+Inertia's error modal over the punch screen — unacceptable for a request the
+employee neither made nor needs to know about — and there is no page change to
+apply, so a full Inertia round-trip and re-render per punch would be wasted
+anyway. Every failure path answers 204 too, including a user with no employee
+link; the `fetch` ignores the response entirely.
+
+This closes a second, larger incident. The punch POST used to be issued from
+*inside* the `getCurrentPosition` success/error callback, with
+`enableHighAccuracy: true`, `maximumAge: 0` and `timeout: 10000` — a forced,
+uncached, high-accuracy fix on every single punch. Production data for
+2026-09-01 → 09-16 showed **40–87% of punches failing to get a fix on any given
+day**, and every one of those cost the employee ten silent seconds on a button
+with no pending state before anything was sent at all. Anyone who gave up in
+that window lost the punch outright: on 2026-09-15, the day with the worst
+fix rate (87%), recorded punch-ins collapsed to 15 against a weekday baseline
+of 38–74. Days where `out` punches outnumber `in` punches (2026-09-09: 40 in,
+53 out) are the same failure seen from the other side. Those lost punch-ins are
+what generated the `missed_punch_in` correction requests described below.
+
+The geolocation options are now `enableHighAccuracy: true`, `maximumAge: 60000`,
+`timeout: 15000`. Accuracy is kept because nothing waits on the fix any more — a
+slow one only has to land inside the 5-minute attach window — and `maximumAge`
+returns a recent fix instantly rather than forcing the cold acquisition that
+`maximumAge: 0` demanded on every punch. Coarse (wifi/cell) positioning would
+raise coverage further, but its error exceeds the 100m `geofence_radius`, so it
+would report punches made at the branch as outside it. The punch buttons show a
+spinner and disable as a group while a punch is in flight, so pressing one
+always does something visible.
+
+**A punch booked before its own day never governs the punch pad.**
+`TimeLogService::punchSequenceForDate` drops any log whose `created_at`
+precedes the start of the day its `timestamp` falls on
+(`wasBookedBeforeItsOwnDay`). No legitimate flow produces that shape — a
+self-service punch stamps both at the same instant, and manual logs and
+corrections are bounded to today or earlier, so both are always created on or
+after the day they record. A log created *before* its own day got there through
+a mistyped date, and `can_punch_in` being plainly `! $hasIn` means one stray
+`in` would otherwise grey out Punch In for that whole day once it arrived,
+locking the employee out of the very thing the correction was meant to fix.
+The row is not deleted or hidden from the admin attendance sheet; it simply
+stops deciding what the employee may press. Note the guard covers the punch pad
+only — `AttendanceService::processDailyAttendance` still sees such a log when
+computing the sheet, which keeps it visible for an admin to remove.
+
+**Corrections and manual logs cannot be dated in the future.** Every endpoint
+that accepts a typed date now bounds it, because a day/month slip in a native
+`<input type="date">` (which renders MM/DD or DD/MM depending on the *browser's*
+locale) silently booked punches months ahead — production had corrections dated
+2026-11-09 and 2026-12-09 filed on 2026-09-11 and 2026-09-12 respectively, a
+plain transposition:
+
+| Endpoint | Rule |
+| --- | --- |
+| `payroll.corrections.store` (`StoreCorrectionRequest`) | `date` → `before_or_equal:today` |
+| `payroll.attendance.manual` (`ManualTimeLogRequest`) | `timestamp` → `before:tomorrow` (all of today allowed) |
+| `payroll.attendance.logs.store` (`AttendanceSheetController::storeLog`) | `date` → `before_or_equal:today` |
+
+`CorrectionRequestController::approve` re-checks the bound rather than trusting
+submission time, so a request filed before the bound existed cannot be approved
+into a future-dated `TimeLog`. The correction form's date input is seeded from
+the shared `serverToday` prop and carries `max={serverToday}`; an empty date
+input opens its calendar on the *device's* month, which is how a wrong device
+clock could still steer a date even after punch timestamps became
+server-authoritative.
 
 **Admin backdating goes through the manual endpoint, not the punch endpoint.**
 There used to be a feature-flagged "Set Punch Time" picker on the
@@ -1300,6 +1380,9 @@ Admin     → Superadmin (never self-approved)
 | E6  | Punch on rest day (no OT)             | Blocked: "Today is your rest day"                                                      |
 | E7  | Punch on rest day (OT approved)       | Allowed; paid exactly like an ordinary working day (flat rate, 8h cap, OT via request) |
 | E8  | Punch > 18 hours after schedule start | Logged but flagged as anomaly warning                                                  |
+| E9  | GPS fix fails or times out            | Punch is already recorded; `note` reads "📍 Location not provided", no location stored  |
+| E10 | GPS fix arrives > 5 min after punch   | Ignored; the punch keeps "📍 Location not provided"                                     |
+| E11 | Correction/manual log dated ahead     | Rejected at validation; `approve()` re-checks and refuses pending future-dated ones     |
 
 ### Computation-Related
 

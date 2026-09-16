@@ -499,6 +499,7 @@ declare module 'ziggy-js' {
     "payroll.audit.index": [],
     "payroll.attendance.index": [],
     "payroll.attendance.punch": [],
+    "payroll.attendance.punch.location": [],
     "payroll.attendance.manual": [],
     "payroll.employee.profile.update": [],
     "payroll.holidays.index": [],

@@ -5,6 +5,7 @@ use App\Models\Payroll\Employee;
 use App\Models\Payroll\TimeLog;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
+use Payroll\Attendance\Services\TimeLogService;
 
 beforeEach(function () {
     $this->branch = Branch::factory()->create([
@@ -188,4 +189,160 @@ it('allows admin backdating through the manual endpoint to accept overtime_in', 
 
     expect($log)->not->toBeNull();
     expect($log->timestamp->format('Y-m-d H:i:s'))->toBe($backdate->format('Y-m-d H:i:s'));
+});
+
+it('records a punch without waiting for a location', function () {
+    $this->actingAs($this->staff)
+        ->post(route('payroll.attendance.punch'), ['type' => 'in'])
+        ->assertSessionHasNoErrors();
+
+    $log = TimeLog::sole();
+
+    expect($log->latitude)->toBeNull()
+        ->and($log->note)->toBe('📍 Location not provided');
+});
+
+it('attaches a location to the punch that was just recorded', function () {
+    $this->actingAs($this->staff)
+        ->post(route('payroll.attendance.punch'), ['type' => 'in']);
+
+    $this->actingAs($this->staff)
+        ->post(route('payroll.attendance.punch.location'), [
+            'latitude' => 7.1907,
+            'longitude' => 125.4553,
+            'accuracy_meters' => 12,
+        ])
+        ->assertNoContent();
+
+    $log = TimeLog::sole();
+
+    expect((float) $log->latitude)->toBe(7.1907)
+        ->and($log->accuracy_meters)->toBe(12)
+        ->and($log->note)->toContain('Test Branch office ✅');
+});
+
+it('ignores a location that arrives long after the punch', function () {
+    $this->travelTo(now()->subMinutes(30));
+
+    $this->actingAs($this->staff)
+        ->post(route('payroll.attendance.punch'), ['type' => 'in']);
+
+    $this->travelBack();
+
+    $this->actingAs($this->staff)
+        ->post(route('payroll.attendance.punch.location'), [
+            'latitude' => 7.1907,
+            'longitude' => 125.4553,
+        ])
+        ->assertNoContent();
+
+    expect(TimeLog::sole()->latitude)->toBeNull();
+});
+
+it('never overwrites a location that is already set', function () {
+    $this->actingAs($this->staff)
+        ->post(route('payroll.attendance.punch'), ['type' => 'in']);
+
+    $this->actingAs($this->staff)
+        ->post(route('payroll.attendance.punch.location'), [
+            'latitude' => 7.1907,
+            'longitude' => 125.4553,
+        ]);
+
+    $this->actingAs($this->staff)
+        ->post(route('payroll.attendance.punch.location'), [
+            'latitude' => 10.0,
+            'longitude' => 120.0,
+        ]);
+
+    expect((float) TimeLog::sole()->latitude)->toBe(7.1907);
+});
+
+it('rejects a manual log dated in the future', function () {
+    $this->actingAs($this->staff)
+        ->post(route('payroll.attendance.manual'), [
+            'employee_id' => $this->employee->id,
+            'type' => 'in',
+            'timestamp' => now()->addMonths(3)->format('Y-m-d H:i:s'),
+        ])
+        ->assertSessionHasErrors('timestamp');
+
+    expect(TimeLog::count())->toBe(0);
+});
+
+it('lets an employee punch in on a day a future-dated log was booked for', function () {
+    // The shape left behind by a mistyped correction: an `in` stamped for a
+    // day months ahead, created long before that day arrives.
+    $log = TimeLog::create([
+        'employee_id' => $this->employee->id,
+        'type' => 'in',
+        'source' => 'correction',
+        'timestamp' => now()->startOfDay()->addHours(8)->toDateTimeString(),
+    ]);
+    $log->forceFill(['created_at' => now()->subMonths(2)])->save();
+
+    $state = app(TimeLogService::class)
+        ->punchSequenceForDate($this->employee, now()->toDateString());
+
+    expect($state['can_punch_in'])->toBeTrue();
+
+    $this->actingAs($this->staff)
+        ->post(route('payroll.attendance.punch'), ['type' => 'in'])
+        ->assertSessionHasNoErrors();
+
+    expect(TimeLog::where('source', 'self_service')->count())->toBe(1);
+});
+
+it('still blocks a second punch in after a genuine one', function () {
+    $this->actingAs($this->staff)
+        ->post(route('payroll.attendance.punch'), ['type' => 'in']);
+
+    $state = app(TimeLogService::class)
+        ->punchSequenceForDate($this->employee, now()->toDateString());
+
+    expect($state['can_punch_in'])->toBeFalse();
+});
+
+it('still counts a log an admin backdated into an earlier day', function () {
+    // Created today, stamped for yesterday — a legitimate correction, and it
+    // must keep governing that day's punch state.
+    $log = TimeLog::create([
+        'employee_id' => $this->employee->id,
+        'type' => 'in',
+        'source' => 'manual',
+        'timestamp' => now()->subDay()->startOfDay()->addHours(8)->toDateTimeString(),
+    ]);
+
+    $state = app(TimeLogService::class)
+        ->punchSequenceForDate($this->employee, now()->subDay()->toDateString());
+
+    expect($state['can_punch_in'])->toBeFalse()
+        ->and($log->fresh())->not->toBeNull();
+});
+
+it('answers the location endpoint with 204 so it can never disturb the punch screen', function () {
+    $this->actingAs($this->staff)
+        ->post(route('payroll.attendance.punch'), ['type' => 'in']);
+
+    $this->actingAs($this->staff)
+        ->post(route('payroll.attendance.punch.location'), [
+            'latitude' => 7.1907,
+            'longitude' => 125.4553,
+        ])
+        ->assertNoContent();
+});
+
+it('answers 204 when the user has no employee link rather than erroring', function () {
+    $orphan = User::factory()->create([
+        'role' => 'staff',
+        'branch_id' => $this->branch->id,
+        'employee_id' => null,
+    ]);
+
+    $this->actingAs($orphan)
+        ->post(route('payroll.attendance.punch.location'), [
+            'latitude' => 7.1907,
+            'longitude' => 125.4553,
+        ])
+        ->assertNoContent();
 });

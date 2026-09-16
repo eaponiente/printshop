@@ -310,3 +310,42 @@ it('index includes items relationship', function () {
     $props = $response->inertiaProps();
     expect($props)->toHaveKey('requests');
 });
+
+it('rejects a correction dated in the future', function () {
+    $this->actingAs($this->staff)
+        ->post(route('payroll.corrections.store'), [
+            'date' => now()->addMonths(3)->toDateString(),
+            'correction_type' => 'missed_punch_in',
+            'reason' => 'dili maka punch in',
+            'items' => [
+                ['punch_type' => 'in', 'requested_time' => '08:00'],
+            ],
+        ])
+        ->assertSessionHasErrors('date');
+
+    expect(CorrectionRequest::count())->toBe(0);
+});
+
+it('refuses to approve a future-dated correction already in the queue', function () {
+    // Submitted before the date bound existed, so it bypasses validation.
+    $correction = CorrectionRequest::create([
+        'employee_id' => $this->employee->id,
+        'date' => now()->addMonths(3)->toDateString(),
+        'correction_type' => 'missed_punch_in',
+        'reason' => 'dili maka punch in',
+        'status' => 'pending',
+    ]);
+
+    CorrectionRequestItem::create([
+        'correction_request_id' => $correction->id,
+        'punch_type' => 'in',
+        'requested_time' => now()->addMonths(3)->setTime(8, 0)->format('Y-m-d H:i:s'),
+    ]);
+
+    $this->actingAs($this->admin)
+        ->post(route('payroll.corrections.approve', $correction))
+        ->assertSessionHasErrors('error');
+
+    expect(TimeLog::count())->toBe(0)
+        ->and($correction->fresh()->status)->toBe('pending');
+});
