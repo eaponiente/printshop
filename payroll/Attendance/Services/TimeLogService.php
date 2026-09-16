@@ -142,13 +142,35 @@ class TimeLogService
         return $log;
     }
 
+    /**
+     * Was this punch booked before the day it claims to fall on?
+     *
+     * No legitimate flow does that. A self-service punch stamps `created_at`
+     * and `timestamp` at the same instant, and manual logs and corrections are
+     * bounded to today or earlier, so both are always created on or after the
+     * day they record. A log created *before* its own day got there through a
+     * mistyped date, and must never decide what an employee may press: a
+     * single stray `in` would otherwise grey out Punch In for that entire day
+     * once it arrives, because `can_punch_in` is simply `! $hasIn`.
+     *
+     * The row is left alone — it still shows on the admin attendance sheet,
+     * where it can be removed — it just stops governing the punch pad.
+     */
+    private function wasBookedBeforeItsOwnDay(TimeLog $log): bool
+    {
+        return $log->created_at !== null
+            && $log->created_at->lessThan($log->timestamp->startOfDay());
+    }
+
     public function punchSequenceForDate(Employee $employee, string $date): array
     {
         $logs = TimeLog::where('employee_id', $employee->id)
             ->whereBetween('timestamp', [$date.' 00:00:00', $date.' 23:59:59'])
             ->whereNull('duplicate_of')
             ->orderBy('timestamp')
-            ->get();
+            ->get()
+            ->reject(fn (TimeLog $log) => $this->wasBookedBeforeItsOwnDay($log))
+            ->values();
 
         $types = $logs->pluck('type.value')->toArray();
 

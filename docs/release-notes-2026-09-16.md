@@ -36,6 +36,14 @@ Those missing punch-ins are the origin of the `missed_punch_in` correction reque
 
 Punches that still end up without a location behave exactly as before — they save normally and the log note reads "📍 Location not provided". Break punches (`lunch_out`, `lunch_in`) never carried a location and are unchanged.
 
+### A stray future-dated punch can no longer lock you out of that day
+
+Whether Punch In is available is decided by a single question — does an `in` already exist for today? — so a punch accidentally booked for a date months ahead would, when that date finally arrived, greet the employee with a greyed-out Punch In reading "Already punched in for today." Punch Out and the break buttons would still work, so the day would be recorded on top of an arrival time nobody actually punched, and the employee's only recourse would be another correction request.
+
+Punch availability now ignores any log created *before* the day it is stamped for. Nothing legitimate has that shape: a self-service punch writes both timestamps at the same instant, and manual logs and corrections are now bounded to today or earlier. A backdated correction still counts exactly as it always did — only a punch booked *in advance* is skipped, and only for deciding which buttons are live. It stays visible on the admin attendance sheet for removal.
+
+This makes the app resilient to any such row, past or future, without depending on a cleanup.
+
 ### Corrections and manual logs can no longer be dated in the future
 
 Four punches in the production database sat months ahead of the day they were created, all of them `source = correction`:

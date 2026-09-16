@@ -5,6 +5,7 @@ use App\Models\Payroll\Employee;
 use App\Models\Payroll\TimeLog;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
+use Payroll\Attendance\Services\TimeLogService;
 
 beforeEach(function () {
     $this->branch = Branch::factory()->create([
@@ -267,4 +268,54 @@ it('rejects a manual log dated in the future', function () {
         ->assertSessionHasErrors('timestamp');
 
     expect(TimeLog::count())->toBe(0);
+});
+
+it('lets an employee punch in on a day a future-dated log was booked for', function () {
+    // The shape left behind by a mistyped correction: an `in` stamped for a
+    // day months ahead, created long before that day arrives.
+    $log = TimeLog::create([
+        'employee_id' => $this->employee->id,
+        'type' => 'in',
+        'source' => 'correction',
+        'timestamp' => now()->startOfDay()->addHours(8)->toDateTimeString(),
+    ]);
+    $log->forceFill(['created_at' => now()->subMonths(2)])->save();
+
+    $state = app(TimeLogService::class)
+        ->punchSequenceForDate($this->employee, now()->toDateString());
+
+    expect($state['can_punch_in'])->toBeTrue();
+
+    $this->actingAs($this->staff)
+        ->post(route('payroll.attendance.punch'), ['type' => 'in'])
+        ->assertSessionHasNoErrors();
+
+    expect(TimeLog::where('source', 'self_service')->count())->toBe(1);
+});
+
+it('still blocks a second punch in after a genuine one', function () {
+    $this->actingAs($this->staff)
+        ->post(route('payroll.attendance.punch'), ['type' => 'in']);
+
+    $state = app(TimeLogService::class)
+        ->punchSequenceForDate($this->employee, now()->toDateString());
+
+    expect($state['can_punch_in'])->toBeFalse();
+});
+
+it('still counts a log an admin backdated into an earlier day', function () {
+    // Created today, stamped for yesterday — a legitimate correction, and it
+    // must keep governing that day's punch state.
+    $log = TimeLog::create([
+        'employee_id' => $this->employee->id,
+        'type' => 'in',
+        'source' => 'manual',
+        'timestamp' => now()->subDay()->startOfDay()->addHours(8)->toDateTimeString(),
+    ]);
+
+    $state = app(TimeLogService::class)
+        ->punchSequenceForDate($this->employee, now()->subDay()->toDateString());
+
+    expect($state['can_punch_in'])->toBeFalse()
+        ->and($log->fresh())->not->toBeNull();
 });

@@ -1056,6 +1056,21 @@ would report punches made at the branch as outside it. The punch buttons show a
 spinner and disable as a group while a punch is in flight, so pressing one
 always does something visible.
 
+**A punch booked before its own day never governs the punch pad.**
+`TimeLogService::punchSequenceForDate` drops any log whose `created_at`
+precedes the start of the day its `timestamp` falls on
+(`wasBookedBeforeItsOwnDay`). No legitimate flow produces that shape — a
+self-service punch stamps both at the same instant, and manual logs and
+corrections are bounded to today or earlier, so both are always created on or
+after the day they record. A log created *before* its own day got there through
+a mistyped date, and `can_punch_in` being plainly `! $hasIn` means one stray
+`in` would otherwise grey out Punch In for that whole day once it arrived,
+locking the employee out of the very thing the correction was meant to fix.
+The row is not deleted or hidden from the admin attendance sheet; it simply
+stops deciding what the employee may press. Note the guard covers the punch pad
+only — `AttendanceService::processDailyAttendance` still sees such a log when
+computing the sheet, which keeps it visible for an admin to remove.
+
 **Corrections and manual logs cannot be dated in the future.** Every endpoint
 that accepts a typed date now bounds it, because a day/month slip in a native
 `<input type="date">` (which renders MM/DD or DD/MM depending on the *browser's*
