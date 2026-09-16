@@ -31,7 +31,7 @@ Those missing punch-ins are the origin of the `missed_punch_in` correction reque
 **What changed:**
 
 - The punch POST goes out immediately on confirm. Coordinates are attached afterwards through a new endpoint, `payroll.attendance.punch.location`, which matches them to your most recent `in`/`out`/`overtime_in`/`overtime_out` punch from the last 5 minutes that has no location yet. A fix that arrives later than that is discarded rather than attached to the wrong punch, and an existing location is never overwritten.
-- Geolocation is now requested as `enableHighAccuracy: false`, `maximumAge: 60000`, `timeout: 15000`. A coarse fix cached for a minute is more than accurate enough for a 100m geofence and usually returns instantly. The longer timeout costs nothing now that nothing waits on it.
+- Geolocation is now requested as `enableHighAccuracy: true`, `maximumAge: 60000`, `timeout: 15000`. Accuracy is unchanged — a fix is allowed to take its time now that no one is waiting on it — but a fix from the last minute is reused instead of forcing a fresh satellite acquisition on every single punch, which is what the old `maximumAge: 0` required. Dropping to coarse wifi/cell positioning would have made fixes almost always succeed, but its margin of error is wider than the 100m geofence, which would start reporting punches made at the branch as outside it.
 - The punch buttons show a spinner and disable as a group while a punch is in flight, so pressing one always does something visible.
 
 Punches that still end up without a location behave exactly as before — they save normally and the log note reads "📍 Location not provided". Break punches (`lunch_out`, `lunch_in`) never carried a location and are unchanged.

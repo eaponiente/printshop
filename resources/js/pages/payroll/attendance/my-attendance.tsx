@@ -335,10 +335,14 @@ function PunchTab({
                 // The punch is already recorded. A missing fix is not an error
                 // worth interrupting the employee over.
             },
-            // A coarse, briefly cached fix is ample for a 100m geofence and
-            // usually returns instantly, where a forced high-accuracy fix
-            // (maximumAge: 0) routinely ran the clock out indoors.
-            { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 },
+            // High accuracy is affordable again now that nothing waits on it:
+            // a slow fix only has to land inside the 5-minute attach window.
+            // `maximumAge` returns a recent fix instantly instead of forcing a
+            // cold acquisition every punch, which is what `maximumAge: 0` did.
+            // Coarse (wifi/cell) positioning was the alternative, but its error
+            // exceeds the 100m geofence, so it would flag punches made at the
+            // branch as outside it.
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
         );
     };
 

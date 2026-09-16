@@ -1046,11 +1046,15 @@ of 38–74. Days where `out` punches outnumber `in` punches (2026-09-09: 40 in,
 53 out) are the same failure seen from the other side. Those lost punch-ins are
 what generated the `missed_punch_in` correction requests described below.
 
-The geolocation options are now `enableHighAccuracy: false`, `maximumAge: 60000`,
-`timeout: 15000` — a coarse, briefly cached fix is ample for a 100m geofence and
-usually returns instantly, and the longer timeout is now harmless because
-nothing waits on it. The punch buttons show a spinner and disable as a group
-while a punch is in flight, so pressing one always does something visible.
+The geolocation options are now `enableHighAccuracy: true`, `maximumAge: 60000`,
+`timeout: 15000`. Accuracy is kept because nothing waits on the fix any more — a
+slow one only has to land inside the 5-minute attach window — and `maximumAge`
+returns a recent fix instantly rather than forcing the cold acquisition that
+`maximumAge: 0` demanded on every punch. Coarse (wifi/cell) positioning would
+raise coverage further, but its error exceeds the 100m `geofence_radius`, so it
+would report punches made at the branch as outside it. The punch buttons show a
+spinner and disable as a group while a punch is in flight, so pressing one
+always does something visible.
 
 **Corrections and manual logs cannot be dated in the future.** Every endpoint
 that accepts a typed date now bounds it, because a day/month slip in a native
