@@ -108,6 +108,9 @@ Route::middleware(['auth'])->group(function () {
         Route::post('attendance/punch', [TimeLogController::class, 'punch'])
             ->middleware('throttle:30,1')
             ->name('attendance.punch');
+        Route::post('attendance/punch/location', [TimeLogController::class, 'punchLocation'])
+            ->middleware('throttle:30,1')
+            ->name('attendance.punch.location');
         Route::post('attendance/manual', [TimeLogController::class, 'manual'])->name('attendance.manual');
         Route::put('employee/profile', [EmployeeController::class, 'updateSelf'])->name('employee.profile.update');
 
