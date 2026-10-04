@@ -161,6 +161,53 @@ class LeaveRequestController extends Controller
         return back()->with('success', 'Leave request denied.');
     }
 
+    public function revert(LeaveRequest $leaveRequest): RedirectResponse
+    {
+        Gate::authorize('leave-requests.approve', [$leaveRequest->employee->branch_id, $leaveRequest->employee->user?->id]);
+
+        if ($leaveRequest->status !== 'approved') {
+            return back()->withErrors(['error' => 'Only approved leave requests can be reverted.']);
+        }
+
+        $lockedSheet = AttendanceSheet::where('employee_id', $leaveRequest->employee_id)
+            ->where('date', $leaveRequest->date->toDateString())
+            ->whereNotNull('locked_at')
+            ->first();
+
+        if ($lockedSheet) {
+            throw ValidationException::withMessages([
+                'error' => 'Attendance sheet for this date is locked in a payroll period. Void the period first.',
+            ]);
+        }
+
+        $employee = $leaveRequest->employee;
+        $date = $leaveRequest->date->toDateString();
+        $wasPaid = $leaveRequest->is_paid;
+
+        $before = $leaveRequest->getAttributes();
+
+        DB::transaction(function () use ($leaveRequest, $employee, $wasPaid, $date) {
+            if ($wasPaid) {
+                $employee->increment('paid_leave_balance', 1);
+            }
+
+            $leaveRequest->update([
+                'status' => 'pending',
+                'is_paid' => false,
+                'approved_by' => null,
+                'approved_at' => null,
+            ]);
+
+            app(AttendanceService::class)->processDailyAttendance($employee, $date);
+        });
+
+        $after = $leaveRequest->getAttributes();
+
+        $this->audit('reverted', $leaveRequest, $before, $after);
+
+        return back()->with('success', 'Leave reverted to pending.');
+    }
+
     public function cancel(LeaveRequest $leaveRequest): RedirectResponse
     {
         Gate::authorize('leave-requests.cancel', [$leaveRequest->employee->branch_id, $leaveRequest->employee->user?->id]);
