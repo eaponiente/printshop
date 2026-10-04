@@ -897,6 +897,32 @@ On delete:
   generated payroll period is refused (that pay is finalized; refunding a spent credit there
   would corrupt a closed period). Mirrors the `approve` lock guard.
 
+**Reverting an approved leave** (`POST /payroll/leave-requests/{lr}/revert`, `leaves.revert`,
+same authorization as `approve`/`deny` — anyone who could approve the leave can revert it):
+
+Use this to fix a leave that was approved before the employee's `paid_leave_balance` was set
+correctly — `approve` checked the balance at that moment and silently saved the leave as
+`is_paid = false`. Revert undoes the approval so the balance can be corrected and the leave
+approved again. Only `approved` leaves can be reverted (`pending`/`denied`/`cancelled` are
+rejected).
+
+On revert:
+
+- **Balance refund** — if the leave was `is_paid`, `paid_leave_balance` is incremented by 1
+  (mirrors `deny`/`destroy`). An unpaid leave changes no balance.
+- **Status reset** — `status` → `pending`, `is_paid` → `false`, `approved_by`/`approved_at` → `null`.
+- **Attendance reprocessed** — `AttendanceService::processDailyAttendance` is re-run for the date
+  so the sheet no longer carries the leave's `leave_*` columns.
+- **Locked-period guard** — reverting an approved leave whose attendance sheet is locked inside a
+  generated payroll period is refused; void the period first.
+- **Audited** — logged via the `Auditable` trait as a `reverted` action.
+
+**Recovery flow for an under-balanced approval:** revert the leave → open the employee's record
+and set the **paid leave balance** field directly (not just the default entitlement — `approve`
+reads `paid_leave_balance`, and the yearly reset is the only thing that copies the entitlement
+into it) → approve the leave again, which now goes through as paid. If the date's attendance
+sheet is already locked inside a generated payroll period, void that period before reverting.
+
 ### 3.12 Fines
 
 - Per-day flat fines for policy violations (e.g., ₱20 for no uniform)
@@ -1263,6 +1289,7 @@ which can shift a bare `date`-column value by a day for an off-zone viewer.
 | `GET`    | `/payroll/leave-requests`              | `payroll.leaves.index`   | Auth                 |
 | `POST`   | `/payroll/leave-requests`              | `payroll.leaves.store`   | Auth                 |
 | `POST`   | `/payroll/leave-requests/{lr}/approve` | `payroll.leaves.approve` | Auth (superior role) |
+| `POST`   | `/payroll/leave-requests/{lr}/revert`  | `payroll.leaves.revert`  | Auth (superior role) |
 | `POST`   | `/payroll/leave-requests/{lr}/deny`    | `payroll.leaves.deny`    | Auth (superior role) |
 | `POST`   | `/payroll/leave-requests/{lr}/cancel`  | `payroll.leaves.cancel`  | Auth (owner/admin)   |
 | `DELETE` | `/payroll/leave-requests/{lr}`         | `payroll.leaves.destroy` | Auth (superior role) |

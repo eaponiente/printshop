@@ -166,6 +166,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('leave-requests', [LeaveRequestController::class, 'index'])->name('leaves.index');
         Route::post('leave-requests', [LeaveRequestController::class, 'store'])->name('leaves.store');
         Route::post('leave-requests/{leaveRequest}/approve', [LeaveRequestController::class, 'approve'])->name('leaves.approve');
+        Route::post('leave-requests/{leaveRequest}/revert', [LeaveRequestController::class, 'revert'])->name('leaves.revert');
         Route::post('leave-requests/{leaveRequest}/deny', [LeaveRequestController::class, 'deny'])->name('leaves.deny');
         Route::post('leave-requests/{leaveRequest}/cancel', [LeaveRequestController::class, 'cancel'])->name('leaves.cancel');
         Route::post('leave-requests/reset', [LeaveRequestController::class, 'resetLeave'])->name('leaves.reset');

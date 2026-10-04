@@ -1,6 +1,6 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
-import { Check, Plus, RefreshCw, Trash2, X } from 'lucide-react';
+import { Check, Plus, RefreshCw, Trash2, Undo2, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/data-table';
@@ -55,8 +55,8 @@ export default function LeaveRequests({
                 'Reset all active employee leave balances to their defaults?',
             )
         ) {
-return;
-}
+            return;
+        }
 
         router.post(
             '/payroll/leave-requests/reset',
@@ -84,6 +84,27 @@ return;
             onError: (err: any) =>
                 toast.error(err?.error || 'Failed to delete.'),
         });
+    };
+
+    const handleRevert = (id: number) => {
+        if (
+            !confirm(
+                "Revert this leave to pending? If it was paid, 1 day is refunded to the employee's balance. Update the employee's leave balance, then approve again.",
+            )
+        ) {
+            return;
+        }
+
+        router.post(
+            `/payroll/leave-requests/${id}/revert`,
+            {},
+            {
+                preserveScroll: true,
+                onSuccess: () => toast.success('Leave reverted to pending'),
+                onError: (err: any) =>
+                    toast.error(err?.error || 'Failed to revert.'),
+            },
+        );
     };
 
     const columns: ColumnDef<any>[] = [
@@ -216,6 +237,17 @@ return;
                                               <X className="h-4 w-4 text-red-500" />
                                           </Button>
                                       </>
+                                  )}
+                                  {status === 'approved' && (
+                                      <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() =>
+                                              handleRevert(row.original.id)
+                                          }
+                                      >
+                                          <Undo2 className="h-4 w-4 text-amber-600" />
+                                      </Button>
                                   )}
                                   {canDelete && (
                                       <Button

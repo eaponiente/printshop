@@ -593,6 +593,249 @@ it('lets a superadmin delete any leave, including one in another branch', functi
     expect(LeaveRequest::find($otherBranchLeave->id))->toBeNull();
 });
 
+it('reverts an approved unpaid leave to pending without touching the balance', function () {
+    $this->employee->update(['paid_leave_balance' => 3]);
+
+    $leave = LeaveRequest::create([
+        'employee_id' => $this->employee->id,
+        'date' => '2026-06-15',
+        'leave_type' => 'vacation',
+        'duration' => 'full_day',
+        'is_paid' => false,
+        'reason' => 'Test',
+        'status' => 'approved',
+        'approved_by' => $this->admin->id,
+        'approved_at' => now(),
+    ]);
+
+    $response = $this->actingAs($this->admin)
+        ->post("/payroll/leave-requests/{$leave->id}/revert");
+
+    $response->assertRedirect();
+
+    $leave->refresh();
+    expect($leave->status)->toBe('pending');
+    expect($leave->is_paid)->toBeFalse();
+    expect($leave->approved_by)->toBeNull();
+    expect($leave->approved_at)->toBeNull();
+
+    $this->employee->refresh();
+    expect((float) $this->employee->paid_leave_balance)->toBe(3.0);
+});
+
+it('reverts an approved paid leave to pending and refunds the balance', function () {
+    $this->employee->update(['paid_leave_balance' => 3]);
+
+    $leave = LeaveRequest::create([
+        'employee_id' => $this->employee->id,
+        'date' => '2026-06-15',
+        'leave_type' => 'vacation',
+        'duration' => 'full_day',
+        'is_paid' => true,
+        'reason' => 'Test',
+        'status' => 'approved',
+        'approved_by' => $this->admin->id,
+        'approved_at' => now(),
+    ]);
+
+    $response = $this->actingAs($this->admin)
+        ->post("/payroll/leave-requests/{$leave->id}/revert");
+
+    $response->assertRedirect();
+
+    $leave->refresh();
+    expect($leave->status)->toBe('pending');
+    expect($leave->is_paid)->toBeFalse();
+    expect($leave->approved_by)->toBeNull();
+    expect($leave->approved_at)->toBeNull();
+
+    $this->employee->refresh();
+    expect((float) $this->employee->paid_leave_balance)->toBe(4.0);
+});
+
+it('full scenario: approve unpaid, revert, fix balance, re-approve as paid', function () {
+    $this->employee->update(['paid_leave_balance' => 0]);
+
+    $leave = LeaveRequest::create([
+        'employee_id' => $this->employee->id,
+        'date' => '2026-06-15',
+        'leave_type' => 'vacation',
+        'duration' => 'full_day',
+        'is_paid' => false,
+        'reason' => 'Test',
+        'status' => 'pending',
+    ]);
+
+    // Approved before the balance was set -> unpaid.
+    $this->actingAs($this->admin)
+        ->post("/payroll/leave-requests/{$leave->id}/approve")
+        ->assertRedirect();
+
+    $leave->refresh();
+    expect($leave->status)->toBe('approved');
+    expect($leave->is_paid)->toBeFalse();
+
+    // Revert so the admin can fix the balance.
+    $this->actingAs($this->admin)
+        ->post("/payroll/leave-requests/{$leave->id}/revert")
+        ->assertRedirect();
+
+    $leave->refresh();
+    expect($leave->status)->toBe('pending');
+    expect($leave->is_paid)->toBeFalse();
+
+    $this->employee->refresh();
+    expect((float) $this->employee->paid_leave_balance)->toBe(0.0);
+
+    // Admin fixes the employee's leave balance.
+    $this->employee->update(['paid_leave_balance' => 5]);
+
+    // Re-approve: now there is balance, so it goes through as paid.
+    $this->actingAs($this->admin)
+        ->post("/payroll/leave-requests/{$leave->id}/approve")
+        ->assertRedirect();
+
+    $leave->refresh();
+    expect($leave->status)->toBe('approved');
+    expect($leave->is_paid)->toBeTrue();
+
+    $this->employee->refresh();
+    expect((float) $this->employee->paid_leave_balance)->toBe(4.0);
+
+    $sheet = AttendanceSheet::where('employee_id', $this->employee->id)
+        ->where('date', '2026-06-15')
+        ->first();
+    expect($sheet->leave_is_paid)->toBeTrue();
+    expect((float) $sheet->daily_wage)->toBe(510.0);
+});
+
+it('blocks reverting an approved leave whose attendance sheet is locked', function () {
+    $this->employee->update(['paid_leave_balance' => 4]);
+
+    $leave = LeaveRequest::create([
+        'employee_id' => $this->employee->id,
+        'date' => '2026-06-15',
+        'leave_type' => 'vacation',
+        'duration' => 'full_day',
+        'is_paid' => true,
+        'reason' => 'Test',
+        'status' => 'approved',
+        'approved_by' => $this->admin->id,
+        'approved_at' => now(),
+    ]);
+
+    AttendanceSheet::create([
+        'employee_id' => $this->employee->id,
+        'date' => '2026-06-15',
+        'schedule_start_time' => '08:00',
+        'schedule_end_time' => '17:00',
+        'daily_rate' => 510,
+        'daily_wage' => 510,
+        'is_present' => true,
+        'locked_at' => now(),
+    ]);
+
+    $response = $this->actingAs($this->admin)
+        ->post("/payroll/leave-requests/{$leave->id}/revert");
+
+    $response->assertSessionHasErrors('error');
+
+    $leave->refresh();
+    expect($leave->status)->toBe('approved');
+
+    $this->employee->refresh();
+    expect((float) $this->employee->paid_leave_balance)->toBe(4.0);
+});
+
+it('rejects reverting a pending leave', function () {
+    $leave = LeaveRequest::create([
+        'employee_id' => $this->employee->id,
+        'date' => '2026-06-15',
+        'leave_type' => 'vacation',
+        'duration' => 'full_day',
+        'is_paid' => false,
+        'reason' => 'Test',
+        'status' => 'pending',
+    ]);
+
+    $response = $this->actingAs($this->admin)
+        ->post("/payroll/leave-requests/{$leave->id}/revert");
+
+    $response->assertSessionHasErrors('error');
+
+    $leave->refresh();
+    expect($leave->status)->toBe('pending');
+});
+
+it('rejects reverting a denied leave', function () {
+    $leave = LeaveRequest::create([
+        'employee_id' => $this->employee->id,
+        'date' => '2026-06-15',
+        'leave_type' => 'vacation',
+        'duration' => 'full_day',
+        'is_paid' => false,
+        'reason' => 'Test',
+        'status' => 'denied',
+    ]);
+
+    $response = $this->actingAs($this->admin)
+        ->post("/payroll/leave-requests/{$leave->id}/revert");
+
+    $response->assertSessionHasErrors('error');
+
+    $leave->refresh();
+    expect($leave->status)->toBe('denied');
+});
+
+it('forbids staff from reverting leaves', function () {
+    $leave = LeaveRequest::create([
+        'employee_id' => $this->employee->id,
+        'date' => '2026-06-15',
+        'leave_type' => 'vacation',
+        'duration' => 'full_day',
+        'is_paid' => true,
+        'reason' => 'Test',
+        'status' => 'approved',
+        'approved_by' => $this->admin->id,
+        'approved_at' => now(),
+    ]);
+
+    $this->actingAs($this->staff)
+        ->post("/payroll/leave-requests/{$leave->id}/revert")
+        ->assertForbidden();
+
+    $leave->refresh();
+    expect($leave->status)->toBe('approved');
+});
+
+it('denies an admin from another branch reverting a leave', function () {
+    $otherBranch = Branch::factory()->create(['name' => 'Other Branch']);
+    $otherAdmin = User::factory()->create([
+        'branch_id' => $otherBranch->id,
+        'role' => 'admin',
+        'employee_id' => null,
+    ]);
+
+    $leave = LeaveRequest::create([
+        'employee_id' => $this->employee->id,
+        'date' => '2026-06-15',
+        'leave_type' => 'vacation',
+        'duration' => 'full_day',
+        'is_paid' => true,
+        'reason' => 'Test',
+        'status' => 'approved',
+        'approved_by' => $this->admin->id,
+        'approved_at' => now(),
+    ]);
+
+    $this->actingAs($otherAdmin)
+        ->post("/payroll/leave-requests/{$leave->id}/revert")
+        ->assertForbidden();
+
+    $leave->refresh();
+    expect($leave->status)->toBe('approved');
+});
+
 it('lets an admin delete their own leave and any staff leave in their branch', function () {
     // Give the admin their own employee record in the branch.
     $adminEmployee = Employee::create([
