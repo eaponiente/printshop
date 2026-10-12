@@ -9,6 +9,8 @@ use App\Models\Transaction;
 use App\Models\User;
 
 beforeEach(function () {
+    config(['features.incentives' => true]);
+
     $this->branchA = Branch::factory()->create(['name' => 'Branch A']);
     $this->branchB = Branch::factory()->create(['name' => 'Branch B']);
 
@@ -338,4 +340,16 @@ it('records zero owner_contribution when cash on hand covers incentive', functio
 
     $cashOnHand = CashOnHand::where('branch_id', $this->branchA->id)->first();
     expect((float) $cashOnHand->amount)->toEqual(500.0);
+});
+
+it('returns 404 for superadmin when the incentives feature flag is off', function () {
+    config(['features.incentives' => false]);
+
+    $this->actingAs($this->superadmin)
+        ->get(route('incentives.index'))
+        ->assertNotFound();
+
+    $this->actingAs($this->superadmin)
+        ->post(route('incentives.pay'))
+        ->assertNotFound();
 });

@@ -1637,7 +1637,7 @@ Footer totals (Gross Payroll, Total Deductions, Total Net Salary, Total Cash Adv
 
 ## 9. Incentive
 
-An admin (or superadmin) can enter a per-day **incentive** amount directly on an employee's attendance sheet — e.g. a discretionary bonus for a specific day, separate from the unrelated monthly branch-manager `Incentive` model used elsewhere in the app.
+An admin (or superadmin) can enter a per-day **incentive** amount directly on an employee's attendance sheet — e.g. a discretionary bonus for a specific day, separate from the unrelated monthly branch-manager `Incentive` model, whose Incentives page is currently disabled behind the `features.incentives` flag (`INCENTIVES_ENABLED`, off by default).
 
 - **Storage.** `attendance_sheets.incentive` (`decimal(10,2)`, default `0`). Set via `PATCH payroll/attendance-sheets/{employee}/incentive` (`payroll.attendance.incentive.update`), body `{ date, incentive }`. Non-staff only, gated by `attendance-sheets.show`, and audited (`incentive_updated`) via the `Auditable` trait.
 - **Locked sheets are immutable.** If the attendance sheet for that date is already locked inside a generated payroll period (`locked_at` set), the update is rejected with a validation error — matching every other attendance mutation (punches, fines, corrections).

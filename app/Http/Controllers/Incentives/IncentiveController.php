@@ -20,6 +20,8 @@ class IncentiveController extends Controller
 
     public function index(Request $request): Response
     {
+        abort_unless(config('features.incentives'), 404);
+
         $user = auth()->user();
 
         if (! $user->isSuperAdmin()) {
@@ -52,6 +54,8 @@ class IncentiveController extends Controller
 
     public function pay(Request $request): RedirectResponse
     {
+        abort_unless(config('features.incentives'), 404);
+
         $this->authorize('pay', Incentive::class);
 
         $validated = $request->validate([
