@@ -1,6 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
 import {
-    Banknote,
     Cog,
     Folder,
     LayoutGrid,
@@ -38,7 +37,6 @@ export function AppSidebar() {
     const userRole = auth.user.role; // 'staff', 'admin', or 'superadmin'
 
     const isAdmin = userRole === 'admin' || userRole === 'superadmin';
-    const isSuperAdmin = userRole === 'superadmin';
 
     const mainNavItems: NavItem[] = [
         {
@@ -80,15 +78,7 @@ export function AppSidebar() {
               ]
             : []),
 
-        ...(isSuperAdmin
-            ? [
-                  {
-                      title: 'Incentives',
-                      href: '/incentives',
-                      icon: Banknote,
-                  },
-              ]
-            : []),
+        // Incentives link hidden while the `features.incentives` flag is off.
 
         // 4. Sublimation: Everyone
         {

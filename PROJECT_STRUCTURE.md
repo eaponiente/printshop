@@ -95,3 +95,5 @@ The React Compiler is enabled in `vite.config.ts`, so manual `useMemo`/`useCallb
 **Sales money flow:** `Transaction` (the sale) has many `Payment` rows; `recordPayment`/`refundPayment` transition its status (pending → partial → paid) and feed `CashOnHandService`. The Projects page tabs (Partial / Paid / Unpaid) and the finance breakdown are all built from these two tables via `SalesService`.
 
 **Frontend ↔ backend typing:** because Inertia passes PHP arrays straight into React, the `resources/js/types/*` files and the generated `routes/`/`actions/` helpers are the glue that keeps the untyped boundary honest — when a controller's props or a route changes, those are the files to update alongside it.
+
+Note: the Incentives domain (monthly branch-manager incentive page) is behind the `features.incentives` flag (`INCENTIVES_ENABLED`, off by default).
