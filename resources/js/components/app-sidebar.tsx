@@ -78,8 +78,6 @@ export function AppSidebar() {
               ]
             : []),
 
-        // Incentives link hidden while the `features.incentives` flag is off.
-
         // 4. Sublimation: Everyone
         {
             title: 'Sublimation',
