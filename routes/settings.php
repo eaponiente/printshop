@@ -61,7 +61,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/sublimations/{sublimation}/images', [SublimationImageController::class, 'store'])->name('sublimations.images.store');
     Route::delete('/sublimations/{sublimation}/images/{image}', [SublimationImageController::class, 'destroy'])->name('sublimations.images.destroy');
 
-    Route::resource('sublimations', SublimationController::class);
+    Route::resource('sublimations', SublimationController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::resource('customers', CustomerController::class);
 
     Route::get('sales/print', [SaleController::class, 'print'])->name('sales.print');
