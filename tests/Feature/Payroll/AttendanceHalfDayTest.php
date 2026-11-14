@@ -326,3 +326,57 @@ it('respects a configurable half-day threshold', function () {
     expect((float) $sheet->late_deduction)->toBeGreaterThan(0.0);
     expect((float) $sheet->daily_wage)->not->toBe(255.0);
 });
+
+// --- Session split excludes the unpaid tail ---
+
+it('splits sessions on paid minutes for an 08:00-17:30 schedule with a 30-min tail', function () {
+    $this->employee->update(['current_daily_rate' => 600]);
+    EmployeeSchedule::where('employee_id', $this->employee->id)->update([
+        'end_time' => '17:30',
+        'unpaid_tail_minutes' => 30,
+        'effective_from' => '2026-01-01', // beforeEach's now()-1mo would postdate the 2026-06-01 test date
+    ]);
+
+    $date = '2026-06-01';
+    hdPunch($this->employee, $date, '13:00', PunchType::IN);
+    hdPunch($this->employee, $date, '17:30', PunchType::OUT);
+
+    $sheet = $this->service->processDailyAttendance($this->employee, $date);
+
+    expect((int) $sheet->late_minutes)->toBe(0);
+    expect((int) $sheet->undertime_minutes)->toBe(240);
+    expect((float) $sheet->undertime_deduction)->toBe(300.0);
+    expect((float) $sheet->daily_wage)->toBe(300.0);
+});
+
+it('starts the afternoon session at 13:00 for lateness on a schedule with an unpaid tail', function () {
+    $this->employee->update(['current_daily_rate' => 600]);
+    EmployeeSchedule::where('employee_id', $this->employee->id)->update([
+        'end_time' => '17:30',
+        'unpaid_tail_minutes' => 30,
+        'effective_from' => '2026-01-01', // beforeEach's now()-1mo would postdate the 2026-06-01 test date
+    ]);
+
+    $date = '2026-06-01';
+    hdPunch($this->employee, $date, '13:10', PunchType::IN);
+    hdPunch($this->employee, $date, '17:30', PunchType::OUT);
+
+    $sheet = $this->service->processDailyAttendance($this->employee, $date);
+
+    expect((int) $sheet->late_minutes)->toBe(10);
+});
+
+it('leaves an 08:00-17:00 afternoon half-day unchanged', function () {
+    EmployeeSchedule::where('employee_id', $this->employee->id)->update([
+        'effective_from' => '2026-01-01',
+    ]);
+
+    $date = '2026-06-01';
+    hdPunch($this->employee, $date, '13:00', PunchType::IN);
+    hdPunch($this->employee, $date, '17:00', PunchType::OUT);
+
+    $sheet = $this->service->processDailyAttendance($this->employee, $date);
+
+    expect((int) $sheet->late_minutes)->toBe(0);
+    expect((int) $sheet->undertime_minutes)->toBe(240);
+});

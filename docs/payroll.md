@@ -745,6 +745,18 @@ actual_lunch   = LUNCH_IN − LUNCH_OUT (measured, not assumed)
 - 60 minutes deducted if raw duration ≥ 5 hours AND work period overlaps 11:00 AM – 2:00 PM
 - Otherwise 0 deduction
 
+### 3.5.1 Half-Day Session Boundaries
+
+Half-day detection (morning-half, afternoon-half, and afternoon lateness) uses session boundaries derived from the schedule:
+
+```
+paid_minutes   = (schedule_end − schedule_start) − 60 (lunch) − unpaid_tail_minutes
+lunch_start    = schedule_start + floor(paid_minutes / 2)
+afternoon_start = lunch_start + 60
+```
+
+The split uses the paid minutes **excluding the unpaid tail**. Example, 08:00–17:30 with a 30-min tail: span 570 − 60 lunch = 510, less the 30-min tail = 480 paid, so `lunch_start` = 12:00 and `afternoon_start` = 13:00 (same as an 08:00–17:00 schedule). Earlier the tail was left in the split, which pushed the boundaries 15 min late (12:15 / 13:15). Covered by `tests/Feature/Payroll/AttendanceHalfDayTest.php`.
+
 ### 3.6 Full Scenario Matrix (daily_rate = ₱510)
 
 | Scenario                       | Late | Worked | Computation    | daily_wage  |
