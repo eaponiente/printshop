@@ -208,10 +208,12 @@ class AttendanceService
                 $rawInTime = Carbon::parse($inPunch->timestamp);
 
                 // Session boundaries derived from the schedule, assuming a 60-min
-                // lunch that splits the paid hours in half. For an 08:00–17:00
-                // shift: lunch 12:00, afternoon session starts 13:00.
+                // lunch that splits the paid hours in half. The split is based on
+                // paid minutes EXCLUDING the unpaid tail, so 08:00–17:00 and
+                // 08:00–17:30 (30-min tail) both give lunch 12:00 and afternoon
+                // session start 13:00.
                 $halfDayThreshold = (int) (app(PayrollSettingService::class)->get('half_day_threshold_minutes', config('payroll.half_day_threshold_minutes', 60)));
-                $lunchStart = $scheduleStart->copy()->addMinutes(intdiv($scheduledPaidMinutes, 2));
+                $lunchStart = $scheduleStart->copy()->addMinutes(intdiv($scheduledPaidMinutes - $unpaidTailMinutes, 2));
                 $afternoonStart = $lunchStart->copy()->addMinutes(60);
                 $halfDayCutoff = $scheduleStart->copy()->addMinutes($halfDayThreshold);
 
